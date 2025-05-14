@@ -1,0 +1,33 @@
+<configuration>
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+      <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <root level="WARN">
+    <appender-ref ref="STDOUT"/>
+  </root>
+
+  <logger name="org.ebean" level="DEBUG"/>
+
+  <logger name="io.ebean" level="TRACE"/>
+
+  <!-- docker containers -->
+  <logger name="io.ebean.test.containers" level="TRACE"/>
+
+  <!-- ddl -->
+<!--  <logger name="io.ebean.DDL" level="TRACE"/>-->
+
+  <!-- sql and transaction logging -->
+  <logger name="io.ebean.SQL" level="TRACE"/>
+  <logger name="io.ebean.TXN" level="TRACE"/>
+  <logger name="io.ebean.SUM" level="TRACE"/>
+
+  <!-- l2 cache logging -->
+  <logger name="io.ebean.cache" level="TRACE"/>
+
+  <!-- elasticSearch query logging -->
+  <!--<logger name="io.ebean.ELA" level="TRACE"/>-->
+
+</configuration>

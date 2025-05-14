@@ -1,0 +1,13 @@
+{
+  "eventTime": 1576027175648,
+  "appName": "ats",
+  "environment": "prod",
+  "instanceId" : "ats-1d",
+  "dbs": [
+{"db":"db", "metrics":[
+  {"name":"txn.main", "count":1224037, "total":17064632885, "mean":13941, "max":2053956},
+  {"name":"txn.named.ProductATSDAO.saveATS", "count":683177, "total":12875349591, "mean":18846, "max":2053956},
+  {"name":"ProductATS_getBySkuSet", "count":10522, "total":65205167, "mean":6197, "max":798386, "hash":"08b5fed134404f31de6835836cd4a922", "loc":"ProductATSDAO.getATS(ProductATSDAO.java:103)", "sql":"select t0.id, t0.sku, t0.brand, t0.stocklevel, t0.audit_history, t0.created_at, t0.updated_at from product_ats t0 where t0.sku = any(?)"},
+  {"name":"ProductATS_withAllProductATS", "count":1, "total":114675, "mean":114675, "max":114675, "hash":"a016103b2886cff6c265b2420f718790", "sql":"select t0.id, t0.sku, t0.brand, t0.stocklevel, t0.audit_history, t0.created_at, t0.updated_at from product_ats t0 where updated_at >= ? and (t0.brand = ?) limit 1000"},
+  {"name":"ProductATS_withAllProductATS", "count":1, "total":49589, "mean":49589, "max":49589, "hash":"a4bbd08d5c3da622357cf7f5b1cc304a", "sql":"select t0.id, t0.sku, t0.brand, t0.stocklevel, t0.audit_history, t0.created_at, t0.updated_at from product_ats t0 where updated_at >= ? and (t0.brand = ?) limit 1000 offset 1000"}]}
+]}

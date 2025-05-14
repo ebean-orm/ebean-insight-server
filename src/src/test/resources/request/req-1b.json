@@ -1,0 +1,32 @@
+{
+  "eventTime": 1573813809691,
+  "appName": "hello",
+  "environment": "dev",
+  "dbs": [
+    {
+      "db": "db",
+      "metrics": [
+        {
+          "name": "met1",
+          "hash": "met1AbcDiff",
+          "loc": "Location(43)",
+          "sql": "select * from foo",
+          "count": 43,
+          "mean": 43,
+          "max": 43,
+          "total": 405
+        },
+        {
+          "name": "met3",
+          "hash": "met3abc",
+          "loc": "Location(43)",
+          "sql": "select * from foo",
+          "count": 44,
+          "mean": 44,
+          "max": 44,
+          "total": 410
+        }
+      ]
+    }
+  ]
+}

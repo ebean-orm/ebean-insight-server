@@ -1,0 +1,29 @@
+{
+  "eventTime": 1573813200001,
+  "appName": "int1",
+  "environment": "dev1",
+  "dbs": [
+    {
+      "db": "db",
+      "metrics": [
+        {
+          "name": "txn.main",
+          "count": 2,
+          "total": 2,
+          "mean": 2,
+          "max": 2
+        },
+        {
+          "name": "OrderDao.findOrdersForPublishing",
+          "count": 2,
+          "total": 2,
+          "mean": 2,
+          "max": 2,
+          "hash": "8a519a4c120289bd505a4a79c27f2895",
+          "loc": "OrderDao.findOrdersForPublishing(OrderDao.java:77)",
+          "sql": "select ... for update skip locked"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "eventTime": 1576027175648,
+  "appName": "ats",
+  "environment": "prod",
+  "instanceId" : "ats-1c",
+  "dbs": [
+{"db":"db", "metrics":[
+  {"name":"txn.main", "count":1212337, "total":15186814850, "mean":12526, "max":3011509},
+  {"name":"txn.named.ProductATSDAO.saveATS", "count":673382, "total":11696136626, "mean":17369, "max":3011509},
+  {"name":"ProductATS_getBySkuSet", "count":10559, "total":73350724, "mean":6946, "max":699995, "hash":"08b5fed134404f31de6835836cd4a922", "loc":"ProductATSDAO.getATS(ProductATSDAO.java:103)", "sql":"select t0.id, t0.sku, t0.brand, t0.stocklevel, t0.audit_history, t0.created_at, t0.updated_at from product_ats t0 where t0.sku = any(?)"}]}
+]}

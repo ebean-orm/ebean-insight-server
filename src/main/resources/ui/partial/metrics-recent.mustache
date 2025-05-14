@@ -1,0 +1,32 @@
+<div>
+  <h3>Recent Events</h3>
+  <table class="table">
+    <thead>
+    <tr>
+      <th>Time</th>
+      <th>Name</th>
+      <th>Env</th>
+      <th>Count</th>
+      <th>Mean</th>
+      <th>Max</th>
+      <th>Total</th>
+    </tr>
+    </thead>
+    <tbody>
+    {{#metrics}}
+      <tr>
+        <td> time </td>
+        <td>{{ metric.name }}</td>
+        <td>{{ env.name }}</td>
+        <td>{{ count }}</td>
+        <td>{{ mean }}</td>
+        <td>{{ max }}</td>
+        <td>{{ total }}</td>
+      </tr>
+    {{/metrics}}
+    </tbody>
+  </table>
+</div>
+<div id="app-metric-action"></div>
+
+=

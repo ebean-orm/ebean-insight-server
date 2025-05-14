@@ -1,0 +1,9 @@
+{{<fragments/layout}}
+  {{$body}}
+    <h1>App {{ app.name }}</h1>
+
+    <div hx-get="/app/{{ app.id }}/metrics" hx-trigger="load">
+      <img alt="Result loading..." class="htmx-indicator" width="50" src="/static/bars.svg"/>
+    </div>
+  {{/body}}
+{{/fragments/layout}}

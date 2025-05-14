@@ -1,0 +1,10 @@
+{
+ "resources": [
+   {
+     "pattern": "static/.*"
+   },
+   {
+     "pattern": "extend-partitions.sql"
+   }
+ ]
+}

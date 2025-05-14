@@ -1,0 +1,68 @@
+{
+  "eventTime": 1573813776691,
+  "appName": "full2",
+  "instanceId": "full2-1",
+  "environment": "dev",
+  "metrics": [
+    {
+      "name": "jvm.memory.heap.used",
+      "value": 57
+    },
+    {
+      "name": "jvm.memory.process.vmrss",
+      "value": 94
+    },
+    {
+      "name": "web.api.Ingest.post",
+      "count": 3,
+      "total": 15000,
+      "mean": 5000,
+      "max": 8000
+    }
+  ],
+  "dbs": [
+    {
+      "db": "db",
+      "metrics": [
+        {
+          "name": "txn.main",
+          "count": 2000,
+          "total": 38000,
+          "mean": 40,
+          "max": 210
+        },
+        {
+          "name": "txn.named.OrderDao.saveOrderConsignment",
+          "count": 10,
+          "total": 40000,
+          "mean": 1000,
+          "max": 2000
+        },
+        {
+          "name": "OrderDao.findOrdersForPublishing",
+          "count": 10,
+          "total": 20000,
+          "mean": 2000,
+          "max": 2600,
+          "hash": "8a519a4c120289bd505a4a79c27f2895",
+          "loc": "OrderDao.findOrdersForPublishing(OrderDao.java:77)",
+          "sql": "select ... for update skip locked"
+        },
+        {
+          "name": "iud.Address.insertBatch",
+          "count": 16,
+          "total": 8134,
+          "mean": 508,
+          "max": 1082
+        },
+        {
+          "name": "iud.CommonOrderAudit.insert",
+          "count": 8,
+          "total": 15338,
+          "mean": 1917,
+          "max": 5852
+        }
+      ]
+    }
+  ]
+}

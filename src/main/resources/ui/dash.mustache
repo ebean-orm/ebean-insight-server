@@ -1,0 +1,52 @@
+<html>
+<head>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div>
+  <canvas id="myChart"></canvas>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  const ctx = document.getElementById('myChart');
+
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['1', '2', '3', '4', '5'],
+      datasets: [{
+        label: 'A',
+        data: [
+        {x:1743504300, y:12},
+        {x:1743504360, y:19},
+        {x:1743504420, y:3},
+        {x:1743504480, y:5},
+        {x:1743504540, y:7}],
+        borderWidth: 1
+      },
+      {
+        label: 'B',
+        data: [
+        {x:1743504300, y:2},
+        {x:1743504360, y:3},
+        {x:1743504420, y:4},
+        {x:1743504480, y:0},
+        {x:1743504540, y:7}],
+        borderWidth: 1
+      }]
+    },
+    options: {
+      scales: {
+        y: {
+          beginAtZero: true
+        }
+      },
+      x: { stacked: true, type: 'timeseries'},
+      y: { stacked: true }
+    }
+  });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,22 @@
+<div>
+  <h3>Apps</h3>
+  <table class="table">
+    <thead>
+    <tr>
+      <th>Id</th>
+      <th>Name</th>
+    </tr>
+    </thead>
+    <tbody>
+    {{#apps}}
+      <tr>
+        <td>{{ id }}</td>
+        <td>
+          <a href="/app/{{ id }}">{{ name }}</a>
+        </td>
+      </tr>
+    {{/apps}}
+    </tbody>
+  </table>
+</div>
+<div id="apps-action"></div>
