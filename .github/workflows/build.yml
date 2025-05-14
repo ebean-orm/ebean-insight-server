@@ -1,0 +1,44 @@
+
+name: Build
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: master
+
+jobs:
+  build:
+
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        java_version: [21]
+        os: [ubuntu-latest]
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Java
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ matrix.java_version }}
+        distribution: 'zulu'
+    - name: Maven cache
+      uses: actions/cache@v4
+      env:
+        cache-name: maven-cache
+      with:
+        path:
+          ~/.m2
+        key: build-${{ env.cache-name }}
+    - name: Maven version
+      run: mvn --version
+#    - name: Maven single test
+#      run: mvn --batch-mode clean verify -Dtest="io.ebeaninternal.server.core.DefaultServer_getReferenceTest" -DfailIfNoTests=false
+    - name: Build with Maven
+      run: mvn -T 8 clean test
+
