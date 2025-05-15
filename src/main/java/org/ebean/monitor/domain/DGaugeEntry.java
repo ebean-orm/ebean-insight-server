@@ -15,7 +15,7 @@ import static io.ebean.annotation.PartitionMode.DAY;
 
 @DbPartition(mode = DAY, property = "eventTime")
 @Entity
-@Table(name = "gauge_entry")
+@Table(name = "ebean_insight.gauge_entry")
 public class DGaugeEntry extends BaseEntry {
 
   @NotNull

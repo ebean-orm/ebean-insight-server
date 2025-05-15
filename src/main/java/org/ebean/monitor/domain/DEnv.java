@@ -15,7 +15,7 @@ import jakarta.persistence.Table;
  */
 @Cache(nearCache = true, naturalKey = {"name"})
 @Entity
-@Table(name = "env")
+@Table(name = "ebean_insight.env")
 public class DEnv extends BaseDomain {
 
   public static final DEnvFinder find = new DEnvFinder();

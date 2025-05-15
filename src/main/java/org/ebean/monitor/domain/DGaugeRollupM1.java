@@ -11,7 +11,7 @@ import static io.ebean.annotation.PartitionMode.DAY;
 
 @DbPartition(mode = DAY, property = "eventTime")
 @Entity
-@Table(name = "gauge_m1")
+@Table(name = "ebean_insight.gauge_m1")
 public class DGaugeRollupM1 extends BaseGaugeEntry {
 
   DGaugeRollupM1(DAppMetric metric, DEnv env, DApp app, Instant eventTime) {

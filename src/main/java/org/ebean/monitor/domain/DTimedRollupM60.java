@@ -17,7 +17,7 @@ import static io.ebean.annotation.PartitionMode.DAY;
 @Index(columnNames = "env_id")
 @Index(columnNames = "metric_id")
 @Entity
-@Table(name = "timed_m60")
+@Table(name = "ebean_insight.timed_m60")
 public class DTimedRollupM60 extends BaseTimedEntry {
 
   public DTimedRollupM60(Instant eventTime, DTimedAgg timed) {

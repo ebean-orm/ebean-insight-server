@@ -12,7 +12,7 @@ import jakarta.persistence.Table;
  */
 @Cache(nearCache = true, naturalKey = {"org", "name"})
 @Entity
-@Table(name = "app")
+@Table(name = "ebean_insight.app")
 public class DApp extends BaseDomain {
 
   public static final DAppFinder find = new DAppFinder();

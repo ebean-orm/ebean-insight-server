@@ -12,7 +12,7 @@ import java.time.Instant;
  * The "Application" metrics relate to.
  */
 @Entity
-@Table(name = "query_plan")
+@Table(name = "ebean_insight.query_plan")
 public class DQueryPlan extends BaseDomain {
 
   @DbForeignKey(noConstraint = true)

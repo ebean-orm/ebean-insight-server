@@ -14,7 +14,7 @@ import java.time.Instant;
  * Effectively a log of the rollup job execution.
  */
 @Entity
-@Table(name = "rollup_job")
+@Table(name = "ebean_insight.rollup_job")
 public class DRollupJob extends Model {
 
   @Index

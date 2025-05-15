@@ -8,7 +8,7 @@ import jakarta.persistence.Entity;
  * Aggregation on timed_entry.
  */
 @Entity
-@View(name = "timed_entry")
+@View(name = "ebean_insight.timed_entry")
 public class DTimedAgg extends BaseTimedAgg {
 
   public DTimedRollupM1 asRollup() {

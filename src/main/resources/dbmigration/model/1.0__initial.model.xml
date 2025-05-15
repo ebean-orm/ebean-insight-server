@@ -1,22 +1,23 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <migration xmlns="http://ebean-orm.github.io/xml/ns/dbmigration">
     <changeSet type="apply">
-        <createTable name="app" pkName="pk_app">
+        <createSchema name="ebean_insight"/>
+        <createTable name="ebean_insight.app" pkName="pk_app">
             <column name="id" type="integer" primaryKey="true"/>
             <column name="name" type="varchar(200)" notnull="true"/>
             <column name="version" type="integer" notnull="true"/>
             <column name="when_created" type="timestamp" notnull="true"/>
             <column name="when_modified" type="timestamp" notnull="true"/>
         </createTable>
-        <createTable name="app_db" pkName="pk_app_db">
+        <createTable name="ebean_insight.app_db" pkName="pk_app_db">
             <column name="id" type="integer" primaryKey="true"/>
-            <column name="app_id" type="integer" notnull="true" references="app.id" foreignKeyName="fk_app_db_app_id" foreignKeyIndex="ix_app_db_app_id"/>
+            <column name="app_id" type="integer" notnull="true" references="ebean_insight.app.id" foreignKeyName="fk_app_db_app_id" foreignKeyIndex="ix_app_db_app_id"/>
             <column name="name" type="varchar(200)" notnull="true"/>
             <column name="version" type="integer" notnull="true"/>
             <column name="when_created" type="timestamp" notnull="true"/>
             <column name="when_modified" type="timestamp" notnull="true"/>
         </createTable>
-        <createTable name="app_metric" identityStart="1000" pkName="pk_app_metric">
+        <createTable name="ebean_insight.app_metric" identityStart="1000" pkName="pk_app_metric">
             <column name="id" type="integer" primaryKey="true"/>
             <column name="app_id" type="integer"/>
             <column name="key" type="varchar(40)" notnull="true"/>
@@ -28,22 +29,22 @@
             <column name="when_created" type="timestamp" notnull="true"/>
             <column name="when_modified" type="timestamp" notnull="true"/>
         </createTable>
-        <createTable name="app_pod" pkName="pk_app_pod">
+        <createTable name="ebean_insight.app_pod" pkName="pk_app_pod">
             <column name="id" type="integer" primaryKey="true"/>
-            <column name="app_id" type="integer" notnull="true" references="app.id" foreignKeyName="fk_app_pod_app_id" foreignKeyIndex="ix_app_pod_app_id"/>
+            <column name="app_id" type="integer" notnull="true" references="ebean_insight.app.id" foreignKeyName="fk_app_pod_app_id" foreignKeyIndex="ix_app_pod_app_id"/>
             <column name="name" type="varchar(200)" notnull="true"/>
             <column name="version" type="integer" notnull="true"/>
             <column name="when_created" type="timestamp" notnull="true"/>
             <column name="when_modified" type="timestamp" notnull="true"/>
         </createTable>
-        <createTable name="env" pkName="pk_env">
+        <createTable name="ebean_insight.env" pkName="pk_env">
             <column name="id" type="integer" primaryKey="true"/>
             <column name="name" type="varchar(50)" notnull="true"/>
             <column name="version" type="integer" notnull="true"/>
             <column name="when_created" type="timestamp" notnull="true"/>
             <column name="when_modified" type="timestamp" notnull="true"/>
         </createTable>
-        <createTable name="gauge_entry" partitionMode="DAY" partitionColumn="event_time" pkName="pk_gauge_entry">
+        <createTable name="ebean_insight.gauge_entry" partitionMode="DAY" partitionColumn="event_time" pkName="pk_gauge_entry">
             <column name="event_time" type="timestamp" notnull="true"/>
             <column name="metric_id" type="integer" notnull="true"/>
             <column name="env_id" type="integer" notnull="true"/>
@@ -51,7 +52,7 @@
             <column name="value" type="decimal(18,3)" notnull="true"/>
             <column name="pod_id" type="integer"/>
         </createTable>
-        <createTable name="gauge_d1" partitionMode="DAY" partitionColumn="event_time" pkName="pk_gauge_d1">
+        <createTable name="ebean_insight.gauge_d1" partitionMode="DAY" partitionColumn="event_time" pkName="pk_gauge_d1">
             <column name="event_time" type="timestamp" notnull="true"/>
             <column name="metric_id" type="integer" notnull="true"/>
             <column name="env_id" type="integer" notnull="true"/>
@@ -61,7 +62,7 @@
             <column name="max" type="decimal(18,3)" notnull="true"/>
             <column name="mean" type="decimal(18,3)" notnull="true"/>
         </createTable>
-        <createTable name="gauge_m1" partitionMode="DAY" partitionColumn="event_time" pkName="pk_gauge_m1">
+        <createTable name="ebean_insight.gauge_m1" partitionMode="DAY" partitionColumn="event_time" pkName="pk_gauge_m1">
             <column name="event_time" type="timestamp" notnull="true"/>
             <column name="metric_id" type="integer" notnull="true"/>
             <column name="env_id" type="integer" notnull="true"/>
@@ -71,7 +72,7 @@
             <column name="max" type="decimal(18,3)" notnull="true"/>
             <column name="mean" type="decimal(18,3)" notnull="true"/>
         </createTable>
-        <createTable name="gauge_m10" partitionMode="DAY" partitionColumn="event_time" pkName="pk_gauge_m10">
+        <createTable name="ebean_insight.gauge_m10" partitionMode="DAY" partitionColumn="event_time" pkName="pk_gauge_m10">
             <column name="event_time" type="timestamp" notnull="true"/>
             <column name="metric_id" type="integer" notnull="true"/>
             <column name="env_id" type="integer" notnull="true"/>
@@ -81,7 +82,7 @@
             <column name="max" type="decimal(18,3)" notnull="true"/>
             <column name="mean" type="decimal(18,3)" notnull="true"/>
         </createTable>
-        <createTable name="gauge_m60" partitionMode="DAY" partitionColumn="event_time" pkName="pk_gauge_m60">
+        <createTable name="ebean_insight.gauge_m60" partitionMode="DAY" partitionColumn="event_time" pkName="pk_gauge_m60">
             <column name="event_time" type="timestamp" notnull="true"/>
             <column name="metric_id" type="integer" notnull="true"/>
             <column name="env_id" type="integer" notnull="true"/>
@@ -91,13 +92,13 @@
             <column name="max" type="decimal(18,3)" notnull="true"/>
             <column name="mean" type="decimal(18,3)" notnull="true"/>
         </createTable>
-        <createTable name="job" identityType="external" pkName="pk_job">
+        <createTable name="ebean_insight.job" identityType="external" pkName="pk_job">
             <column name="id" type="varchar(50)" primaryKey="true"/>
             <column name="owner" type="varchar(50)" notnull="true"/>
             <column name="when_expire" type="timestamp" notnull="true"/>
             <column name="version" type="bigint" notnull="true"/>
         </createTable>
-        <createTable name="query_plan" pkName="pk_query_plan">
+        <createTable name="ebean_insight.query_plan" pkName="pk_query_plan">
             <column name="id" type="integer" primaryKey="true"/>
             <column name="metric_id" type="integer"/>
             <column name="env_id" type="integer" notnull="true"/>
@@ -115,13 +116,13 @@
             <column name="when_created" type="timestamp" notnull="true"/>
             <column name="when_modified" type="timestamp" notnull="true"/>
         </createTable>
-        <createTable name="rollup_job" pkName="pk_rollup_job">
+        <createTable name="ebean_insight.rollup_job" pkName="pk_rollup_job">
             <column name="event_time" type="timestamp" notnull="true"/>
             <column name="execution_time" type="bigint" notnull="true"/>
             <column name="rollup_count" type="bigint" notnull="true"/>
             <column name="when_modified" type="timestamp" notnull="true"/>
         </createTable>
-        <createTable name="timed_entry" partitionMode="DAY" partitionColumn="event_time" pkName="pk_timed_entry">
+        <createTable name="ebean_insight.timed_entry" partitionMode="DAY" partitionColumn="event_time" pkName="pk_timed_entry">
             <column name="event_time" type="timestamp" notnull="true"/>
             <column name="metric_id" type="integer" notnull="true"/>
             <column name="env_id" type="integer" notnull="true"/>
@@ -133,7 +134,7 @@
             <column name="total" type="bigint"/>
             <column name="pod_id" type="integer"/>
         </createTable>
-        <createTable name="timed_d1" partitionMode="DAY" partitionColumn="event_time" pkName="pk_timed_d1">
+        <createTable name="ebean_insight.timed_d1" partitionMode="DAY" partitionColumn="event_time" pkName="pk_timed_d1">
             <column name="event_time" type="timestamp" notnull="true"/>
             <column name="metric_id" type="integer" notnull="true"/>
             <column name="env_id" type="integer" notnull="true"/>
@@ -144,7 +145,7 @@
             <column name="max" type="bigint"/>
             <column name="total" type="bigint"/>
         </createTable>
-        <createTable name="timed_m1" partitionMode="DAY" partitionColumn="event_time" pkName="pk_timed_m1">
+        <createTable name="ebean_insight.timed_m1" partitionMode="DAY" partitionColumn="event_time" pkName="pk_timed_m1">
             <column name="event_time" type="timestamp" notnull="true"/>
             <column name="metric_id" type="integer" notnull="true"/>
             <column name="env_id" type="integer" notnull="true"/>
@@ -155,7 +156,7 @@
             <column name="max" type="bigint"/>
             <column name="total" type="bigint"/>
         </createTable>
-        <createTable name="timed_m10" partitionMode="DAY" partitionColumn="event_time" pkName="pk_timed_m10">
+        <createTable name="ebean_insight.timed_m10" partitionMode="DAY" partitionColumn="event_time" pkName="pk_timed_m10">
             <column name="event_time" type="timestamp" notnull="true"/>
             <column name="metric_id" type="integer" notnull="true"/>
             <column name="env_id" type="integer" notnull="true"/>
@@ -166,7 +167,7 @@
             <column name="max" type="bigint"/>
             <column name="total" type="bigint"/>
         </createTable>
-        <createTable name="timed_m60" partitionMode="DAY" partitionColumn="event_time" pkName="pk_timed_m60">
+        <createTable name="ebean_insight.timed_m60" partitionMode="DAY" partitionColumn="event_time" pkName="pk_timed_m60">
             <column name="event_time" type="timestamp" notnull="true"/>
             <column name="metric_id" type="integer" notnull="true"/>
             <column name="env_id" type="integer" notnull="true"/>
@@ -177,36 +178,36 @@
             <column name="max" type="bigint"/>
             <column name="total" type="bigint"/>
         </createTable>
-        <createIndex indexName="ix_app_metric_key" tableName="app_metric" columns="key"/>
-        <createIndex indexName="ix_app_metric_name" tableName="app_metric" columns="name"/>
-        <createIndex indexName="ix_gauge_entry_event_time" tableName="gauge_entry" columns="event_time"/>
-        <createIndex indexName="ix_gauge_d1_app_id" tableName="gauge_d1" columns="app_id"/>
-        <createIndex indexName="ix_gauge_d1_env_id" tableName="gauge_d1" columns="env_id"/>
-        <createIndex indexName="ix_gauge_d1_metric_id" tableName="gauge_d1" columns="metric_id"/>
-        <createIndex indexName="ix_gauge_d1_event_time" tableName="gauge_d1" columns="event_time"/>
-        <createIndex indexName="ix_gauge_m1_event_time" tableName="gauge_m1" columns="event_time"/>
-        <createIndex indexName="ix_gauge_m10_app_id" tableName="gauge_m10" columns="app_id"/>
-        <createIndex indexName="ix_gauge_m10_env_id" tableName="gauge_m10" columns="env_id"/>
-        <createIndex indexName="ix_gauge_m10_metric_id" tableName="gauge_m10" columns="metric_id"/>
-        <createIndex indexName="ix_gauge_m10_event_time" tableName="gauge_m10" columns="event_time"/>
-        <createIndex indexName="ix_gauge_m60_app_id" tableName="gauge_m60" columns="app_id"/>
-        <createIndex indexName="ix_gauge_m60_env_id" tableName="gauge_m60" columns="env_id"/>
-        <createIndex indexName="ix_gauge_m60_metric_id" tableName="gauge_m60" columns="metric_id"/>
-        <createIndex indexName="ix_gauge_m60_event_time" tableName="gauge_m60" columns="event_time"/>
-        <createIndex indexName="ix_rollup_job_event_time" tableName="rollup_job" columns="event_time"/>
-        <createIndex indexName="ix_timed_entry_event_time" tableName="timed_entry" columns="event_time"/>
-        <createIndex indexName="ix_timed_d1_app_id" tableName="timed_d1" columns="app_id"/>
-        <createIndex indexName="ix_timed_d1_env_id" tableName="timed_d1" columns="env_id"/>
-        <createIndex indexName="ix_timed_d1_metric_id" tableName="timed_d1" columns="metric_id"/>
-        <createIndex indexName="ix_timed_d1_event_time" tableName="timed_d1" columns="event_time"/>
-        <createIndex indexName="ix_timed_m1_event_time" tableName="timed_m1" columns="event_time"/>
-        <createIndex indexName="ix_timed_m10_app_id" tableName="timed_m10" columns="app_id"/>
-        <createIndex indexName="ix_timed_m10_env_id" tableName="timed_m10" columns="env_id"/>
-        <createIndex indexName="ix_timed_m10_metric_id" tableName="timed_m10" columns="metric_id"/>
-        <createIndex indexName="ix_timed_m10_event_time" tableName="timed_m10" columns="event_time"/>
-        <createIndex indexName="ix_timed_m60_app_id" tableName="timed_m60" columns="app_id"/>
-        <createIndex indexName="ix_timed_m60_env_id" tableName="timed_m60" columns="env_id"/>
-        <createIndex indexName="ix_timed_m60_metric_id" tableName="timed_m60" columns="metric_id"/>
-        <createIndex indexName="ix_timed_m60_event_time" tableName="timed_m60" columns="event_time"/>
+        <createIndex indexName="ix_app_metric_key" tableName="ebean_insight.app_metric" columns="key"/>
+        <createIndex indexName="ix_app_metric_name" tableName="ebean_insight.app_metric" columns="name"/>
+        <createIndex indexName="ix_gauge_entry_event_time" tableName="ebean_insight.gauge_entry" columns="event_time"/>
+        <createIndex indexName="ix_gauge_d1_app_id" tableName="ebean_insight.gauge_d1" columns="app_id"/>
+        <createIndex indexName="ix_gauge_d1_env_id" tableName="ebean_insight.gauge_d1" columns="env_id"/>
+        <createIndex indexName="ix_gauge_d1_metric_id" tableName="ebean_insight.gauge_d1" columns="metric_id"/>
+        <createIndex indexName="ix_gauge_d1_event_time" tableName="ebean_insight.gauge_d1" columns="event_time"/>
+        <createIndex indexName="ix_gauge_m1_event_time" tableName="ebean_insight.gauge_m1" columns="event_time"/>
+        <createIndex indexName="ix_gauge_m10_app_id" tableName="ebean_insight.gauge_m10" columns="app_id"/>
+        <createIndex indexName="ix_gauge_m10_env_id" tableName="ebean_insight.gauge_m10" columns="env_id"/>
+        <createIndex indexName="ix_gauge_m10_metric_id" tableName="ebean_insight.gauge_m10" columns="metric_id"/>
+        <createIndex indexName="ix_gauge_m10_event_time" tableName="ebean_insight.gauge_m10" columns="event_time"/>
+        <createIndex indexName="ix_gauge_m60_app_id" tableName="ebean_insight.gauge_m60" columns="app_id"/>
+        <createIndex indexName="ix_gauge_m60_env_id" tableName="ebean_insight.gauge_m60" columns="env_id"/>
+        <createIndex indexName="ix_gauge_m60_metric_id" tableName="ebean_insight.gauge_m60" columns="metric_id"/>
+        <createIndex indexName="ix_gauge_m60_event_time" tableName="ebean_insight.gauge_m60" columns="event_time"/>
+        <createIndex indexName="ix_rollup_job_event_time" tableName="ebean_insight.rollup_job" columns="event_time"/>
+        <createIndex indexName="ix_timed_entry_event_time" tableName="ebean_insight.timed_entry" columns="event_time"/>
+        <createIndex indexName="ix_timed_d1_app_id" tableName="ebean_insight.timed_d1" columns="app_id"/>
+        <createIndex indexName="ix_timed_d1_env_id" tableName="ebean_insight.timed_d1" columns="env_id"/>
+        <createIndex indexName="ix_timed_d1_metric_id" tableName="ebean_insight.timed_d1" columns="metric_id"/>
+        <createIndex indexName="ix_timed_d1_event_time" tableName="ebean_insight.timed_d1" columns="event_time"/>
+        <createIndex indexName="ix_timed_m1_event_time" tableName="ebean_insight.timed_m1" columns="event_time"/>
+        <createIndex indexName="ix_timed_m10_app_id" tableName="ebean_insight.timed_m10" columns="app_id"/>
+        <createIndex indexName="ix_timed_m10_env_id" tableName="ebean_insight.timed_m10" columns="env_id"/>
+        <createIndex indexName="ix_timed_m10_metric_id" tableName="ebean_insight.timed_m10" columns="metric_id"/>
+        <createIndex indexName="ix_timed_m10_event_time" tableName="ebean_insight.timed_m10" columns="event_time"/>
+        <createIndex indexName="ix_timed_m60_app_id" tableName="ebean_insight.timed_m60" columns="app_id"/>
+        <createIndex indexName="ix_timed_m60_env_id" tableName="ebean_insight.timed_m60" columns="env_id"/>
+        <createIndex indexName="ix_timed_m60_metric_id" tableName="ebean_insight.timed_m60" columns="metric_id"/>
+        <createIndex indexName="ix_timed_m60_event_time" tableName="ebean_insight.timed_m60" columns="event_time"/>
     </changeSet>
 </migration>

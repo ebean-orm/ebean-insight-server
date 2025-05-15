@@ -14,7 +14,7 @@ import java.time.Instant;
  */
 @DbPartition(mode = PartitionMode.DAY, property = "eventTime")
 @Entity
-@Table(name = "timed_entry")
+@Table(name = "ebean_insight.timed_entry")
 public class DTimedEntry extends BaseTimedEntry {
 
   @DbForeignKey(noConstraint = true)

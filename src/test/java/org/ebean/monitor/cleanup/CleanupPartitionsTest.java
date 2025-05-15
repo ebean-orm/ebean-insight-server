@@ -1,11 +1,13 @@
 package org.ebean.monitor.cleanup;
 
+import io.avaje.inject.test.InjectTest;
 import org.junit.jupiter.api.Test;
 
-public class CleanupPartitionsTest {
+@InjectTest
+class CleanupPartitionsTest {
 
   @Test
-  public void run() {
+  void run() {
     new CleanupPartitions().run();
   }
 }

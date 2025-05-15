@@ -15,7 +15,7 @@ import jakarta.persistence.Table;
  */
 @Cache(nearCache = true, naturalKey = {"app", "name"})
 @Entity
-@Table(name = "app_db")
+@Table(name = "ebean_insight.app_db")
 public class DAppDatabase extends BaseDomain {
 
   /**

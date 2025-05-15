@@ -5,7 +5,7 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 
 @Entity
-@Table(name = "gauge_d1")
+@Table(name = "ebean_insight.gauge_d1")
 public class DGaugeRollupD1 extends BaseGaugeRollup {
 
   public DGaugeRollupD1(Instant endTime, DGaugeRollup gauge) {

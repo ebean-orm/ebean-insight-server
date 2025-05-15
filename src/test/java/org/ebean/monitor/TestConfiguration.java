@@ -14,6 +14,7 @@ class TestConfiguration {
   PostgresContainer postgresContainer() {
     return PostgresContainer.builder("17")
       .dbName("ebean_insight")
+      .user("ebean_insight")
       .build()
       .start();
   }
@@ -21,6 +22,8 @@ class TestConfiguration {
   @Bean
   Database database(PostgresContainer postgresContainer) {
     return postgresContainer.ebean().builder()
+      .ddlRun(false)
+      .runMigration(true)
       .build();
   }
 }

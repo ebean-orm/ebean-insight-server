@@ -8,7 +8,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 
 @Entity
-@View(name = "gauge_entry")
+@View(name = "ebean_insight.gauge_entry")
 public class DGaugeAgg extends BaseEntry {
 
   @Aggregation("count(value)")

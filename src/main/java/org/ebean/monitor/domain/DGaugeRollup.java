@@ -8,7 +8,7 @@ import jakarta.persistence.Entity;
 import java.math.BigDecimal;
 
 @Entity
-@View(name = "gauge_entry")
+@View(name = "ebean_insight.gauge_entry")
 public class DGaugeRollup extends BaseEntry {
 
   @Sum

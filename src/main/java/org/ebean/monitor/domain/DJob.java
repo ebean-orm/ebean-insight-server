@@ -12,7 +12,7 @@ import jakarta.persistence.Version;
 import java.time.Instant;
 
 @Entity
-@Table(name = "job")
+@Table(name = "ebean_insight.job")
 public class DJob extends Model {
 
   public static final DJobFinder find = new DJobFinder();

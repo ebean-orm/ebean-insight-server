@@ -13,7 +13,7 @@ import jakarta.persistence.Table;
  */
 @Cache(nearCache = true, naturalKey = {"app", "name"})
 @Entity
-@Table(name = "app_pod")
+@Table(name = "ebean_insight.app_pod")
 public class DAppPod extends BaseDomain {
 
   /**

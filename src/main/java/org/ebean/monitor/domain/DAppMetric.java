@@ -22,7 +22,7 @@ import jakarta.persistence.Table;
 @Cache(nearCache = true, naturalKey = {"app", "key"})
 @Entity
 @Identity(start = 1000)
-@Table(name = "app_metric")
+@Table(name = "ebean_insight.app_metric")
 public class DAppMetric extends BaseDomain {
 
   public static final DAppMetricFinder find = new DAppMetricFinder();
