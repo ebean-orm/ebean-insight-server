@@ -13,6 +13,13 @@
 
 
 ## Building local native image
+Requires GraalVM installed
+```shell
+sdk install java 24-graal
+
+sdk use java 24-graal
+```
+
 Build on a Mac (no G1GC supported)
 ```shell
 mvn clean package -P native,mac -DskipTests
