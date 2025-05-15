@@ -1,5 +1,5 @@
 name: GraalVM Native Image builds
-on: [workflow_dispatch, push, pull_request]
+on: [workflow_dispatch] ##, push, pull_request]
 jobs:
   build:
     name: Build on ${{ matrix.os }}
@@ -12,7 +12,7 @@ jobs:
 
       - uses: graalvm/setup-graalvm@v1
         with:
-          java-version: '21'
+          java-version: '24'
           distribution: 'graalvm'
           github-token: ${{ secrets.GITHUB_TOKEN }}
           native-image-job-reports: 'true'
