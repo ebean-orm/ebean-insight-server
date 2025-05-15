@@ -301,7 +301,7 @@
                   <mainClass>org.ebean.monitor.Application</mainClass>
                   <buildArgs>
                     <buildArg>--gc=G1</buildArg>
-                    <buildArg>-XX:MaxGCPauseMillis=50</buildArg>
+                    <buildArg>-R:MaxGCPauseMillis=50</buildArg>
                     <buildArg>--emit build-report</buildArg>
                     <buildArg>--no-fallback</buildArg>
                     <buildArg>--allow-incomplete-classpath</buildArg>
