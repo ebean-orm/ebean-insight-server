@@ -6,8 +6,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-#        os: [macos-latest, ubuntu-latest]
-        os: [ubuntu-latest]
+        os: [macos-latest, ubuntu-latest]
+#        os: [ubuntu-latest]
     steps:
       - uses: actions/checkout@v4
 
@@ -29,8 +29,16 @@ jobs:
           java --version
           native-image --version
 
+#      - name: Build with Maven
+#        run: mvn clean package -Pnative
+
       - name: Build with Maven
-        run: mvn clean package -Pnative
+        run:   |
+          if [ "$RUNNER_OS" == "Linux" ]; then
+               mvn clean package -Pnative
+          else
+               mvn clean package -Pnative -DskipTests
+          fi
 
       - name: Upload binary
         uses: actions/upload-artifact@v4
