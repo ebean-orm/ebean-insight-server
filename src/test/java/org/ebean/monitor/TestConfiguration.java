@@ -4,16 +4,23 @@ import io.avaje.inject.Bean;
 import io.avaje.inject.Factory;
 import io.avaje.inject.test.TestScope;
 import io.ebean.Database;
+import io.ebean.test.containers.PostgresContainer;
 
 @TestScope
 @Factory
 class TestConfiguration {
 
   @Bean
-  Database database() {
-    return Database.builder()
-      .name("db")
-      .loadFromProperties()
+  PostgresContainer postgresContainer() {
+    return PostgresContainer.builder("17")
+      .dbName("ebean_insight")
+      .build()
+      .start();
+  }
+
+  @Bean
+  Database database(PostgresContainer postgresContainer) {
+    return postgresContainer.ebean().builder()
       .build();
   }
 }
