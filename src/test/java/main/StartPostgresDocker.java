@@ -15,7 +15,7 @@ public class StartPostgresDocker {
 
   public static void main(String[] args) {
 
-    PostgresContainer container = PostgresContainer.builder("16")
+    PostgresContainer container = PostgresContainer.builder("17")
       .containerName("eb_insight")
       .port(7432)
       .dbName("ebean_insight")
