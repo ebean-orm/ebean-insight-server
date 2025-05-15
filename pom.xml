@@ -238,67 +238,45 @@
         </executions>
       </plugin>
 
-      <plugin>
-        <groupId>org.graalvm.buildtools</groupId>
-        <artifactId>native-maven-plugin</artifactId>
-        <version>0.10.6</version>
-        <executions>
-          <execution>
-            <id>build-native</id>
-            <goals>
-              <goal>build</goal>
-            </goals>
-            <phase>package</phase>
-            <configuration>
-              <mainClass>org.ebean.monitor.Application</mainClass>
-              <buildArgs>
-                <buildArg>--no-fallback</buildArg>
-                <buildArg>--allow-incomplete-classpath</buildArg>
-              </buildArgs>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
-        <groupId>com.google.cloud.tools</groupId>
-        <artifactId>jib-maven-plugin</artifactId>
-        <version>3.4.5</version>
-        <dependencies>
-          <dependency>
-            <groupId>com.google.cloud.tools</groupId>
-            <artifactId>jib-native-image-extension-maven</artifactId>
-            <version>0.1.0</version>
-          </dependency>
-        </dependencies>
+<!--      <plugin>-->
+<!--        <groupId>com.google.cloud.tools</groupId>-->
+<!--        <artifactId>jib-maven-plugin</artifactId>-->
+<!--        <version>3.4.5</version>-->
+<!--        <dependencies>-->
+<!--          <dependency>-->
+<!--            <groupId>com.google.cloud.tools</groupId>-->
+<!--            <artifactId>jib-native-image-extension-maven</artifactId>-->
+<!--            <version>0.1.0</version>-->
+<!--          </dependency>-->
+<!--        </dependencies>-->
 
-        <configuration>
-          <from>
-            <image>gcr.io/distroless/static-debian12</image>
-            <platforms>
-              <platform>
-                <architecture>arm64</architecture>
-                <os>linux</os>
-              </platform>
-            </platforms>
-          </from>
-          <to>
-            <image>ebean-insight-svc</image>
-            <tags>${project.version}</tags>
-          </to>
-
-          <container>
-            <ports>8081</ports>
-          </container>
-          <pluginExtensions>
-            <pluginExtension>
-              <implementation>com.google.cloud.tools.jib.maven.extension.nativeimage.JibNativeImageExtension</implementation>
-              <properties>
-                <imageName>ebean-insight</imageName>
-              </properties>
-            </pluginExtension>
-          </pluginExtensions>
-        </configuration>
-      </plugin>
+<!--        <configuration>-->
+<!--          <from>-->
+<!--            <image>gcr.io/distroless/static-debian12</image>-->
+<!--            <platforms>-->
+<!--              <platform>-->
+<!--                <architecture>arm64</architecture>-->
+<!--                <os>linux</os>-->
+<!--              </platform>-->
+<!--            </platforms>-->
+<!--          </from>-->
+<!--          <to>-->
+<!--            <image>ebean-insight-svc</image>-->
+<!--            <tags>${project.version}</tags>-->
+<!--          </to>-->
+<!--          <container>-->
+<!--            <ports>8081</ports>-->
+<!--          </container>-->
+<!--          <pluginExtensions>-->
+<!--            <pluginExtension>-->
+<!--              <implementation>com.google.cloud.tools.jib.maven.extension.nativeimage.JibNativeImageExtension</implementation>-->
+<!--              <properties>-->
+<!--                <imageName>ebean-insight</imageName>-->
+<!--              </properties>-->
+<!--            </pluginExtension>-->
+<!--          </pluginExtensions>-->
+<!--        </configuration>-->
+<!--      </plugin>-->
 
     </plugins>
   </build>
@@ -308,7 +286,27 @@
       <id>native</id>
       <build>
         <plugins>
-
+          <plugin>
+            <groupId>org.graalvm.buildtools</groupId>
+            <artifactId>native-maven-plugin</artifactId>
+            <version>0.10.6</version>
+            <executions>
+              <execution>
+                <id>build-native</id>
+                <goals>
+                  <goal>build</goal>
+                </goals>
+                <phase>package</phase>
+                <configuration>
+                  <mainClass>org.ebean.monitor.Application</mainClass>
+                  <buildArgs>
+                    <buildArg>--no-fallback</buildArg>
+                    <buildArg>--allow-incomplete-classpath</buildArg>
+                  </buildArgs>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
         </plugins>
       </build>
     </profile>

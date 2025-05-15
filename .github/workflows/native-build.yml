@@ -1,0 +1,35 @@
+name: GraalVM Native Image builds
+on: [workflow_dispatch, push, pull_request]
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '21'
+          distribution: 'graalvm'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          native-image-job-reports: 'true'
+
+      - name: Maven version
+        run: mvn --version
+
+      - name: Native image version
+        run: |
+          echo "GRAALVM_HOME: $GRAALVM_HOME"
+          echo "JAVA_HOME: $JAVA_HOME"
+          java --version
+          native-image --version
+
+
+#      - name: Upload binary
+#        uses: actions/upload-artifact@v4
+#        with:
+#          name: helloworld-${{ matrix.os }}
+#          path: helloworld*
