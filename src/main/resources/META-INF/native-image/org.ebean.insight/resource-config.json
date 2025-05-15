@@ -5,6 +5,9 @@
    },
    {
      "pattern": "extend-partitions.sql"
+   },
+   {
+     "pattern": "simplelogger.properties"
    }
  ]
 }

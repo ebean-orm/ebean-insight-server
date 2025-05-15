@@ -1,0 +1,20 @@
+server.port: 8091
+#server.context.path: /
+#server.context.host: 0.0.0.0
+
+app.name: ebean-insight
+ebean.queryPlan.enable: true
+
+##
+## Postgres setup - To use local docker instance see src/test/main/StartPostgresDocker.main()
+##
+ebean:
+  dbSchema: ebean_insight
+  migration.run: true
+
+datasource:
+  db:
+    username: ebean_insight
+    password: ${db_pass:ebean_insight}
+    url: jdbc:postgresql://localhost:7432/ebean_insight
+
