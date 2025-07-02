@@ -354,10 +354,10 @@
               <to>
                 <image>docker.io/rbygrave/ebean-insight</image>
                 <tags>${project.version}</tags>
-                <auth>
-                  <username>${env.DOCKER_USERNAME}</username>
-                  <password>${env.DOCKER_PASSWORD}</password>
-                </auth>
+<!--                <auth>-->
+<!--                  <username>${env.DOCKER_USERNAME}</username>-->
+<!--                  <password>${env.DOCKER_PASSWORD}</password>-->
+<!--                </auth>-->
               </to>
               <container>
                 <ports>8081</ports>
