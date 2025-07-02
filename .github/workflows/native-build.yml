@@ -6,8 +6,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-latest, ubuntu-latest]
-#        os: [ubuntu-latest]
+#        os: [macos-latest, ubuntu-latest]
+        os: [ubuntu-24.04]
     steps:
       - uses: actions/checkout@v4
 
@@ -19,10 +19,13 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           native-image-job-reports: 'true'
 
-      - name: Maven version
+      - name: maven version
         run: mvn --version
 
-      - name: Native image version
+      - name: ldd (glibc) version
+        run: ldd --version
+
+      - name: native image version
         run: |
           echo "GRAALVM_HOME: $GRAALVM_HOME"
           echo "JAVA_HOME: $JAVA_HOME"
@@ -35,7 +38,7 @@ jobs:
       - name: Build with Maven
         run:   |
           if [ "$RUNNER_OS" == "Linux" ]; then
-               mvn clean package -Pnative,linux
+               mvn clean package -Pnative
           else
                mvn clean package -Pnative,mac -DskipTests
           fi

@@ -324,7 +324,7 @@
                 <buildArg>--emit build-report</buildArg>
                 <buildArg>--no-fallback</buildArg>
                 <buildArg>--allow-incomplete-classpath</buildArg>
-                <buildArg>-march=native</buildArg>
+                <buildArg>-march=compatible</buildArg>
               </buildArgs>
             </configuration>
           </plugin>
