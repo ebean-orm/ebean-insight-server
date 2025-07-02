@@ -339,7 +339,14 @@
                 <version>0.1.0</version>
               </dependency>
             </dependencies>
-
+            <executions>
+              <execution>
+                <phase>package</phase>
+                <goals>
+                  <goal>build</goal>
+                </goals>
+              </execution>
+            </executions>
             <configuration>
               <from>
                 <image>redhat/ubi10-micro:10</image>
