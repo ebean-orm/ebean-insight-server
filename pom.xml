@@ -352,8 +352,7 @@
                 <image>redhat/ubi10-micro:10.0</image>
               </from>
               <to>
-<!--                <image>docker.io/rbygrave/ebean-insight</image>-->
-                <image>ebean-insight</image>
+                <image>docker.io/rbygrave/ebean-insight</image>
                 <tags>${project.version}</tags>
                 <auth>
                   <username>${env.DOCKER_USERNAME}</username>
