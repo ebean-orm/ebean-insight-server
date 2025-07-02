@@ -349,10 +349,10 @@
             </executions>
             <configuration>
               <from>
-                <image>redhat/ubi10-micro:10</image>
+                <image>redhat/ubi10-micro:10.0</image>
               </from>
               <to>
-                <image>ebean-insight</image>
+                <image>docker.io/rbygrave/ebean-insight</image>
                 <tags>${project.version}</tags>
               </to>
               <container>
