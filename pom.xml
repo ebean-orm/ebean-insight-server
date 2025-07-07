@@ -16,37 +16,16 @@
     <jstachio.version>1.3.7</jstachio.version>
     <avaje-inject.version>11.5</avaje-inject.version>
     <avaje-http.version>3.3</avaje-http.version>
-    <avaje-jex.version>3.2</avaje-jex.version>
+    <avaje-jex.version>3.3-RC1</avaje-jex.version>
     <avaje-jsonb.version>3.5</avaje-jsonb.version>
   </properties>
 
   <dependencies>
 
     <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-simple</artifactId>
-      <version>2.0.17</version>
-    </dependency>
-<!--    <dependency>-->
-<!--      <groupId>org.slf4j</groupId>-->
-<!--&lt;!&ndash;      <artifactId>slf4j-jdk-platform-logging</artifactId>&ndash;&gt;-->
-<!--      <artifactId>slf4j-jdk14</artifactId>-->
-<!--      <version>2.0.17</version>-->
-<!--    </dependency>-->
-<!--    <dependency>-->
-<!--      <groupId>io.avaje</groupId>-->
-<!--      <artifactId>avaje-slf4j-jpl</artifactId>-->
-<!--      <version>1.2</version>-->
-<!--    </dependency>-->
-<!--    <dependency>-->
-<!--      <groupId>io.jstach.rainbowgum</groupId>-->
-<!--      <artifactId>rainbowgum-jdk</artifactId>-->
-<!--      <version>0.8.1</version>-->
-<!--    </dependency>-->
-    <dependency>
       <groupId>io.avaje</groupId>
-      <artifactId>avaje-applog-slf4j</artifactId>
-      <version>1.0</version>
+      <artifactId>avaje-simple-logger</artifactId>
+      <version>0.1</version>
     </dependency>
 
     <dependency>

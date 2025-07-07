@@ -22,8 +22,8 @@ class TestConfiguration {
   @Bean
   Database database(PostgresContainer postgresContainer) {
     return postgresContainer.ebean().builder()
-      .ddlRun(false)
-      .runMigration(true)
+      .ddlRun(true)
+//      .runMigration(true)
       .build();
   }
 }

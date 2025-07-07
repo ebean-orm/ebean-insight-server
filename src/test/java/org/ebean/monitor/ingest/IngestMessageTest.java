@@ -75,7 +75,7 @@ class IngestMessageTest {
       .findList();
 
     assertThat(met1Entries).hasSize(1);
-    assertThat(met1Entries.get(0).getMean()).isEqualTo(42);
+    assertThat(met1Entries.getFirst().getMean()).isEqualTo(42);
 
     ingest.ingest(req("/request/req-1b.json"));
     ingest.ingest(req("/request/req-1c.json"));
