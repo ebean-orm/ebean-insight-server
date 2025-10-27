@@ -47,7 +47,7 @@ jobs:
           fi
 
       - name: Upload binary
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ebean-insight-${{ matrix.os }}
           path: target/ebean-insight*
