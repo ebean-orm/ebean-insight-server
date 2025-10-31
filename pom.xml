@@ -25,7 +25,7 @@
     <dependency>
       <groupId>io.avaje</groupId>
       <artifactId>avaje-simple-logger</artifactId>
-      <version>0.5</version>
+      <version>1.0</version>
     </dependency>
 
     <dependency>
@@ -90,11 +90,6 @@
 
     <dependency>
       <groupId>io.ebean</groupId>
-      <artifactId>ebean-datasource</artifactId>
-      <version>10.1</version>
-    </dependency>
-    <dependency>
-      <groupId>io.ebean</groupId>
       <artifactId>ebean-postgres</artifactId>
       <version>${ebean.version}</version>
     </dependency>
@@ -153,12 +148,6 @@
       <artifactId>avaje-http-client</artifactId>
       <version>${avaje-http.version}</version>
       <scope>test</scope>
-    </dependency>
-
-    <dependency>
-      <groupId>com.fasterxml.jackson.core</groupId>
-      <artifactId>jackson-core</artifactId>
-      <version>2.20.0</version>
     </dependency>
 
   </dependencies>
