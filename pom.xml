@@ -293,53 +293,51 @@
                 <buildArg>--no-fallback</buildArg>
                 <buildArg>--allow-incomplete-classpath</buildArg>
                 <buildArg>-march=compatibility</buildArg>
+                <buildArg>--static</buildArg>
+                <buildArg>--libc=musl</buildArg>
               </buildArgs>
             </configuration>
           </plugin>
-          <plugin>
-            <groupId>com.google.cloud.tools</groupId>
-            <artifactId>jib-maven-plugin</artifactId>
-            <version>3.4.6</version>
-            <dependencies>
-              <dependency>
-                <groupId>com.google.cloud.tools</groupId>
-                <artifactId>jib-native-image-extension-maven</artifactId>
-                <version>0.1.0</version>
-              </dependency>
-            </dependencies>
-            <executions>
-              <execution>
-                <phase>package</phase>
-                <goals>
-                  <goal>build</goal>
-                </goals>
-              </execution>
-            </executions>
-            <configuration>
-              <from>
-                <image>redhat/ubi10-micro:10.0</image>
-              </from>
-              <to>
-                <image>docker.io/rbygrave/ebean-insight</image>
-                <tags>${project.version}</tags>
-<!--                <auth>-->
-<!--                  <username>${env.DOCKER_USERNAME}</username>-->
-<!--                  <password>${env.DOCKER_PASSWORD}</password>-->
-<!--                </auth>-->
-              </to>
-              <container>
-                <ports>8081</ports>
-              </container>
-              <pluginExtensions>
-                <pluginExtension>
-                  <implementation>com.google.cloud.tools.jib.maven.extension.nativeimage.JibNativeImageExtension</implementation>
-                  <properties>
-                    <imageName>ebean-insight</imageName>
-                  </properties>
-                </pluginExtension>
-              </pluginExtensions>
-            </configuration>
-          </plugin>
+<!--          <plugin>-->
+<!--            <groupId>com.google.cloud.tools</groupId>-->
+<!--            <artifactId>jib-maven-plugin</artifactId>-->
+<!--            <version>3.4.6</version>-->
+<!--            <dependencies>-->
+<!--              <dependency>-->
+<!--                <groupId>com.google.cloud.tools</groupId>-->
+<!--                <artifactId>jib-native-image-extension-maven</artifactId>-->
+<!--                <version>0.1.0</version>-->
+<!--              </dependency>-->
+<!--            </dependencies>-->
+<!--            <executions>-->
+<!--              <execution>-->
+<!--                <phase>package</phase>-->
+<!--                <goals>-->
+<!--                  <goal>build</goal>-->
+<!--                </goals>-->
+<!--              </execution>-->
+<!--            </executions>-->
+<!--            <configuration>-->
+<!--              <from>-->
+<!--                <image>redhat/ubi10-micro:10.0</image>-->
+<!--              </from>-->
+<!--              <to>-->
+<!--                <image>docker.io/rbygrave/ebean-insight</image>-->
+<!--                <tags>${project.version}</tags>-->
+<!--              </to>-->
+<!--              <container>-->
+<!--                <ports>8081</ports>-->
+<!--              </container>-->
+<!--              <pluginExtensions>-->
+<!--                <pluginExtension>-->
+<!--                  <implementation>com.google.cloud.tools.jib.maven.extension.nativeimage.JibNativeImageExtension</implementation>-->
+<!--                  <properties>-->
+<!--                    <imageName>ebean-insight</imageName>-->
+<!--                  </properties>-->
+<!--                </pluginExtension>-->
+<!--              </pluginExtensions>-->
+<!--            </configuration>-->
+<!--          </plugin>-->
         </plugins>
       </build>
     </profile>
