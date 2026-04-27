@@ -17,7 +17,7 @@
     <avaje-inject.version>12.5</avaje-inject.version>
     <avaje-http.version>3.8</avaje-http.version>
     <avaje-jex.version>3.5</avaje-jex.version>
-    <avaje-jsonb.version>3.12</avaje-jsonb.version>
+    <avaje-jsonb.version>3.13</avaje-jsonb.version>
   </properties>
 
   <dependencies>
@@ -234,7 +234,7 @@
           <plugin>
             <groupId>org.graalvm.buildtools</groupId>
             <artifactId>native-maven-plugin</artifactId>
-            <version>1.0.0</version>
+            <version>1.1.0</version>
             <executions>
               <execution>
                 <id>build-native</id>
