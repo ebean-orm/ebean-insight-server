@@ -51,7 +51,9 @@ final class OtlpMetricMapper {
 
   String build(MetricRequest req, long reportingPeriodNanos) {
     long endNano = (req.eventTime > 0 ? req.eventTime : System.currentTimeMillis()) * 1_000_000L;
-    long startNano = endNano - reportingPeriodNanos;
+    long startNano = (req.startEventTime > 0)
+      ? req.startEventTime * 1_000_000L
+      : endNano - reportingPeriodNanos;
 
     var sw = new StringWriter(2048);
     try (JsonWriter w = jsonb.writer(sw)) {

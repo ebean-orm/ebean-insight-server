@@ -111,6 +111,35 @@ class OtlpMetricMapperTest {
   }
 
   @Test
+  void startEventTimePrefersClientWindow() {
+    var req = baseRequest();
+    req.startEventTime = req.eventTime - 30_000L; // disjoint 30s window from client
+    req.metrics.add(timer("iud.X", 1, 2, 3));
+    long periodNanos = 60_000_000_000L; // would synthesise 60s window if startEventTime ignored
+    String json = mapper("").build(req, periodNanos);
+
+    long endNano = req.eventTime * 1_000_000L;
+    long startNano = req.startEventTime * 1_000_000L;
+    assertThat(json).contains("\"timeUnixNano\":\"" + endNano + "\"");
+    assertThat(json).contains("\"startTimeUnixNano\":\"" + startNano + "\"");
+    // sanity: not the synthesised 60s window
+    assertThat(json).doesNotContain("\"startTimeUnixNano\":\"" + (endNano - periodNanos) + "\"");
+  }
+
+  @Test
+  void startEventTimeFallsBackToReportingPeriodWhenZero() {
+    var req = baseRequest();
+    req.startEventTime = 0L;
+    req.metrics.add(timer("iud.X", 1, 2, 3));
+    long periodNanos = 60_000_000_000L;
+    String json = mapper("").build(req, periodNanos);
+
+    long endNano = req.eventTime * 1_000_000L;
+    long startNano = endNano - periodNanos;
+    assertThat(json).contains("\"startTimeUnixNano\":\"" + startNano + "\"");
+  }
+
+  @Test
   void skipsEmptyMetric() {
     var req = baseRequest();
     var empty = new MetricData();

@@ -14,6 +14,15 @@ import java.util.Map;
 public class MetricRequest {
 
   /**
+   * Optional start of the metric window provided by the client (epoch millis,
+   * typically the {@code eventTime} of the prior successful send, or the
+   * reporter start time on the first send). When non-zero, the OTLP forwarder
+   * uses this as {@code startTimeUnixNano} so consecutive deltas are truly
+   * disjoint and survive {@code otelcol.processor.deltatocumulative}.
+   */
+  public long startEventTime;
+
+  /**
    * The metric collection time.
    */
   public long eventTime;
