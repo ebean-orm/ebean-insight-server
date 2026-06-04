@@ -8,6 +8,7 @@ import org.ebean.monitor.api.MetricRequest;
 import org.ebean.monitor.api.QueryPlanRequest;
 import org.ebean.monitor.forward.AutoPlanTrigger;
 import org.ebean.monitor.forward.MetricForwarder;
+import org.ebean.monitor.forward.QueryPlanLogger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,14 +32,18 @@ public class IngestQueueConsumer {
   private final IngestMessage ingestMessage;
   private final MetricForwarder forwarder;
   private final AutoPlanTrigger autoPlanTrigger;
+  private final QueryPlanLogger queryPlanLogger;
   private final boolean storeMetrics;
+  private final boolean storePlans;
 
-  IngestQueueConsumer(IngestQueue queue, IngestMessage ingestMessage, MetricForwarder forwarder, AutoPlanTrigger autoPlanTrigger) {
+  IngestQueueConsumer(IngestQueue queue, IngestMessage ingestMessage, MetricForwarder forwarder, AutoPlanTrigger autoPlanTrigger, QueryPlanLogger queryPlanLogger) {
     this.queue = queue;
     this.ingestMessage = ingestMessage;
     this.forwarder = forwarder;
     this.autoPlanTrigger = autoPlanTrigger;
+    this.queryPlanLogger = queryPlanLogger;
     this.storeMetrics = Config.getBool("metrics.store.enabled", true);
+    this.storePlans = Config.getBool("plans.store.enabled", storeMetrics);
   }
 
   @NotTimed
@@ -88,6 +93,15 @@ public class IngestQueueConsumer {
 
   private void ingestQueryPlans(QueryPlanRequest queryPlans) {
     log.debug("ingesting query plans");
+    try {
+      // emit to dedicated logger (no-op when disabled)
+      queryPlanLogger.log(queryPlans);
+    } catch (Exception e) {
+      log.warn("query plan logger failed", e);
+    }
+    if (!storePlans) {
+      return;
+    }
     try {
       ingestMessage.ingestQueryPlans(queryPlans);
     } catch (Exception e) {

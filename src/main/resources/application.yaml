@@ -27,11 +27,16 @@ forward:
 ##
 ## Storage: when running purely as a smart-proxy (forward.otel.enabled=true),
 ## set metrics.store.enabled=false to skip writing metrics into Postgres.
-## Note: query plans are still ingested and stored regardless of this flag.
+## plans.store.enabled defaults to metrics.store.enabled — set it independently
+## if you want plans archived even when metrics are forward-only (or vice versa).
 ##
 metrics:
   store:
     enabled: true
+
+plans:
+  store:
+    enabled: ${metrics.store.enabled}
 
 ##
 ## Auto plan capture: when an SQL/orm query metric exceeds its threshold,
@@ -45,6 +50,8 @@ autoplan:
   cooldownMinutes: 180            # don't re-request the same hash within this window
   maxTracked: 5000                # cooldown-cache size cap
   thresholdsCacheTtlMillis: 300000 # 5 min — how often DB threshold overrides are refreshed
+  logPlans: false                 # emit each captured plan to logger org.ebean.monitor.queryplan
+  logPlans.includeBind: false     # include bind values in the log line (PII caution)
 
 ##
 ## Postgres setup - To use local docker instance see src/test/main/StartPostgresDocker.main()
