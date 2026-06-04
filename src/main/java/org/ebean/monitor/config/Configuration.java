@@ -36,14 +36,23 @@ class Configuration {
 
   /**
    * Initialise Ebean default database eagerly.
+   * <p>
+   * When both metrics and plans storage are disabled the server runs as a pure
+   * smart-proxy. In that mode we put the DataSource pool offline and skip
+   * migrations so the server can start without a Postgres instance.
    */
   @Bean(destroyMethod = "shutdown", destroyPriority=9000)
   Database database() {
     initJvmMetrics();
+    boolean storeMetrics = Config.getBool("metrics.store.enabled", true);
+    boolean storePlans = Config.getBool("plans.store.enabled", storeMetrics);
+    boolean forwardOnly = !storeMetrics && !storePlans;
     return Database.builder()
       .name("db")
       .queryPlanCapture(true)
-      .runMigration(true)
+      .runMigration(!forwardOnly)
+      .offline(forwardOnly)
+      .databasePlatformName(forwardOnly ? "postgres" : null)
       .loadFromProperties()
       .build();
   }
