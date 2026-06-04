@@ -35,7 +35,7 @@ import java.io.StringWriter;
  * protobuf-JSON mapping spec.
  */
 @Singleton
-final class OtlpMetricMapper {
+public final class OtlpMetricMapper {
 
   private static final String SCOPE_NAME = "ebean-insight-forwarder";
   /** AGGREGATION_TEMPORALITY_DELTA. */
@@ -44,7 +44,7 @@ final class OtlpMetricMapper {
   private final String namespace;
   private final Jsonb jsonb;
 
-  OtlpMetricMapper(ForwardConfig config, Jsonb jsonb) {
+  public OtlpMetricMapper(ForwardConfig config, Jsonb jsonb) {
     this.namespace = config.namespace() == null ? "" : config.namespace();
     this.jsonb = jsonb;
   }

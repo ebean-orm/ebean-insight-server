@@ -25,6 +25,15 @@ forward:
 #      Authorization: "Bearer ..."
 
 ##
+## Storage: when running purely as a smart-proxy (forward.otel.enabled=true),
+## set metrics.store.enabled=false to skip writing metrics into Postgres.
+## Note: query plans are still ingested and stored regardless of this flag.
+##
+metrics:
+  store:
+    enabled: true
+
+##
 ## Postgres setup - To use local docker instance see src/test/main/StartPostgresDocker.main()
 ##
 ebean:

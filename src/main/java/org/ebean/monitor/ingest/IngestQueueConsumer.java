@@ -1,7 +1,6 @@
 package org.ebean.monitor.ingest;
 
-//import io.avaje.metrics.annotation.NotTimed;
-//import io.avaje.metrics.annotation.Timed;
+import io.avaje.config.Config;
 import io.avaje.metrics.annotation.NotTimed;
 import io.avaje.metrics.annotation.Timed;
 import io.ebean.DB;
@@ -30,17 +29,22 @@ public class IngestQueueConsumer {
 
   private final IngestMessage ingestMessage;
   private final MetricForwarder forwarder;
+  private final boolean storeMetrics;
 
   IngestQueueConsumer(IngestQueue queue, IngestMessage ingestMessage, MetricForwarder forwarder) {
     this.queue = queue;
     this.ingestMessage = ingestMessage;
     this.forwarder = forwarder;
+    this.storeMetrics = Config.getBool("metrics.store.enabled", true);
   }
 
   @NotTimed
   @PostConstruct
   public void start() {
     log.debug("starting ingest queue consumer");
+    if (!storeMetrics) {
+      log.info("metrics storage disabled (metrics.store.enabled=false) - running in forward-only mode");
+    }
     DB.backgroundExecutor().scheduleWithFixedDelay(this::ingestFromQueue, delayMillis, delayMillis, TimeUnit.MILLISECONDS);
   }
 
@@ -62,6 +66,9 @@ public class IngestQueueConsumer {
     log.debug("ingesting request");
     // forward to OTLP (no-op if disabled, never throws)
     forwarder.forward(data);
+    if (!storeMetrics) {
+      return;
+    }
     try {
       ingestMessage.ingest(data);
     } catch (Exception e) {
