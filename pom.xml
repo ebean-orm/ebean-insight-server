@@ -293,6 +293,7 @@
                 <buildArg>--no-fallback</buildArg>
                 <buildArg>--allow-incomplete-classpath</buildArg>
                 <buildArg>-march=compatibility</buildArg>
+                <buildArg>--static-nolibc</buildArg>
               </buildArgs>
             </configuration>
           </plugin>
@@ -316,7 +317,7 @@
               </execution>
             </executions>
             <configuration>
-              <from>
+              <from> <!-- UBI micro image with glibc support -->
                 <image>redhat/ubi10-micro:10.2-1779720719</image>
               </from>
               <to>
