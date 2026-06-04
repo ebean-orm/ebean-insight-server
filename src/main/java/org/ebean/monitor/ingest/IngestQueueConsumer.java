@@ -7,6 +7,7 @@ import io.avaje.metrics.annotation.Timed;
 import io.ebean.DB;
 import org.ebean.monitor.api.MetricRequest;
 import org.ebean.monitor.api.QueryPlanRequest;
+import org.ebean.monitor.forward.MetricForwarder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,10 +29,12 @@ public class IngestQueueConsumer {
   private final IngestQueue queue;
 
   private final IngestMessage ingestMessage;
+  private final MetricForwarder forwarder;
 
-  IngestQueueConsumer(IngestQueue queue, IngestMessage ingestMessage) {
+  IngestQueueConsumer(IngestQueue queue, IngestMessage ingestMessage, MetricForwarder forwarder) {
     this.queue = queue;
     this.ingestMessage = ingestMessage;
+    this.forwarder = forwarder;
   }
 
   @NotTimed
@@ -57,6 +60,8 @@ public class IngestQueueConsumer {
   @Timed
   private void ingestRequest(MetricRequest data) {
     log.debug("ingesting request");
+    // forward to OTLP (no-op if disabled, never throws)
+    forwarder.forward(data);
     try {
       ingestMessage.ingest(data);
     } catch (Exception e) {

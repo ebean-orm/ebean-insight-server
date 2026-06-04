@@ -3,7 +3,9 @@ package org.ebean.monitor.api;
 import io.avaje.jsonb.Json;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Metrics to ingest.
@@ -47,5 +49,15 @@ public class MetricRequest {
    * The database metrics.
    */
   public List<MetricDbData> dbs = new ArrayList<>();
+
+  /**
+   * Optional extra resource attributes — typically parsed from the standard
+   * {@code OTEL_RESOURCE_ATTRIBUTES} env var by the client. Forwarded verbatim
+   * to the OTLP {@code resource.attributes} list. The reserved per-app fields
+   * ({@code service.name}, {@code service.version}, {@code service.instance.id},
+   * {@code deployment.environment.name}) sourced from the dedicated header
+   * fields above take precedence over any matching keys here.
+   */
+  public Map<String, String> resAttrs = new LinkedHashMap<>();
 
 }

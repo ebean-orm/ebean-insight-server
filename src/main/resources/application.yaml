@@ -8,6 +8,23 @@ load.properties: /app/config/insight-config.yaml
 ebean.queryPlan.enable: true
 
 ##
+## Forwarder: forward incoming metrics to an OTLP/HTTP endpoint (e.g. Grafana Alloy).
+## Disabled by default. Storage + UI + query-plan back-channel are unaffected.
+##
+forward:
+  otel:
+    enabled: false
+    endpoint: http://localhost:4318
+    namespace: ""
+    reportingPeriodSeconds: 60
+    timeoutSeconds: 30
+    connectTimeoutSeconds: 10
+    queueSize: 1024
+    pollMillis: 200
+#    headers:
+#      Authorization: "Bearer ..."
+
+##
 ## Postgres setup - To use local docker instance see src/test/main/StartPostgresDocker.main()
 ##
 ebean:
