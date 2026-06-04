@@ -1,0 +1,29 @@
+{
+  "eventTime": 0,
+  "key": "verify-key",
+  "appName": "verify-app",
+  "version": "1.0.0",
+  "environment": "local",
+  "instanceId": "verify-instance-2",
+  "resAttrs": {
+    "service.namespace": "consolidation",
+    "business.domain": "ingestion",
+    "business.subdomain": "ingestion-consolidation",
+    "business.platform": "legacy-aws",
+    "business.system": "consolidation"
+  },
+  "metrics": [
+    { "name": "app.requests",        "count": 42,  "mean": 1500, "max": 8200, "total": 63000 },
+    { "name": "jvm.memory.used",     "value": 268435456 },
+    { "name": "datasource.pool.size","value": 8 }
+  ],
+  "dbs": [
+    {
+      "name": "db",
+      "metrics": [
+        { "name": "txn.main",          "count": 17, "mean": 4200,  "max": 21000, "total": 71400 },
+        { "name": "orm.User.findById", "hash": "h1", "loc": "Foo.bar", "count": 5, "mean": 800, "max": 2100, "total": 4000 }
+      ]
+    }
+  ]
+}

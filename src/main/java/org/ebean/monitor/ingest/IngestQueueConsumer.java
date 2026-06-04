@@ -1,12 +1,14 @@
 package org.ebean.monitor.ingest;
 
-//import io.avaje.metrics.annotation.NotTimed;
-//import io.avaje.metrics.annotation.Timed;
+import io.avaje.config.Config;
 import io.avaje.metrics.annotation.NotTimed;
 import io.avaje.metrics.annotation.Timed;
 import io.ebean.DB;
 import org.ebean.monitor.api.MetricRequest;
 import org.ebean.monitor.api.QueryPlanRequest;
+import org.ebean.monitor.forward.AutoPlanTrigger;
+import org.ebean.monitor.forward.MetricForwarder;
+import org.ebean.monitor.forward.QueryPlanLogger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,16 +30,29 @@ public class IngestQueueConsumer {
   private final IngestQueue queue;
 
   private final IngestMessage ingestMessage;
+  private final MetricForwarder forwarder;
+  private final AutoPlanTrigger autoPlanTrigger;
+  private final QueryPlanLogger queryPlanLogger;
+  private final boolean storeMetrics;
+  private final boolean storePlans;
 
-  IngestQueueConsumer(IngestQueue queue, IngestMessage ingestMessage) {
+  IngestQueueConsumer(IngestQueue queue, IngestMessage ingestMessage, MetricForwarder forwarder, AutoPlanTrigger autoPlanTrigger, QueryPlanLogger queryPlanLogger) {
     this.queue = queue;
     this.ingestMessage = ingestMessage;
+    this.forwarder = forwarder;
+    this.autoPlanTrigger = autoPlanTrigger;
+    this.queryPlanLogger = queryPlanLogger;
+    this.storeMetrics = Config.getBool("metrics.store.enabled", true);
+    this.storePlans = Config.getBool("plans.store.enabled", storeMetrics);
   }
 
   @NotTimed
   @PostConstruct
   public void start() {
     log.debug("starting ingest queue consumer");
+    if (!storeMetrics) {
+      log.info("metrics storage disabled (metrics.store.enabled=false) - running in forward-only mode");
+    }
     DB.backgroundExecutor().scheduleWithFixedDelay(this::ingestFromQueue, delayMillis, delayMillis, TimeUnit.MILLISECONDS);
   }
 
@@ -57,6 +72,17 @@ public class IngestQueueConsumer {
   @Timed
   private void ingestRequest(MetricRequest data) {
     log.debug("ingesting request");
+    // forward to OTLP (no-op if disabled, never throws)
+    forwarder.forward(data);
+    // detect expensive queries and request plan capture (no-op if disabled)
+    try {
+      autoPlanTrigger.onIngest(data);
+    } catch (Exception e) {
+      log.warn("autoplan trigger failed", e);
+    }
+    if (!storeMetrics) {
+      return;
+    }
     try {
       ingestMessage.ingest(data);
     } catch (Exception e) {
@@ -67,6 +93,15 @@ public class IngestQueueConsumer {
 
   private void ingestQueryPlans(QueryPlanRequest queryPlans) {
     log.debug("ingesting query plans");
+    try {
+      // emit to dedicated logger (no-op when disabled)
+      queryPlanLogger.log(queryPlans);
+    } catch (Exception e) {
+      log.warn("query plan logger failed", e);
+    }
+    if (!storePlans) {
+      return;
+    }
     try {
       ingestMessage.ingestQueryPlans(queryPlans);
     } catch (Exception e) {

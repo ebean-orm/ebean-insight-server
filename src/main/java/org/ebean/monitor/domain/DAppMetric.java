@@ -68,6 +68,13 @@ public class DAppMetric extends BaseDomain {
   @Lob
   private String sql;
 
+  /**
+   * Per-query auto-plan-capture threshold (mean duration in microseconds).
+   * When non-null, overrides the global {@code autoplan.defaultThresholdMicros}.
+   * Null means "use global default". Editable via SQL / future CLI / future UI.
+   */
+  private Long planThresholdMicros;
+
   public DAppMetric(DApp app, String key, String name) {
     this.app = app;
     this.key = key;
@@ -108,5 +115,13 @@ public class DAppMetric extends BaseDomain {
 
   public void setSql(String sql) {
     this.sql = sql;
+  }
+
+  public Long getPlanThresholdMicros() {
+    return planThresholdMicros;
+  }
+
+  public void setPlanThresholdMicros(Long planThresholdMicros) {
+    this.planThresholdMicros = planThresholdMicros;
   }
 }

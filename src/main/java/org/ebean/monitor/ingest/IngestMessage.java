@@ -70,7 +70,7 @@ public class IngestMessage {
     }
 
     database.saveAll(newPlans);
-    log.warn("Obtained {} new query plans", newPlans.size());
+    log.info("Obtained {} new query plans", newPlans.size());
   }
 
   private static Instant parseWhenCaptured(String whenCaptured) {

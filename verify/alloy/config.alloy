@@ -1,0 +1,40 @@
+// Alloy config: receive OTLP HTTP from ebean-insight-server,
+// convert delta -> cumulative, forward to Mimir via OTLP HTTP.
+
+otelcol.receiver.otlp "default" {
+  http {
+    endpoint = "0.0.0.0:4318"
+  }
+  grpc {
+    endpoint = "0.0.0.0:4317"
+  }
+  output {
+    metrics = [otelcol.processor.deltatocumulative.default.input]
+  }
+}
+
+otelcol.processor.deltatocumulative "default" {
+  output {
+    metrics = [otelcol.processor.batch.default.input]
+  }
+}
+
+otelcol.processor.batch "default" {
+  output {
+    metrics = [otelcol.exporter.otlphttp.mimir.input]
+  }
+}
+
+otelcol.exporter.otlphttp "mimir" {
+  client {
+    endpoint = "http://mimir:9009/otlp"
+    tls {
+      insecure = true
+    }
+  }
+}
+
+logging {
+  level  = "info"
+  format = "logfmt"
+}
