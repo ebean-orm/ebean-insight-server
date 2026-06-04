@@ -4,6 +4,22 @@
 - Performs a rollup of metrics on 1 min, 10 min, 1 hour basis.
 - Supports ability to request Query plans and collect query plans
 - For Postgres query plans, uses pev2 to view query plan details
+- Can also forward ingested metrics to any OTLP/HTTP collector
+  (Grafana Alloy, OpenTelemetry Collector, Grafana Cloud, etc.)
+
+## Deployment modes
+
+| Mode | What it does | Postgres |
+|------|--------------|----------|
+| **Persist** (default) | Stores metrics + query plans in Postgres, runs rollups, serves UI. | required |
+| **Forward-only** | Pure smart-proxy — forwards each ingest via OTLP, optionally logs query plans. | not required |
+
+Set both `METRICS_STORE_ENABLED=false` and `PLANS_STORE_ENABLED=false` to
+enable forward-only mode. Either mode can additionally forward via
+`FORWARD_OTEL_ENABLED=true` + `FORWARD_OTEL_ENDPOINT=http://...`.
+
+See [`docs/deployment-modes.md`](docs/deployment-modes.md) for full
+configuration, env-var reference, Docker examples and expected startup logs.
 
 #### Future TODOs:
 - Support reporting aggregated metrics onto Graphite, StatsD, etc
