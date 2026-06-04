@@ -5,6 +5,7 @@ import io.avaje.inject.PostConstruct;
 import io.avaje.metrics.annotation.Timed;
 import io.ebean.DB;
 import jakarta.inject.Singleton;
+import org.ebean.monitor.Application;
 import org.ebean.monitor.cleanup.CleanupPartitions;
 import org.ebean.monitor.domain.DJob;
 import org.slf4j.Logger;
@@ -21,6 +22,10 @@ public class OnStart {
 
   @PostConstruct
   public void start() {
+    if (Application.isForwardOnly()) {
+      log.info("forward-only mode - skipping DB partition maintenance and data init");
+      return;
+    }
     periodicDbPartitionExtend();
     initData();
   }

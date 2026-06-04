@@ -4,6 +4,7 @@ import io.avaje.config.Config;
 import io.avaje.moduuid.ModUUID;
 import io.ebean.DB;
 import io.ebean.Database;
+import org.ebean.monitor.Application;
 import org.ebean.monitor.domain.DJob;
 import org.ebean.monitor.domain.query.QDRollupJob;
 import org.slf4j.Logger;
@@ -41,6 +42,10 @@ public class RollupService implements Runnable {
 
   @PostConstruct
   public void start() {
+    if (Application.isForwardOnly()) {
+      log.info("forward-only mode - rollup service disabled");
+      return;
+    }
     log.info("rollup job owner:{} freqSecs:{} expireSecs:{}", owner, freqSecs, expireSecs);
     DB.backgroundExecutor().scheduleWithFixedDelay(this, freqSecs, freqSecs, TimeUnit.SECONDS);
   }
