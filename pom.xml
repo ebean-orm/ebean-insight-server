@@ -11,8 +11,8 @@
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-    <maven.compiler.release>21</maven.compiler.release>
-    <ebean.version>17.6.0</ebean.version>
+    <maven.compiler.release>25</maven.compiler.release>
+    <ebean.version>17.7.0</ebean.version>
     <jstachio.version>1.3.7</jstachio.version>
     <avaje-inject.version>12.5</avaje-inject.version>
     <avaje-http.version>3.9</avaje-http.version>
@@ -317,7 +317,7 @@
             </executions>
             <configuration>
               <from>
-                <image>redhat/ubi10-micro:10.0</image>
+                <image>redhat/ubi10-micro:10.2-1779720719</image>
               </from>
               <to>
                 <image>docker.io/rbygrave/ebean-insight</image>
