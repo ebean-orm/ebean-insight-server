@@ -34,6 +34,19 @@ metrics:
     enabled: true
 
 ##
+## Auto plan capture: when an SQL/orm query metric exceeds its threshold,
+## the server pushes a "qp:<hash>" capture request via the existing back-channel.
+## Per-query overrides (DAppMetric.planThresholdMicros) take precedence over
+## the global default. Per-query overrides are unavailable in forward-only mode.
+##
+autoplan:
+  enabled: false                  # opt-in
+  defaultThresholdMicros: 100000  # 100ms global default mean threshold
+  cooldownMinutes: 180            # don't re-request the same hash within this window
+  maxTracked: 5000                # cooldown-cache size cap
+  thresholdsCacheTtlMillis: 300000 # 5 min — how often DB threshold overrides are refreshed
+
+##
 ## Postgres setup - To use local docker instance see src/test/main/StartPostgresDocker.main()
 ##
 ebean:

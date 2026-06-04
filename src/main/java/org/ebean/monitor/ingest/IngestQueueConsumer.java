@@ -6,6 +6,7 @@ import io.avaje.metrics.annotation.Timed;
 import io.ebean.DB;
 import org.ebean.monitor.api.MetricRequest;
 import org.ebean.monitor.api.QueryPlanRequest;
+import org.ebean.monitor.forward.AutoPlanTrigger;
 import org.ebean.monitor.forward.MetricForwarder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,12 +30,14 @@ public class IngestQueueConsumer {
 
   private final IngestMessage ingestMessage;
   private final MetricForwarder forwarder;
+  private final AutoPlanTrigger autoPlanTrigger;
   private final boolean storeMetrics;
 
-  IngestQueueConsumer(IngestQueue queue, IngestMessage ingestMessage, MetricForwarder forwarder) {
+  IngestQueueConsumer(IngestQueue queue, IngestMessage ingestMessage, MetricForwarder forwarder, AutoPlanTrigger autoPlanTrigger) {
     this.queue = queue;
     this.ingestMessage = ingestMessage;
     this.forwarder = forwarder;
+    this.autoPlanTrigger = autoPlanTrigger;
     this.storeMetrics = Config.getBool("metrics.store.enabled", true);
   }
 
@@ -66,6 +69,12 @@ public class IngestQueueConsumer {
     log.debug("ingesting request");
     // forward to OTLP (no-op if disabled, never throws)
     forwarder.forward(data);
+    // detect expensive queries and request plan capture (no-op if disabled)
+    try {
+      autoPlanTrigger.onIngest(data);
+    } catch (Exception e) {
+      log.warn("autoplan trigger failed", e);
+    }
     if (!storeMetrics) {
       return;
     }

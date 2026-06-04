@@ -3,9 +3,12 @@ package org.ebean.monitor.ingest;
 import io.avaje.config.Config;
 import io.avaje.jsonb.Jsonb;
 import org.ebean.monitor.api.MetricRequest;
+import org.ebean.monitor.forward.AutoPlanTrigger;
 import org.ebean.monitor.forward.ForwardConfig;
+import org.ebean.monitor.forward.GlobalPlanThresholds;
 import org.ebean.monitor.forward.MetricForwarder;
 import org.ebean.monitor.forward.OtlpMetricMapper;
+import org.ebean.monitor.web.MessageService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -32,6 +35,7 @@ class IngestQueueConsumerStoreFlagTest {
   void resetConfig() {
     Config.setProperty("metrics.store.enabled", "true");
     Config.setProperty("forward.otel.enabled", "false");
+    Config.setProperty("autoplan.enabled", "false");
   }
 
   private static MetricForwarder disabledForwarder() {
@@ -39,11 +43,16 @@ class IngestQueueConsumerStoreFlagTest {
     return new MetricForwarder(new ForwardConfig(), new OtlpMetricMapper(new ForwardConfig(), Jsonb.builder().build()));
   }
 
+  private static AutoPlanTrigger disabledTrigger() {
+    Config.setProperty("autoplan.enabled", "false");
+    return new AutoPlanTrigger(new MessageService(), new GlobalPlanThresholds(100_000));
+  }
+
   @Test
   void storeEnabledByDefault_callsIngest() throws Exception {
     Config.setProperty("metrics.store.enabled", "true");
     var msg = new CountingIngestMessage();
-    var consumer = new IngestQueueConsumer(new IngestQueue(), msg, disabledForwarder());
+    var consumer = new IngestQueueConsumer(new IngestQueue(), msg, disabledForwarder(), disabledTrigger());
 
     invokeIngestRequest(consumer, new MetricRequest());
     assertThat(msg.calls.get()).isEqualTo(1);
@@ -53,7 +62,7 @@ class IngestQueueConsumerStoreFlagTest {
   void storeDisabled_skipsIngest() throws Exception {
     Config.setProperty("metrics.store.enabled", "false");
     var msg = new CountingIngestMessage();
-    var consumer = new IngestQueueConsumer(new IngestQueue(), msg, disabledForwarder());
+    var consumer = new IngestQueueConsumer(new IngestQueue(), msg, disabledForwarder(), disabledTrigger());
 
     invokeIngestRequest(consumer, new MetricRequest());
     assertThat(msg.calls.get()).isZero();
