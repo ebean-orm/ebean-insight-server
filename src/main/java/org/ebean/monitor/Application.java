@@ -6,14 +6,6 @@ import io.avaje.jex.AvajeJex;
 public class Application {
 
   public static void main(String[] args) {
-    // Eagerly touch avaje-config from main() before AvajeJex.start() so that
-    // env-var bindings are bound at this point. Without this, in GraalVM
-    // native image, the first Config call from inside an avaje-inject bean
-    // factory (Configuration#database) returned yaml defaults instead of
-    // env-var overrides — causing forward-only mode to silently fail.
-    // (RC4 worked because configureForwardOnlyIfNeeded() did a Config call
-    // here; RC9 regressed when that method was removed.)
-    isForwardOnly();
     AvajeJex.start();
   }
 

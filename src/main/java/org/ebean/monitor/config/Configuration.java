@@ -48,11 +48,11 @@ class Configuration {
     boolean forwardOnly = Application.isForwardOnly();
     return Database.builder()
       .name("db")
+      .loadFromProperties()
       .queryPlanCapture(true)
       .runMigration(!forwardOnly)
       .offline(forwardOnly)
       .databasePlatformName(forwardOnly ? "postgres" : null)
-      .loadFromProperties()
       .build();
   }
 
