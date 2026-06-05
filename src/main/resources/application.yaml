@@ -66,12 +66,12 @@ autoplan:
 ## Postgres setup - To use local docker instance see src/test/main/StartPostgresDocker.main()
 ##
 ebean:
-  dbSchema: ${db.user:ebean_insight}
+  dbSchema: ${DB_USER:ebean_insight}
   migration.run: true
 
 datasource:
   db:
-    username: ${db.user:ebean_insight}
-    password: ${db.pass:ebean_insight}
-    url: jdbc:postgresql://${db.url:localhost:9432}/ebean_insight
+    username: ${DB_USER:ebean_insight}
+    password: ${DB_PASS:ebean_insight}
+    url: jdbc:postgresql://${DB_URL:localhost:9432}/ebean_insight
 
