@@ -12,55 +12,33 @@ class ApplicationTest {
   void reset() {
     Config.setProperty("metrics.store.enabled", "true");
     Config.setProperty("plans.store.enabled", "true");
-    Config.setProperty("datasource.db.offline", "false");
-    Config.setProperty("ebean.migration.run", "true");
   }
 
   @Test
-  void bothEnabled_leavesDbOnline() {
+  void bothEnabled_isForwardOnlyFalse() {
     Config.setProperty("metrics.store.enabled", "true");
     Config.setProperty("plans.store.enabled", "true");
-    Config.setProperty("datasource.db.offline", "false");
-    Config.setProperty("ebean.migration.run", "true");
-
-    Application.configureForwardOnlyIfNeeded();
-    assertThat(Config.getBool("datasource.db.offline")).isFalse();
-    assertThat(Config.getBool("ebean.migration.run")).isTrue();
+    assertThat(Application.isForwardOnly()).isFalse();
   }
 
   @Test
-  void metricsOff_plansOn_leavesDbOnline() {
+  void metricsOff_plansOn_isForwardOnlyFalse() {
     Config.setProperty("metrics.store.enabled", "false");
     Config.setProperty("plans.store.enabled", "true");
-    Config.setProperty("datasource.db.offline", "false");
-    Config.setProperty("ebean.migration.run", "true");
-
-    Application.configureForwardOnlyIfNeeded();
-    assertThat(Config.getBool("datasource.db.offline")).isFalse();
-    assertThat(Config.getBool("ebean.migration.run")).isTrue();
+    assertThat(Application.isForwardOnly()).isFalse();
   }
 
   @Test
-  void bothOff_disablesDbAndMigration() {
+  void bothOff_isForwardOnlyTrue() {
     Config.setProperty("metrics.store.enabled", "false");
     Config.setProperty("plans.store.enabled", "false");
-    Config.setProperty("datasource.db.offline", "false");
-    Config.setProperty("ebean.migration.run", "true");
-
-    Application.configureForwardOnlyIfNeeded();
-    assertThat(Config.getBool("datasource.db.offline")).isTrue();
-    assertThat(Config.getBool("ebean.migration.run")).isFalse();
+    assertThat(Application.isForwardOnly()).isTrue();
   }
 
   @Test
-  void plansDefaultsToMetricsFlag_bothOff_disablesDb() {
+  void plansDefaultsToMetricsFlag_metricsOff_isForwardOnlyTrue() {
     Config.setProperty("metrics.store.enabled", "false");
     Config.clearProperty("plans.store.enabled");
-    Config.setProperty("datasource.db.offline", "false");
-    Config.setProperty("ebean.migration.run", "true");
-
-    Application.configureForwardOnlyIfNeeded();
-    assertThat(Config.getBool("datasource.db.offline")).isTrue();
-    assertThat(Config.getBool("ebean.migration.run")).isFalse();
+    assertThat(Application.isForwardOnly()).isTrue();
   }
 }

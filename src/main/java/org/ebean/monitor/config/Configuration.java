@@ -9,6 +9,7 @@ import io.avaje.metrics.Metrics;
 import io.ebean.Database;
 import io.ebean.event.ShutdownManager;
 import io.ebean.insight.InsightClient;
+import org.ebean.monitor.Application;
 import jakarta.inject.Named;
 
 @Factory
@@ -44,9 +45,7 @@ class Configuration {
   @Bean(destroyMethod = "shutdown", destroyPriority=9000)
   Database database() {
     initJvmMetrics();
-    boolean storeMetrics = Config.getBool("metrics.store.enabled", true);
-    boolean storePlans = Config.getBool("plans.store.enabled", storeMetrics);
-    boolean forwardOnly = !storeMetrics && !storePlans;
+    boolean forwardOnly = Application.isForwardOnly();
     return Database.builder()
       .name("db")
       .queryPlanCapture(true)
