@@ -5,6 +5,15 @@ server.port: 8091
 app.name: ebean-insight
 load.properties: /app/config/insight-config.yaml
 
+##
+## Self-reporting: when true, the server runs an in-process InsightClient that
+## posts its own ebean + JVM metrics back to itself (visible in the UI; also
+## forwarded if the OTLP forwarder is on). Off by default — those batches are
+## tagged appName=ebean-insight with no business.* resource attributes, so
+## downstream filters (e.g. Grafana Alloy compliance) drop them.
+##
+insight.selfReport.enabled: false
+
 ebean.queryPlan.enable: true
 
 ##

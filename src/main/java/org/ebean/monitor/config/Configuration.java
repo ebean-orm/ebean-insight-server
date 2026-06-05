@@ -3,6 +3,7 @@ package org.ebean.monitor.config;
 import io.avaje.config.Config;
 import io.avaje.inject.Bean;
 import io.avaje.inject.Factory;
+import io.avaje.inject.RequiresProperty;
 import io.avaje.jex.staticcontent.StaticContent;
 import io.avaje.jsonb.Jsonb;
 import io.avaje.metrics.Metrics;
@@ -44,7 +45,12 @@ class Configuration {
    */
   @Bean(destroyMethod = "shutdown", destroyPriority=9000)
   Database database() {
-    initJvmMetrics();
+    if (Config.getBool("insight.selfReport.enabled", false)) {
+      initJvmMetrics();
+    }
+    // Let the bean-scope lifecycle drive ebean shutdown — avoids double
+    // shutdown via ebean's own JVM hook.
+    ShutdownManager.deregisterShutdownHook();
     boolean forwardOnly = Application.isForwardOnly();
     return Database.builder()
       .name("db")
@@ -57,7 +63,7 @@ class Configuration {
   }
 
   /**
-   * Initialise the JVM metrics that we want to monitor.
+   * Initialise JVM metrics — only relevant when self-reporting is enabled.
    */
   private void initJvmMetrics() {
     Metrics
@@ -66,9 +72,12 @@ class Configuration {
       .registerCGroupMetrics();
   }
 
+  /**
+   * Self-reporting client for this server's own metrics.
+   */
   @Bean
+  @RequiresProperty(value = "insight.selfReport.enabled", equalTo = "true")
   InsightClient withDatabase(Database database) {
-    ShutdownManager.deregisterShutdownHook();
     int port = Config.getInt("server.port", 9080);
     return InsightClient.builder()
       .url("http://localhost:" + port)
