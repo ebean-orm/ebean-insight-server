@@ -59,6 +59,17 @@ final class UIController {
     return new Page.AppMetric(app);
   }
 
+  /**
+   * Show all metric variants (different hashes) sharing a label.
+   * Useful when one query label has multiple SQL variants.
+   */
+  @Get("app/{appId}/label/{label}")
+  Page.Label label(int appId, String label) {
+    DApp app = service.findApp(appId);
+    List<DAppMetric> metrics = service.findMetricsByLabel(appId, label);
+    return new Page.Label(app, label, metrics);
+  }
+
   @HxRequest
   @Get("metrics/{appMetricId}/recent")
   Partial.MetricsRecent metricsRecent(int appMetricId) {

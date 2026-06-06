@@ -34,6 +34,18 @@ final class UIService {
       .findList();
   }
 
+  /**
+   * Return all AppMetric variants for the given app sharing the same label.
+   */
+  List<DAppMetric> findMetricsByLabel(int appId, String label) {
+    return new QDAppMetric()
+      .app.id.eq(appId)
+      .name.eq(label)
+      .orderBy()
+      .key.asc()
+      .findList();
+  }
+
   DAppMetric findAppMetric(int appMetricId) {
     return new QDAppMetric()
       .id.eq(appMetricId)

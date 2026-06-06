@@ -28,6 +28,22 @@ public class DAppMetricFinder extends Finder<Integer,DAppMetric> {
   }
 
   /**
+   * Return all metric variants (different hashes) for the given app sharing
+   * a label (the metric {@code name}). Useful when a query label maps to
+   * multiple distinct SQL variants.
+   */
+  public List<AppMetric> byAppLabel(DApp app, String label) {
+    final QDAppMetric m = QDAppMetric.alias();
+    return new QDAppMetric()
+      .select(m.id, m.name, m.loc, m.sql)
+      .app.eq(app)
+      .name.eq(label)
+      .name.desc()
+      .asDto(AppMetric.class)
+      .findList();
+  }
+
+  /**
    * Return the global metric by name.
    */
   public DAppMetric globalByName(String name) {

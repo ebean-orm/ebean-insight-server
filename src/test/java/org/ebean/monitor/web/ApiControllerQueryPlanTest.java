@@ -117,6 +117,18 @@ class ApiControllerQueryPlanTest {
     // per-metric count cap
     assertThat(apiControllerTestAPI.getQueryPlans(appMetricId, 1).body().getList())
       .hasSizeLessThanOrEqualTo(1);
+
+    // by-label endpoint: matches the seeded label
+    String metricLabel = target.getName();
+    HttpResponse<ListResponse<AppMetric>> byLabel = apiControllerTestAPI.getAppMetricsByLabel(appId, metricLabel);
+    assertThat(byLabel.statusCode()).isEqualTo(200);
+    assertThat(byLabel.body().getList())
+      .extracting(AppMetric::getName)
+      .containsOnly(metricLabel);
+
+    HttpResponse<ListResponse<AppMetric>> noMatch = apiControllerTestAPI.getAppMetricsByLabel(appId, "no-such-label");
+    assertThat(noMatch.statusCode()).isEqualTo(200);
+    assertThat(noMatch.body().getList()).isEmpty();
   }
 
   private void ingest(String metricsPayload) {

@@ -21,6 +21,9 @@ public class Page {
   @JStache(path = "app-metric")
   public record AppMetric(DAppMetric appMetric){}
 
+  @JStache(path = "label")
+  public record Label(DApp app, String label, List<DAppMetric> metrics){}
+
   @JStache(path = "view-plan")
   public record ViewPlan(String rawSql, String rawPlan){}
 

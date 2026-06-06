@@ -73,6 +73,23 @@ class ApiController {
   }
 
   /**
+   * Return all metric variants (different hashes) for the app sharing the
+   * given label. Use this when one query label has multiple SQL variants
+   * (each becomes a distinct AppMetric).
+   *
+   * @param appId the app id
+   * @param label the metric label, e.g. {@code orm.DMessage_findMessages}
+   */
+  @Get("app/{appId}/metric/by-label/{label}")
+  ListResponse<AppMetric> getAppMetricsByLabel(long appId, String label) {
+    if (label == null || label.isBlank()) {
+      throw new NotFoundException("Missing label path segment");
+    }
+    final DApp app = DApp.find.ref(appId);
+    return new ListResponse<>(DAppMetric.find.byAppLabel(app, label.trim()));
+  }
+
+  /**
    * Request capture of the query plan for an app metric.
    * <p>
    * Pushes a {@code qp:<hash>} message that the originating app picks up
