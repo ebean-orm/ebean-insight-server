@@ -274,15 +274,19 @@ public final class V1QueryService {
         final long total = rs.getLong("agg_total");
         final long max = rs.getLong("agg_max");
         final long mean = count == 0L ? 0L : Math.floorDiv(total, count);
-        return new AppMetricStats(
-          rs.getLong("metric_id"),
-          rs.getString("app_name"),
-          rs.getString("label"),
-          rs.getString("key"),
-          rs.getString("loc"),
-          rs.getBoolean("plan_capable"),
-          count, total, mean, max,
-          minutes);
+        return AppMetricStats.builder()
+          .id(rs.getLong("metric_id"))
+          .app(rs.getString("app_name"))
+          .label(rs.getString("label"))
+          .key(rs.getString("key"))
+          .loc(rs.getString("loc"))
+          .planCapable(rs.getBoolean("plan_capable"))
+          .count(count)
+          .totalMicros(total)
+          .meanMicros(mean)
+          .maxMicros(max)
+          .windowMinutes(minutes)
+          .build();
       })
       .findList();
   }
