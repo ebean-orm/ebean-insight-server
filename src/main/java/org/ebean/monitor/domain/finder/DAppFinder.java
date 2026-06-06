@@ -26,4 +26,13 @@ public class DAppFinder extends Finder<Long, DApp> {
       .asDto(App.class)
       .findList();
   }
+
+  /**
+   * Find an app by its name (the natural key — unique across the system).
+   */
+  public DApp byName(String appName) {
+    return new QDApp()
+      .name.eq(appName)
+      .findOne();
+  }
 }

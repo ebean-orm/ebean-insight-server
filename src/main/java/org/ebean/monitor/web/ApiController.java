@@ -132,7 +132,7 @@ class ApiController {
                                                      @QueryParam String hash, @QueryParam Integer sinceMinutes) {
     int max = (count == null) ? 10 : Math.max(1, Math.min(100, count));
     List<QueryPlanSummary> result = service.findRecentQueryPlans(max, app, environment, label, hash, sinceMinutes).stream()
-      .map(ApiController::toSummary)
+      .map(DtoMapper::toSummary)
       .toList();
     return new ListResponse<>(result);
   }
@@ -149,7 +149,7 @@ class ApiController {
     if (plan == null) {
       throw new NotFoundException("No query plan with id " + planId);
     }
-    return toDto(plan);
+    return DtoMapper.toDto(plan);
   }
 
   /**
@@ -162,7 +162,7 @@ class ApiController {
   ListResponse<QueryPlan> getQueryPlans(int appMetricId, @QueryParam Integer count) {
     int max = (count == null) ? 50 : Math.max(1, Math.min(200, count));
     List<QueryPlan> result = service.findQueryPlans(appMetricId, max).stream()
-      .map(ApiController::toDto)
+      .map(DtoMapper::toDto)
       .toList();
     return new ListResponse<>(result);
   }
@@ -218,33 +218,4 @@ class ApiController {
     return new ListResponse<>(data);
   }
 
-  private static QueryPlan toDto(DQueryPlan p) {
-    QueryPlan dto = new QueryPlan();
-    dto.id = p.getId();
-    dto.hash = p.hash();
-    dto.label = p.label();
-    dto.appMetricId = p.metric() == null ? 0L : p.metric().getId();
-    dto.envName = p.env().getName();
-    dto.queryTimeMicros = p.queryTimeMicros();
-    dto.captureCount = p.captureCount();
-    dto.captureMicros = p.captureMicros();
-    dto.whenCaptured = p.whenCaptured();
-    dto.sql = p.sql();
-    dto.bind = p.bind();
-    dto.plan = p.plan();
-    return dto;
-  }
-
-  private static QueryPlanSummary toSummary(DQueryPlan p) {
-    QueryPlanSummary dto = new QueryPlanSummary();
-    dto.id = p.getId();
-    dto.appMetricId = p.metric() == null ? 0L : p.metric().getId();
-    dto.envName = p.env().getName();
-    dto.hash = p.hash();
-    dto.label = p.label();
-    dto.queryTimeMicros = p.queryTimeMicros();
-    dto.captureCount = p.captureCount();
-    dto.whenCaptured = p.whenCaptured();
-    return dto;
-  }
 }
