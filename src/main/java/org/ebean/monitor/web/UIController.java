@@ -2,6 +2,7 @@ package org.ebean.monitor.web;
 
 import io.avaje.htmx.api.HxRequest;
 import io.avaje.http.api.*;
+import io.avaje.jex.http.NotFoundException;
 import org.ebean.monitor.domain.*;
 import org.ebean.monitor.web.view.Page;
 import org.ebean.monitor.web.view.Partial;
@@ -89,6 +90,9 @@ final class UIController {
   @Get("view-plan/{planId}")
   Page.ViewPlan viewPlan(int planId) {
     DQueryPlan queryPlan = service.findQueryPlan(planId);
+    if (queryPlan == null) {
+      throw new NotFoundException("No query plan with id " + planId);
+    }
     String rawSql = queryPlan.sql();
     String rawPlan = queryPlan.plan();
     if (rawPlan.startsWith("QUERY PLAN")) {

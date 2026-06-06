@@ -113,6 +113,21 @@ class ApiController {
   }
 
   /**
+   * Return a single captured query plan by its plan id, including SQL, bind
+   * values and the raw plan text.
+   *
+   * @param planId the query plan id (e.g. from {@code /api/queryplan/recent})
+   */
+  @Get("queryplan/plan/{planId}")
+  QueryPlan getQueryPlan(int planId) {
+    DQueryPlan plan = service.findQueryPlan(planId);
+    if (plan == null) {
+      throw new NotFoundException("No query plan with id " + planId);
+    }
+    return toDto(plan);
+  }
+
+  /**
    * Return all captured query plans for an app metric, most recent first.
    */
   @Get("queryplan/{appMetricId}")

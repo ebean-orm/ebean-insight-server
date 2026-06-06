@@ -60,6 +60,20 @@ class ApiControllerQueryPlanTest {
     assertThat(p.plan).isNotBlank();
     assertThat(p.whenCaptured).isNotNull();
 
+    HttpResponse<QueryPlan> oneRes = apiControllerTestAPI.getQueryPlan((int) p.id);
+    assertThat(oneRes.statusCode()).isEqualTo(200);
+    QueryPlan one = oneRes.body();
+    assertThat(one.id).isEqualTo(p.id);
+    assertThat(one.hash).isEqualTo("8a519a4c120289bd505a4a79c27f2895");
+    assertThat(one.sql).isNotBlank();
+    assertThat(one.plan).isNotBlank();
+
+    HttpResponse<String> missingRes = httpClient.request()
+      .path("api/queryplan/plan/999999")
+      .GET()
+      .asString();
+    assertThat(missingRes.statusCode()).isEqualTo(404);
+
     HttpResponse<ListResponse<QueryPlanSummary>> recentRes = apiControllerTestAPI.getRecentQueryPlans(null);
     assertThat(recentRes.statusCode()).isEqualTo(200);
     assertThat(recentRes.body().getList())
