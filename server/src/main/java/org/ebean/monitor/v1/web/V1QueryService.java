@@ -25,6 +25,8 @@ import org.ebean.monitor.v1.model.QueryPlanSummary;
 import org.ebean.monitor.web.MessageService;
 import org.jspecify.annotations.Nullable;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
@@ -93,13 +95,18 @@ public final class V1QueryService {
       """;
     return DB.sqlQuery(sql)
       .setParameter("appId", app.getId())
-      .mapTo((rs, i) -> new AppSummary(
-        (long) app.getId(),
-        app.getName(),
-        toInstant(rs.getTimestamp("last_report_at")),
-        rs.getLong("metric_count"),
-        rs.getLong("plan_count")))
+      .mapTo((rs, i) -> toAppSummary(rs, app))
       .findOne();
+  }
+
+  private static AppSummary toAppSummary(ResultSet rs, DApp app) throws SQLException {
+    return AppSummary.builder()
+      .id((long) app.getId())
+      .name(app.getName())
+      .lastReportAt(toInstant(rs.getTimestamp("last_report_at")))
+      .metricCount(rs.getLong("metric_count"))
+      .planCount(rs.getLong("plan_count"))
+      .build();
   }
 
   // ---------------------------------------------------------------------------
@@ -182,23 +189,29 @@ public final class V1QueryService {
         """)
       .setParameter("metricId", metric.getId())
       .setParameter("from", window.from())
-      .mapTo((rs, i) -> {
-        final long count = rs.getLong("count");
-        final long total = rs.getLong("total");
-        final long max = rs.getLong("max");
-        final long mean = count == 0L ? 0L : Math.floorDiv(total, count);
-        return new AppMetricStats(
-          (long) metric.getId(),
-          app.getName(),
-          metric.getName(),
-          metric.getKey(),
-          metric.getLoc(),
-          metric.isPlanCapable(),
-          count, total, mean, max,
-          minutes);
-      })
+      .mapTo((rs, i) -> toAppMetricStats(rs, app, metric, minutes))
       .findOne();
     return List.of(stats);
+  }
+
+  private static AppMetricStats toAppMetricStats(ResultSet rs, DApp app, DAppMetric metric, long minutes) throws SQLException {
+    final long count = rs.getLong("count");
+    final long total = rs.getLong("total");
+    final long max = rs.getLong("max");
+    final long mean = count == 0L ? 0L : Math.floorDiv(total, count);
+    return AppMetricStats.builder()
+      .id((long) metric.getId())
+      .app(app.getName())
+      .label(metric.getName())
+      .key(metric.getKey())
+      .loc(metric.getLoc())
+      .planCapable(metric.isPlanCapable())
+      .count(count)
+      .totalMicros(total)
+      .meanMicros(mean)
+      .maxMicros(max)
+      .windowMinutes(minutes)
+      .build();
   }
 
   public List<AppMetricStats> topAppMetrics(String appName, @Nullable String orderBy,
@@ -318,16 +331,21 @@ public final class V1QueryService {
       query.setParameter("threshold", window.from());
     }
     return query
-      .mapTo((rs, i) -> new MissingPlanMetric(
-        rs.getLong("metric_id"),
-        app.getName(),
-        rs.getString("label"),
-        rs.getString("key"),
-        rs.getString("loc"),
-        toInstant(rs.getTimestamp("last_captured")),
-        rs.getLong("capture_count"),
-        rs.getString("sql")))
+      .mapTo((rs, i) -> toMissingPlanMetric(rs, app))
       .findList();
+  }
+
+  private static MissingPlanMetric toMissingPlanMetric(ResultSet rs, DApp app) throws SQLException {
+    return MissingPlanMetric.builder()
+      .id(rs.getLong("metric_id"))
+      .app(app.getName())
+      .label(rs.getString("label"))
+      .key(rs.getString("key"))
+      .loc(rs.getString("loc"))
+      .lastCapturedAt(toInstant(rs.getTimestamp("last_captured")))
+      .captureCount(rs.getLong("capture_count"))
+      .sql(rs.getString("sql"))
+      .build();
   }
 
   // ---------------------------------------------------------------------------
@@ -524,34 +542,42 @@ public final class V1QueryService {
   }
 
   static AppMetric toAppMetric(DAppMetric m) {
-    return new AppMetric((long) m.getId(), m.getName(), m.getKey(), m.getLoc(), m.getSql());
+    return AppMetric.builder()
+      .id((long) m.getId())
+      .name(m.getName())
+      .key(m.getKey())
+      .loc(m.getLoc())
+      .sql(m.getSql())
+      .build();
   }
 
   static QueryPlanSummary toQueryPlanSummary(DQueryPlan p) {
-    return new QueryPlanSummary(
-      (long) p.getId(),
-      p.metric() == null ? 0L : (long) p.metric().getId(),
-      p.env().getName(),
-      p.hash(),
-      p.label(),
-      p.queryTimeMicros(),
-      p.captureCount(),
-      p.whenCaptured());
+    return QueryPlanSummary.builder()
+      .id((long) p.getId())
+      .appMetricId(p.metric() == null ? 0L : (long) p.metric().getId())
+      .envName(p.env().getName())
+      .hash(p.hash())
+      .label(p.label())
+      .queryTimeMicros(p.queryTimeMicros())
+      .captureCount(p.captureCount())
+      .whenCaptured(p.whenCaptured())
+      .build();
   }
 
   static QueryPlan toQueryPlan(DQueryPlan p) {
-    return new QueryPlan(
-      (long) p.getId(),
-      p.hash(),
-      p.label(),
-      p.metric() == null ? 0L : (long) p.metric().getId(),
-      p.env().getName(),
-      p.queryTimeMicros(),
-      p.captureCount(),
-      p.captureMicros(),
-      p.whenCaptured(),
-      p.sql(),
-      p.bind(),
-      p.plan());
+    return QueryPlan.builder()
+      .id((long) p.getId())
+      .hash(p.hash())
+      .label(p.label())
+      .appMetricId(p.metric() == null ? 0L : (long) p.metric().getId())
+      .envName(p.env().getName())
+      .queryTimeMicros(p.queryTimeMicros())
+      .captureCount(p.captureCount())
+      .captureMicros(p.captureMicros())
+      .whenCaptured(p.whenCaptured())
+      .sql(p.sql())
+      .bind(p.bind())
+      .plan(p.plan())
+      .build();
   }
 }
