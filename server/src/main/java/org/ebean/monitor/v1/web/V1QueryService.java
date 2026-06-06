@@ -5,7 +5,6 @@ import io.avaje.jex.http.BadRequestException;
 import io.avaje.jex.http.NotFoundException;
 import io.ebean.DB;
 import io.ebean.SqlQuery;
-import io.ebean.SqlRow;
 import org.ebean.monitor.domain.DApp;
 import org.ebean.monitor.domain.DAppMetric;
 import org.ebean.monitor.domain.DEnv;
@@ -28,11 +27,8 @@ import org.jspecify.annotations.Nullable;
 
 import java.sql.Timestamp;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -83,10 +79,8 @@ public final class V1QueryService {
       """;
     return DB.sqlQuery(sql)
       .setParameter("from", window.from())
-      .findList()
-      .stream()
-      .map(row -> new App(row.getLong("id"), row.getString("name")))
-      .toList();
+      .mapTo((rs, i) -> new App(rs.getLong("id"), rs.getString("name")))
+      .findList();
   }
 
   public AppSummary getApp(String appName) {
@@ -97,13 +91,15 @@ public final class V1QueryService {
         (select count(*) from ebean_insight.query_plan p where p.app_id = :appId) as plan_count,
         (select max(t.event_time) from ebean_insight.timed_m1 t where t.app_id = :appId) as last_report_at
       """;
-    final SqlRow row = DB.sqlQuery(sql)
+    return DB.sqlQuery(sql)
       .setParameter("appId", app.getId())
+      .mapTo((rs, i) -> new AppSummary(
+        (long) app.getId(),
+        app.getName(),
+        toInstant(rs.getTimestamp("last_report_at")),
+        rs.getLong("metric_count"),
+        rs.getLong("plan_count")))
       .findOne();
-    final long metricCount = row == null ? 0L : row.getLong("metric_count");
-    final long planCount = row == null ? 0L : row.getLong("plan_count");
-    final Instant lastReportAt = row == null ? null : toInstant(row.getTimestamp("last_report_at"));
-    return new AppSummary((long) app.getId(), app.getName(), lastReportAt, metricCount, planCount);
   }
 
   // ---------------------------------------------------------------------------
@@ -174,7 +170,8 @@ public final class V1QueryService {
     if (metric == null) {
       return List.of();
     }
-    final SqlRow row = DB.sqlQuery("""
+    final long minutes = window.minutes();
+    final AppMetricStats stats = DB.sqlQuery("""
         select
           coalesce(sum(t.count), 0) as count,
           coalesce(sum(t.total), 0) as total,
@@ -185,20 +182,23 @@ public final class V1QueryService {
         """)
       .setParameter("metricId", metric.getId())
       .setParameter("from", window.from())
+      .mapTo((rs, i) -> {
+        final long count = rs.getLong("count");
+        final long total = rs.getLong("total");
+        final long max = rs.getLong("max");
+        final long mean = count == 0L ? 0L : Math.floorDiv(total, count);
+        return new AppMetricStats(
+          (long) metric.getId(),
+          app.getName(),
+          metric.getName(),
+          metric.getKey(),
+          metric.getLoc(),
+          metric.isPlanCapable(),
+          count, total, mean, max,
+          minutes);
+      })
       .findOne();
-    final long count = row == null ? 0L : row.getLong("count");
-    final long total = row == null ? 0L : row.getLong("total");
-    final long max = row == null ? 0L : row.getLong("max");
-    final long mean = count == 0L ? 0L : Math.floorDiv(total, count);
-    return List.of(new AppMetricStats(
-      (long) metric.getId(),
-      app.getName(),
-      metric.getName(),
-      metric.getKey(),
-      metric.getLoc(),
-      metric.isPlanCapable(),
-      count, total, mean, max,
-      window.minutes()));
+    return List.of(stats);
   }
 
   public List<AppMetricStats> topAppMetrics(String appName, @Nullable String orderBy,
@@ -246,32 +246,32 @@ public final class V1QueryService {
       limit :limit
       """).formatted(orderByExpression(sortKey));
 
-    final SqlQuery q = DB.sqlQuery(sql)
+    final long minutes = window.minutes();
+    final SqlQuery sqlQuery = DB.sqlQuery(sql)
       .setParameter("from", window.from())
       .setParameter("limit", limit);
     if (app != null) {
-      q.setParameter("appId", app.getId());
+      sqlQuery.setParameter("appId", app.getId());
     }
     if (planCapable != null) {
-      q.setParameter("planCapable", planCapable);
+      sqlQuery.setParameter("planCapable", planCapable);
     }
-    return q.findList().stream()
-      .map(row -> {
-        final long count = row.getLong("agg_count");
-        final long total = row.getLong("agg_total");
-        final long max = row.getLong("agg_max");
+    return sqlQuery.mapTo((rs, i) -> {
+        final long count = rs.getLong("agg_count");
+        final long total = rs.getLong("agg_total");
+        final long max = rs.getLong("agg_max");
         final long mean = count == 0L ? 0L : Math.floorDiv(total, count);
         return new AppMetricStats(
-          row.getLong("metric_id"),
-          row.getString("app_name"),
-          row.getString("label"),
-          row.getString("key"),
-          row.getString("loc"),
-          row.getBoolean("plan_capable"),
+          rs.getLong("metric_id"),
+          rs.getString("app_name"),
+          rs.getString("label"),
+          rs.getString("key"),
+          rs.getString("loc"),
+          rs.getBoolean("plan_capable"),
           count, total, mean, max,
-          window.minutes());
+          minutes);
       })
-      .toList();
+      .findList();
   }
 
   public List<MissingPlanMetric> listMissingPlans(String appName,
@@ -311,25 +311,23 @@ public final class V1QueryService {
       order by coalesce(agg.last_captured, timestamp '1970-01-01') asc, m.name asc
       limit :limit
       """.formatted(hasWindow ? "or agg.last_captured < :threshold" : "");
-    var query = DB.sqlQuery(sql)
+    final SqlQuery query = DB.sqlQuery(sql)
       .setParameter("appId", app.getId())
       .setParameter("limit", max);
     if (hasWindow) {
       query.setParameter("threshold", window.from());
     }
     return query
-      .findList()
-      .stream()
-      .map(row -> new MissingPlanMetric(
-        row.getLong("metric_id"),
+      .mapTo((rs, i) -> new MissingPlanMetric(
+        rs.getLong("metric_id"),
         app.getName(),
-        row.getString("label"),
-        row.getString("key"),
-        row.getString("loc"),
-        toInstant(row.getTimestamp("last_captured")),
-        row.getLong("capture_count"),
-        row.getString("sql")))
-      .toList();
+        rs.getString("label"),
+        rs.getString("key"),
+        rs.getString("loc"),
+        toInstant(rs.getTimestamp("last_captured")),
+        rs.getLong("capture_count"),
+        rs.getString("sql")))
+      .findList();
   }
 
   // ---------------------------------------------------------------------------
