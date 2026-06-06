@@ -1,0 +1,53 @@
+package org.ebean.monitor.v1.web;
+
+import io.avaje.http.api.Controller;
+import java.util.List;
+import org.ebean.monitor.v1.MetricsApi;
+import org.ebean.monitor.v1.model.AppMetric;
+import org.ebean.monitor.v1.model.AppMetricStats;
+import org.ebean.monitor.v1.model.MissingPlanMetric;
+
+@Controller
+public final class V1MetricsController implements MetricsApi {
+
+  private final V1QueryService service;
+
+  public V1MetricsController(V1QueryService service) {
+    this.service = service;
+  }
+
+  @Override
+  public List<AppMetric> listAppMetrics(String app, String label, Boolean planCapable, Integer limit) {
+    return service.listAppMetrics(app, label, planCapable, limit);
+  }
+
+  @Override
+  public List<AppMetric> listMetricsByLabel(String app, String label) {
+    return service.listMetricsByLabel(app, label);
+  }
+
+  @Override
+  public List<AppMetric> getMetricByHash(String app, String hash) {
+    return service.getMetricByHash(app, hash);
+  }
+
+  @Override
+  public List<AppMetricStats> getMetricStatsByHash(String app, String hash, Long sinceMinutes, Long sinceHours) {
+    return service.getMetricStatsByHash(app, hash, sinceMinutes, sinceHours);
+  }
+
+  @Override
+  public List<AppMetricStats> topAppMetrics(String app, String orderBy, Long sinceMinutes, Long sinceHours, Integer limit, Boolean planCapable) {
+    return service.topAppMetrics(app, orderBy, sinceMinutes, sinceHours, limit, planCapable);
+  }
+
+  @Override
+  public List<MissingPlanMetric> listMissingPlans(String app, Long olderThanMinutes, Long olderThanHours, Integer limit) {
+    return service.listMissingPlans(app, olderThanMinutes, olderThanHours, limit);
+  }
+
+  @Override
+  public List<AppMetricStats> topMetrics(String orderBy, Long sinceMinutes, Long sinceHours, Integer limit, Boolean planCapable) {
+    return service.topMetrics(orderBy, sinceMinutes, sinceHours, limit, planCapable);
+  }
+}

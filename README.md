@@ -6,6 +6,85 @@
 - For Postgres query plans, uses pev2 to view query plan details
 - Can also forward ingested metrics to any OTLP/HTTP collector
   (Grafana Alloy, OpenTelemetry Collector, Grafana Cloud, etc.)
+- Exposes a versioned, agent-friendly REST API at `/v1` (contract-first via
+  OpenAPI; see [`api/src/main/openapi/v1.yaml`](api/src/main/openapi/v1.yaml)).
+
+## Modules
+
+| Module | Purpose |
+|--------|---------|
+| `api`  | OpenAPI spec (`v1.yaml`) and generated `/v1` API interfaces + DTOs (record types). |
+| `server` | The running service: ingest endpoints, rollups, UI, and `/v1` controllers. |
+
+## /v1 API (agent / CLI / tooling)
+
+The `/v1` API uses **natural keys** in the path (app name, env name) instead
+of internal numeric ids — making it suitable for CLIs, agents, and ad-hoc
+tooling. The OpenAPI spec is the source of truth:
+
+- Spec: [`api/src/main/openapi/v1.yaml`](api/src/main/openapi/v1.yaml)
+
+All endpoints expect the `Insight-Key` header (same auth as `/api`).
+Time windows accept either `sinceMinutes` or `sinceHours` (not both → 400).
+
+### Example recipes
+
+Discover apps + envs:
+```shell
+curl -H "Insight-Key: $KEY" http://localhost:8090/v1/apps
+curl -H "Insight-Key: $KEY" http://localhost:8090/v1/envs
+curl -H "Insight-Key: $KEY" http://localhost:8090/v1/apps/myapp
+```
+
+Top-N most expensive metrics for an app (last hour):
+```shell
+curl -H "Insight-Key: $KEY" \
+  "http://localhost:8090/v1/apps/myapp/metrics/top?orderBy=total&sinceMinutes=60&limit=20"
+```
+
+Top-N across all apps (last 24h, plan-capable only):
+```shell
+curl -H "Insight-Key: $KEY" \
+  "http://localhost:8090/v1/metrics/top?sinceHours=24&planCapable=true&limit=50"
+```
+
+Find ORM metrics that have never had a plan captured:
+```shell
+curl -H "Insight-Key: $KEY" \
+  "http://localhost:8090/v1/apps/myapp/metrics/missing-plans?limit=50"
+```
+
+Trace → plan: take a hash from a span attribute (`ebean.query_hash`) and
+look up the matching metric and any captured plans, optionally requesting
+a fresh capture:
+```shell
+HASH=8a519a4c120289bd505a4a79c27f2895
+curl -H "Insight-Key: $KEY" \
+  "http://localhost:8090/v1/apps/myapp/metrics/by-hash/$HASH"
+curl -H "Insight-Key: $KEY" \
+  "http://localhost:8090/v1/apps/myapp/plans/by-hash/$HASH"
+curl -X POST -H "Insight-Key: $KEY" \
+  "http://localhost:8090/v1/apps/myapp/plans/by-hash/$HASH/request?env=prod"
+```
+
+Fetch a specific plan (full SQL + plan + bind values) by id:
+```shell
+curl -H "Insight-Key: $KEY" http://localhost:8090/v1/plans/12345
+```
+
+### Conventions
+
+- **Natural keys** — `{app}` and `?env=` are names, not ids. Unknown
+  natural keys return `200` with an empty list (not `404`) — except
+  `GET /v1/apps/{app}` and `POST .../plans/by-hash/{hash}/request` which
+  return `404` when the app doesn't exist.
+- **planCapable** — derived as `name LIKE 'orm.%'` and stored on
+  `app_metric.plan_capable`. Only plan-capable metrics support
+  `POST .../plans/by-hash/{hash}/request`; non-orm metrics return `400`.
+- **orderBy** — allowlist on `/metrics/top`: `total` (default), `mean`,
+  `max`, `count`. Anything else → `400`.
+- **Hash vs label** — `hash` is the metric `key` (deterministic SQL hash;
+  ORM-only), `label` is the human metric name (e.g. `orm.OrderDao.find`).
 
 ## Deployment modes
 
