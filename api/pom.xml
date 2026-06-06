@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.ebean.insight</groupId>
+    <artifactId>ebean-insight-parent</artifactId>
+    <version>1.1-RC15</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>ebean-insight-api</artifactId>
+  <packaging>jar</packaging>
+
+  <name>ebean-insight-api</name>
+  <description>
+    Contract module. Holds the OpenAPI 3 specification for the /v1 API
+    (src/main/openapi/v1.yaml) and generates the Avaje HTTP API interface
+    plus DTO records using avaje-openapi-maven-plugin.
+  </description>
+
+  <dependencies>
+
+    <dependency>
+      <groupId>io.avaje</groupId>
+      <artifactId>avaje-http-api</artifactId>
+      <version>${avaje-http.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.avaje</groupId>
+      <artifactId>avaje-jsonb</artifactId>
+      <version>${avaje-jsonb.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.avaje</groupId>
+      <artifactId>avaje-validator-constraints</artifactId>
+      <version>${avaje-validator.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.avaje</groupId>
+      <artifactId>avaje-record-builder</artifactId>
+      <version>${avaje-record-builder.version}</version>
+      <scope>provided</scope>
+    </dependency>
+
+  </dependencies>
+
+  <build>
+    <plugins>
+
+      <plugin> <!-- generate Avaje HTTP API interface + DTO records from src/main/openapi/v1.yaml -->
+        <groupId>io.avaje</groupId>
+        <artifactId>avaje-openapi-maven-plugin</artifactId>
+        <version>${avaje-openapi.version}</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>generate</goal>
+            </goals>
+            <configuration>
+              <inputSpec>${project.basedir}/src/main/openapi/v1.yaml</inputSpec>
+              <apiPackage>org.ebean.monitor.v1</apiPackage>
+              <modelPackage>org.ebean.monitor.v1.model</modelPackage>
+              <validationStyle>AVAJE</validationStyle>
+              <generateRecordBuilders>true</generateRecordBuilders>
+              <generateClientAnnotations>false</generateClientAnnotations>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.15.0</version>
+        <configuration>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>io.avaje</groupId>
+              <artifactId>avaje-jsonb-generator</artifactId>
+              <version>${avaje-jsonb.version}</version>
+            </path>
+            <path>
+              <groupId>io.avaje</groupId>
+              <artifactId>avaje-record-builder</artifactId>
+              <version>${avaje-record-builder.version}</version>
+            </path>
+          </annotationProcessorPaths>
+        </configuration>
+      </plugin>
+
+    </plugins>
+  </build>
+
+</project>

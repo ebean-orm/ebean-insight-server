@@ -1,0 +1,722 @@
+openapi: 3.0.3
+info:
+  title: ebean-insight v1 API
+  version: 1.0.0
+  description: |
+    Versioned, agent/CLI-friendly API for ebean-insight-server.
+
+    Design rules:
+    - Natural keys in URLs (apps + envs are referenced by name; metrics by
+      `label` or `hash`). The only internal id appearing in a URL is `planId`.
+    - Mandatory parameters are path parameters; optional parameters are
+      query parameters.
+    - Resource-oriented; aggregations are sub-resources (e.g.
+      `/metrics/top`, `/metrics/missing-plans`).
+    - `by-hash` / `by-label` discriminator segments avoid future collisions.
+    - Unknown natural keys (app, label, hash) return an empty list (200);
+      404 is reserved for the canonical `/v1/plans/{planId}` lookup.
+    - Query-parameter names match OpenTelemetry span attribute names where
+      relevant: `app` ↔ `service.name`, `label` ↔ `ebean.query_label`,
+      `hash` ↔ `ebean.query_hash`.
+
+    Time-window parameters:
+    - `sinceMinutes` and `sinceHours` are mutually exclusive; supplying both
+      yields HTTP 400. Same applies to `olderThanMinutes`/`olderThanHours`
+      and `activeWithinMinutes`/`activeWithinHours`. (OpenAPI 3.0 cannot
+      express this; enforced in the controller.)
+    - Defaults: top-N + stats default to 60 minutes when neither supplied;
+      `missing-plans` defaults to 0 (any plan-capable metric not currently
+      captured); listings have no default time filter; `active` apps
+      default to 60 minutes.
+    - `limit`: default 50, hard cap 200.
+
+    Plan-capable metrics:
+    - "Plan capable" = an ORM SELECT-style metric whose name starts with
+      `orm.`. Raw SQL and update/delete metrics cannot have query plans
+      captured.
+
+servers:
+  - url: /
+    description: ebean-insight-server
+
+tags:
+  - name: apps
+  - name: envs
+  - name: metrics
+  - name: plans
+
+paths:
+  /v1/apps:
+    get:
+      tags: [apps]
+      operationId: listApps
+      summary: List applications
+      parameters:
+        - $ref: '#/components/parameters/ActiveWithinMinutes'
+        - $ref: '#/components/parameters/ActiveWithinHours'
+      responses:
+        '200':
+          description: Applications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/App'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /v1/apps/{app}:
+    get:
+      tags: [apps]
+      operationId: getApp
+      summary: Application summary
+      parameters:
+        - $ref: '#/components/parameters/AppPath'
+      responses:
+        '200':
+          description: Application summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppSummary'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/apps/{app}/metrics:
+    get:
+      tags: [metrics]
+      operationId: listAppMetrics
+      summary: List metrics for an application
+      parameters:
+        - $ref: '#/components/parameters/AppPath'
+        - name: label
+          in: query
+          schema:
+            type: string
+          description: Optional label filter (exact match).
+        - name: planCapable
+          in: query
+          schema:
+            type: boolean
+          description: When set, only return metrics with the matching plan-capable flag.
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Metrics
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AppMetric'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /v1/apps/{app}/metrics/by-label/{label}:
+    get:
+      tags: [metrics]
+      operationId: listMetricsByLabel
+      summary: Metric variants under a label
+      description: |
+        Returns the distinct hash variants for a single query label. A label
+        can resolve to multiple metrics if the underlying SQL has more than
+        one shape.
+      parameters:
+        - $ref: '#/components/parameters/AppPath'
+        - $ref: '#/components/parameters/LabelPath'
+      responses:
+        '200':
+          description: Metrics for the label
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AppMetric'
+
+  /v1/apps/{app}/metrics/by-hash/{hash}:
+    get:
+      tags: [metrics]
+      operationId: getMetricByHash
+      summary: Single metric by hash
+      parameters:
+        - $ref: '#/components/parameters/AppPath'
+        - $ref: '#/components/parameters/HashPath'
+      responses:
+        '200':
+          description: Metric (empty list when no match — clients should treat 0/1 result identically)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AppMetric'
+
+  /v1/apps/{app}/metrics/by-hash/{hash}/stats:
+    get:
+      tags: [metrics]
+      operationId: getMetricStatsByHash
+      summary: Aggregated stats for a metric
+      description: Aggregated count + total/mean/max execution time over the requested window.
+      parameters:
+        - $ref: '#/components/parameters/AppPath'
+        - $ref: '#/components/parameters/HashPath'
+        - $ref: '#/components/parameters/SinceMinutes'
+        - $ref: '#/components/parameters/SinceHours'
+      responses:
+        '200':
+          description: Stats (empty list when no match)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AppMetricStats'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /v1/apps/{app}/metrics/top:
+    get:
+      tags: [metrics]
+      operationId: topAppMetrics
+      summary: Top-N expensive metrics for an application
+      parameters:
+        - $ref: '#/components/parameters/AppPath'
+        - $ref: '#/components/parameters/OrderBy'
+        - $ref: '#/components/parameters/SinceMinutes'
+        - $ref: '#/components/parameters/SinceHours'
+        - $ref: '#/components/parameters/Limit'
+        - name: planCapable
+          in: query
+          schema:
+            type: boolean
+          description: Optional filter; when true, restrict to ORM (plan-capable) metrics.
+      responses:
+        '200':
+          description: Top-N stats
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AppMetricStats'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /v1/apps/{app}/metrics/missing-plans:
+    get:
+      tags: [metrics]
+      operationId: listMissingPlans
+      summary: Plan-capable metrics with no recent plan capture
+      description: |
+        Returns plan-capable metrics whose most recent capture is older than
+        the supplied window. Metrics that have never been captured are
+        always included regardless of the window.
+      parameters:
+        - $ref: '#/components/parameters/AppPath'
+        - $ref: '#/components/parameters/OlderThanMinutes'
+        - $ref: '#/components/parameters/OlderThanHours'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Missing plans
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MissingPlanMetric'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /v1/apps/{app}/plans:
+    get:
+      tags: [plans]
+      operationId: listAppPlans
+      summary: Recent captured plans for an application
+      parameters:
+        - $ref: '#/components/parameters/AppPath'
+        - $ref: '#/components/parameters/EnvQuery'
+        - name: label
+          in: query
+          schema:
+            type: string
+        - name: hash
+          in: query
+          schema:
+            type: string
+        - $ref: '#/components/parameters/SinceMinutes'
+        - $ref: '#/components/parameters/SinceHours'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Plan summaries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/QueryPlanSummary'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /v1/apps/{app}/plans/by-hash/{hash}:
+    get:
+      tags: [plans]
+      operationId: listPlansByHash
+      summary: Plans captured for a metric hash
+      parameters:
+        - $ref: '#/components/parameters/AppPath'
+        - $ref: '#/components/parameters/HashPath'
+        - $ref: '#/components/parameters/EnvQuery'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Plan summaries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/QueryPlanSummary'
+
+  /v1/apps/{app}/plans/by-label/{label}:
+    get:
+      tags: [plans]
+      operationId: listPlansByLabel
+      summary: Plans captured under a label (across hash variants)
+      parameters:
+        - $ref: '#/components/parameters/AppPath'
+        - $ref: '#/components/parameters/LabelPath'
+        - $ref: '#/components/parameters/EnvQuery'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Plan summaries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/QueryPlanSummary'
+
+  /v1/apps/{app}/plans/by-hash/{hash}/request:
+    post:
+      tags: [plans]
+      operationId: requestPlanCapture
+      summary: Request a fresh plan capture for a hash
+      description: |
+        Enqueues a plan-capture request for the next ingest from the
+        target app + environment. Non-orm metrics will be rejected with 400.
+      parameters:
+        - $ref: '#/components/parameters/AppPath'
+        - $ref: '#/components/parameters/HashPath'
+        - $ref: '#/components/parameters/EnvQuery'
+      responses:
+        '201':
+          description: Capture request enqueued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PendingResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/plans/{planId}:
+    get:
+      tags: [plans]
+      operationId: getPlan
+      summary: Single captured plan (full SQL/bind/plan text)
+      parameters:
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Plan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueryPlan'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/plans:
+    get:
+      tags: [plans]
+      operationId: listPlans
+      summary: Recent captured plans (cross-app)
+      parameters:
+        - name: app
+          in: query
+          schema:
+            type: string
+        - $ref: '#/components/parameters/EnvQuery'
+        - name: label
+          in: query
+          schema:
+            type: string
+        - name: hash
+          in: query
+          schema:
+            type: string
+        - $ref: '#/components/parameters/SinceMinutes'
+        - $ref: '#/components/parameters/SinceHours'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Plan summaries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/QueryPlanSummary'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /v1/metrics/top:
+    get:
+      tags: [metrics]
+      operationId: topMetrics
+      summary: Top-N expensive metrics across all applications
+      parameters:
+        - $ref: '#/components/parameters/OrderBy'
+        - $ref: '#/components/parameters/SinceMinutes'
+        - $ref: '#/components/parameters/SinceHours'
+        - $ref: '#/components/parameters/Limit'
+        - name: planCapable
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Top-N stats
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AppMetricStats'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /v1/envs:
+    get:
+      tags: [envs]
+      operationId: listEnvs
+      summary: List environments
+      responses:
+        '200':
+          description: Environments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Env'
+
+components:
+  parameters:
+    AppPath:
+      name: app
+      in: path
+      required: true
+      description: Application name (natural key — matches OpenTelemetry `service.name`).
+      schema:
+        type: string
+    LabelPath:
+      name: label
+      in: path
+      required: true
+      description: Query label (matches OpenTelemetry `ebean.query_label`).
+      schema:
+        type: string
+    HashPath:
+      name: hash
+      in: path
+      required: true
+      description: Stable metric hash (matches OpenTelemetry `ebean.query_hash`).
+      schema:
+        type: string
+    EnvQuery:
+      name: env
+      in: query
+      schema:
+        type: string
+      description: Environment name filter.
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        maximum: 200
+      description: Max items to return (default 50, hard cap 200).
+    OrderBy:
+      name: orderBy
+      in: query
+      schema:
+        type: string
+        enum: [total, mean, max, count]
+        default: total
+      description: Sort dimension for top-N. Unknown values yield 400.
+    SinceMinutes:
+      name: sinceMinutes
+      in: query
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+      description: Window size in minutes. Mutually exclusive with `sinceHours`.
+    SinceHours:
+      name: sinceHours
+      in: query
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+      description: Window size in hours. Mutually exclusive with `sinceMinutes`.
+    OlderThanMinutes:
+      name: olderThanMinutes
+      in: query
+      schema:
+        type: integer
+        format: int64
+        minimum: 0
+      description: Capture-age threshold in minutes. Mutually exclusive with `olderThanHours`.
+    OlderThanHours:
+      name: olderThanHours
+      in: query
+      schema:
+        type: integer
+        format: int64
+        minimum: 0
+      description: Capture-age threshold in hours. Mutually exclusive with `olderThanMinutes`.
+    ActiveWithinMinutes:
+      name: activeWithinMinutes
+      in: query
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+      description: Activity window in minutes. Mutually exclusive with `activeWithinHours`.
+    ActiveWithinHours:
+      name: activeWithinHours
+      in: query
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+      description: Activity window in hours. Mutually exclusive with `activeWithinMinutes`.
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    Error:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+
+    App:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+
+    AppSummary:
+      type: object
+      required: [id, name, metricCount, planCount]
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        lastReportAt:
+          type: string
+          format: date-time
+        metricCount:
+          type: integer
+          format: int64
+        planCount:
+          type: integer
+          format: int64
+
+    Env:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+
+    AppMetric:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+          description: Query label (the metric name, e.g. `orm.Customer.findById`).
+        key:
+          type: string
+          description: Stable hash key.
+        loc:
+          type: string
+        sql:
+          type: string
+
+    AppMetricStats:
+      type: object
+      required: [id, app, label, key, planCapable, count, totalMicros, meanMicros, maxMicros, windowMinutes]
+      properties:
+        id:
+          type: integer
+          format: int64
+        app:
+          type: string
+        label:
+          type: string
+        key:
+          type: string
+        loc:
+          type: string
+        planCapable:
+          type: boolean
+        count:
+          type: integer
+          format: int64
+        totalMicros:
+          type: integer
+          format: int64
+        meanMicros:
+          type: integer
+          format: int64
+        maxMicros:
+          type: integer
+          format: int64
+        windowMinutes:
+          type: integer
+          format: int64
+
+    MissingPlanMetric:
+      type: object
+      required: [id, app, label, key, captureCount]
+      properties:
+        id:
+          type: integer
+          format: int64
+        app:
+          type: string
+        label:
+          type: string
+        key:
+          type: string
+        loc:
+          type: string
+        lastCapturedAt:
+          type: string
+          format: date-time
+          description: Null when no plan has ever been captured.
+        captureCount:
+          type: integer
+          format: int64
+        sql:
+          type: string
+
+    QueryPlanSummary:
+      type: object
+      required: [id, appMetricId, envName, hash, label, queryTimeMicros, captureCount, whenCaptured]
+      properties:
+        id:
+          type: integer
+          format: int64
+        appMetricId:
+          type: integer
+          format: int64
+        envName:
+          type: string
+        hash:
+          type: string
+        label:
+          type: string
+        queryTimeMicros:
+          type: integer
+          format: int64
+        captureCount:
+          type: integer
+          format: int64
+        whenCaptured:
+          type: string
+          format: date-time
+
+    QueryPlan:
+      type: object
+      required: [id, hash, label, appMetricId, envName, queryTimeMicros, captureCount, captureMicros, whenCaptured]
+      properties:
+        id:
+          type: integer
+          format: int64
+        hash:
+          type: string
+        label:
+          type: string
+        appMetricId:
+          type: integer
+          format: int64
+        envName:
+          type: string
+        queryTimeMicros:
+          type: integer
+          format: int64
+        captureCount:
+          type: integer
+          format: int64
+        captureMicros:
+          type: integer
+          format: int64
+        whenCaptured:
+          type: string
+          format: date-time
+        sql:
+          type: string
+        bind:
+          type: string
+        plan:
+          type: string
+
+    PendingResponse:
+      type: object
+      required: [pending]
+      properties:
+        pending:
+          type: integer
+          format: int32
+          description: Number of pending capture requests queued for the target app+env.

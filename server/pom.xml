@@ -1,0 +1,360 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.ebean.insight</groupId>
+    <artifactId>ebean-insight-parent</artifactId>
+    <version>1.1-RC15</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>ebean-insight</artifactId>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+    <maven.compiler.release>25</maven.compiler.release>
+    <ebean.version>17.7.0</ebean.version>
+    <jstachio.version>1.3.7</jstachio.version>
+    <avaje-inject.version>12.5</avaje-inject.version>
+    <avaje-http.version>3.9</avaje-http.version>
+    <avaje-jex.version>3.5</avaje-jex.version>
+    <avaje-jsonb.version>3.14</avaje-jsonb.version>
+  </properties>
+
+  <dependencies>
+
+    <dependency>
+      <groupId>io.ebean.insight</groupId>
+      <artifactId>ebean-insight-api</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.avaje</groupId>
+      <artifactId>avaje-simple-logger</artifactId>
+      <version>2.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.avaje</groupId>
+      <artifactId>avaje-metrics</artifactId>
+      <version>9.12</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.avaje</groupId>
+      <artifactId>avaje-inject</artifactId>
+      <version>${avaje-inject.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.avaje</groupId>
+      <artifactId>avaje-jsonb</artifactId>
+      <version>${avaje-jsonb.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.avaje</groupId>
+      <artifactId>avaje-http-api</artifactId>
+      <version>${avaje-http.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.avaje</groupId>
+      <artifactId>avaje-jex-htmx</artifactId>
+      <version>${avaje-jex.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.avaje</groupId>
+      <artifactId>avaje-jex</artifactId>
+      <version>${avaje-jex.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.avaje</groupId>
+      <artifactId>avaje-jex-static-content</artifactId>
+      <version>${avaje-jex.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.jstach</groupId>
+      <artifactId>jstachio</artifactId>
+      <version>${jstachio.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <version>42.7.11</version>
+      <exclusions>
+        <exclusion>
+          <groupId>*</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>io.ebean</groupId>
+      <artifactId>ebean-postgres</artifactId>
+      <version>${ebean.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.avaje</groupId>
+      <artifactId>mod-uuid</artifactId>
+      <version>1.3</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.ebean</groupId>
+      <artifactId>ebean-insight</artifactId>
+      <version>2.0-RC4</version>
+    </dependency>
+
+    <!-- Test dependencies -->
+
+    <dependency>
+      <groupId>io.avaje</groupId>
+      <artifactId>avaje-inject-test</artifactId>
+      <version>12.5</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>io.avaje</groupId>
+      <artifactId>avaje-jex-test</artifactId>
+      <version>3.5</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>io.avaje</groupId>
+      <artifactId>junit</artifactId>
+      <version>1.8</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>io.ebean</groupId>
+      <artifactId>ebean-test-containers</artifactId>
+      <version>8.1</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>io.ebean</groupId>
+      <artifactId>ebean-test</artifactId>
+      <version>${ebean.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>io.avaje</groupId>
+      <artifactId>avaje-http-client</artifactId>
+      <version>${avaje-http.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+  </dependencies>
+
+  <build>
+    <plugins>
+
+      <plugin> <!-- perform metrics enhancement -->
+        <groupId>io.avaje.metrics</groupId>
+        <artifactId>metrics-maven-plugin</artifactId>
+        <version>9.12</version>
+        <extensions>true</extensions>
+      </plugin>
+
+      <plugin> <!-- perform ebean enhancement -->
+        <groupId>io.ebean</groupId>
+        <artifactId>ebean-maven-plugin</artifactId>
+        <version>${ebean.version}</version>
+        <extensions>true</extensions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.15.0</version>
+        <configuration>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>io.jstach</groupId>
+              <artifactId>jstachio-apt</artifactId>
+              <version>${jstachio.version}</version>
+            </path>
+            <path>
+              <groupId>io.avaje</groupId>
+              <artifactId>avaje-inject-generator</artifactId>
+              <version>${avaje-inject.version}</version>
+            </path>
+            <path>
+              <groupId>io.avaje</groupId>
+              <artifactId>avaje-jsonb-generator</artifactId>
+              <version>${avaje-jsonb.version}</version>
+            </path>
+            <path>
+              <groupId>io.avaje</groupId>
+              <artifactId>avaje-http-jex-generator</artifactId>
+              <version>${avaje-http.version}</version>
+            </path>
+            <path>
+              <groupId>io.avaje</groupId>
+              <artifactId>avaje-http-client-generator</artifactId>
+              <version>${avaje-http.version}</version>
+            </path>
+            <path>
+              <groupId>io.ebean</groupId>
+              <artifactId>querybean-generator</artifactId>
+              <version>${ebean.version}</version>
+            </path>
+          </annotationProcessorPaths>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>io.avaje</groupId>
+        <artifactId>avaje-inject-maven-plugin</artifactId>
+        <version>${avaje-inject.version}</version>
+        <executions>
+          <execution>
+            <phase>process-sources</phase>
+            <goals>
+              <goal>provides</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+    </plugins>
+  </build>
+
+  <profiles>
+    <profile>
+      <id>native</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.graalvm.buildtools</groupId>
+            <artifactId>native-maven-plugin</artifactId>
+            <version>1.1.1</version>
+            <executions>
+              <execution>
+                <id>build-native</id>
+                <goals>
+                  <goal>build</goal>
+                </goals>
+                <phase>package</phase>
+                <configuration>
+                  <mainClass>org.ebean.monitor.Application</mainClass>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>mac</id>
+      <activation>
+        <os><family>mac</family></os>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.graalvm.buildtools</groupId>
+            <artifactId>native-maven-plugin</artifactId>
+            <configuration>
+              <buildArgs>
+                <buildArg>-R:MaxHeapSize=100m</buildArg>
+                <buildArg>--emit build-report</buildArg>
+                <buildArg>--no-fallback</buildArg>
+                <buildArg>--allow-incomplete-classpath</buildArg>
+                <buildArg>-march=native</buildArg>
+              </buildArgs>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>linux</id>
+      <activation>
+        <os><family>linux</family></os>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.graalvm.buildtools</groupId>
+            <artifactId>native-maven-plugin</artifactId>
+            <configuration>
+              <buildArgs>
+                <buildArg>--gc=G1</buildArg>
+                <buildArg>-R:MaxGCPauseMillis=50</buildArg>
+                <buildArg>-R:MaxHeapSize=200m</buildArg>
+                <buildArg>--emit build-report</buildArg>
+                <buildArg>--no-fallback</buildArg>
+                <buildArg>--allow-incomplete-classpath</buildArg>
+                <buildArg>-march=compatibility</buildArg>
+                <buildArg>--static-nolibc</buildArg>
+              </buildArgs>
+            </configuration>
+          </plugin>
+          <plugin>
+            <groupId>com.google.cloud.tools</groupId>
+            <artifactId>jib-maven-plugin</artifactId>
+            <version>3.5.1</version>
+            <dependencies>
+              <dependency>
+                <groupId>com.google.cloud.tools</groupId>
+                <artifactId>jib-native-image-extension-maven</artifactId>
+                <version>0.1.0</version>
+              </dependency>
+            </dependencies>
+            <executions>
+              <execution>
+                <phase>package</phase>
+                <goals>
+                  <goal>build</goal>
+                </goals>
+              </execution>
+            </executions>
+            <configuration>
+              <from> <!-- UBI micro image with glibc support -->
+                <image>redhat/ubi10-micro:10.2-1779720719</image>
+              </from>
+              <to>
+                <image>docker.io/rbygrave/ebean-insight</image>
+                <tags>${project.version}</tags>
+<!--                <auth>-->
+<!--                  <username>${env.DOCKER_USERNAME}</username>-->
+<!--                  <password>${env.DOCKER_PASSWORD}</password>-->
+<!--                </auth>-->
+              </to>
+              <container>
+                <ports>8081</ports>
+              </container>
+              <pluginExtensions>
+                <pluginExtension>
+                  <implementation>com.google.cloud.tools.jib.maven.extension.nativeimage.JibNativeImageExtension</implementation>
+                  <properties>
+                    <imageName>ebean-insight</imageName>
+                  </properties>
+                </pluginExtension>
+              </pluginExtensions>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+
+</project>
