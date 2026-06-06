@@ -120,9 +120,7 @@ public final class V1QueryService {
       return List.of();
     }
     final QDAppMetric q = new QDAppMetric().app.eq(app);
-    if (label != null && !label.isBlank()) {
-      q.name.eq(label.trim());
-    }
+    q.name.eqIfNotBlank(label);
     if (planCapable != null) {
       q.planCapable.eq(planCapable);
     }
@@ -463,15 +461,9 @@ public final class V1QueryService {
     if (app != null) {
       q.app.eq(app);
     }
-    if (env != null && !env.isBlank()) {
-      q.env.name.eq(env.trim());
-    }
-    if (label != null && !label.isBlank()) {
-      q.label.eq(label.trim());
-    }
-    if (hash != null && !hash.isBlank()) {
-      q.hash.eq(hash.trim());
-    }
+    q.env.name.eqIfNotBlank(env);
+    q.label.eqIfNotBlank(label);
+    q.hash.eqIfNotBlank(hash);
     if (window.hasFrom()) {
       q.whenCreated.gt(window.from());
     }
