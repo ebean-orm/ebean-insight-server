@@ -99,14 +99,22 @@ class ApiController {
   }
 
   /**
-   * Return the most recently captured query plans across all metrics.
+   * Return the most recently captured query plans, optionally scoped by app,
+   * environment, label, hash and/or recency.
    *
-   * @param count maximum number of plans to return (default 10, max 100)
+   * @param count        maximum number of plans to return (default 10, max 100)
+   * @param app          optional app name filter
+   * @param environment  optional environment name filter
+   * @param label        optional metric label filter (exact match)
+   * @param hash         optional query plan hash filter (exact match)
+   * @param sinceMinutes optional: only plans captured within the last N minutes
    */
   @Get("queryplan/recent")
-  ListResponse<QueryPlanSummary> getRecentQueryPlans(@QueryParam Integer count) {
+  ListResponse<QueryPlanSummary> getRecentQueryPlans(@QueryParam Integer count, @QueryParam String app,
+                                                     @QueryParam String environment, @QueryParam String label,
+                                                     @QueryParam String hash, @QueryParam Integer sinceMinutes) {
     int max = (count == null) ? 10 : Math.max(1, Math.min(100, count));
-    List<QueryPlanSummary> result = service.findRecentQueryPlans(max).stream()
+    List<QueryPlanSummary> result = service.findRecentQueryPlans(max, app, environment, label, hash, sinceMinutes).stream()
       .map(ApiController::toSummary)
       .toList();
     return new ListResponse<>(result);
@@ -128,11 +136,15 @@ class ApiController {
   }
 
   /**
-   * Return all captured query plans for an app metric, most recent first.
+   * Return captured query plans for an app metric, most recent first.
+   *
+   * @param appMetricId the app-metric id
+   * @param count       maximum number of plans to return (default 50, max 200)
    */
   @Get("queryplan/{appMetricId}")
-  ListResponse<QueryPlan> getQueryPlans(int appMetricId) {
-    List<QueryPlan> result = service.findQueryPlans(appMetricId).stream()
+  ListResponse<QueryPlan> getQueryPlans(int appMetricId, @QueryParam Integer count) {
+    int max = (count == null) ? 50 : Math.max(1, Math.min(200, count));
+    List<QueryPlan> result = service.findQueryPlans(appMetricId, max).stream()
       .map(ApiController::toDto)
       .toList();
     return new ListResponse<>(result);

@@ -49,7 +49,7 @@ class ApiControllerQueryPlanTest {
     ingestQueryPlan(read("/request/queryPlan0.json"));
     Thread.sleep(500);
 
-    HttpResponse<ListResponse<QueryPlan>> plansRes = apiControllerTestAPI.getQueryPlans(appMetricId);
+    HttpResponse<ListResponse<QueryPlan>> plansRes = apiControllerTestAPI.getQueryPlans(appMetricId, null);
     assertThat(plansRes.statusCode()).isEqualTo(200);
     List<QueryPlan> plans = plansRes.body().getList();
     assertThat(plans).isNotEmpty();
@@ -74,16 +74,49 @@ class ApiControllerQueryPlanTest {
       .asString();
     assertThat(missingRes.statusCode()).isEqualTo(404);
 
-    HttpResponse<ListResponse<QueryPlanSummary>> recentRes = apiControllerTestAPI.getRecentQueryPlans(null);
+    HttpResponse<ListResponse<QueryPlanSummary>> recentRes = apiControllerTestAPI.getRecentQueryPlans(null, null, null, null, null, null);
     assertThat(recentRes.statusCode()).isEqualTo(200);
     assertThat(recentRes.body().getList())
       .isNotEmpty()
       .extracting(s -> s.hash)
       .contains("8a519a4c120289bd505a4a79c27f2895");
 
-    HttpResponse<ListResponse<QueryPlanSummary>> capped = apiControllerTestAPI.getRecentQueryPlans(999);
+    HttpResponse<ListResponse<QueryPlanSummary>> capped = apiControllerTestAPI.getRecentQueryPlans(999, null, null, null, null, null);
     assertThat(capped.statusCode()).isEqualTo(200);
     assertThat(capped.body().getList()).hasSizeLessThanOrEqualTo(100);
+
+    String hash = "8a519a4c120289bd505a4a79c27f2895";
+    String label = "MyLabel.findOrdersForPublishing";
+
+    // hash filter (match / no-match)
+    assertThat(apiControllerTestAPI.getRecentQueryPlans(null, null, null, null, hash, null).body().getList())
+      .extracting(s -> s.hash).containsOnly(hash);
+    assertThat(apiControllerTestAPI.getRecentQueryPlans(null, null, null, null, "nomatch", null).body().getList())
+      .isEmpty();
+
+    // app filter (match / no-match)
+    assertThat(apiControllerTestAPI.getRecentQueryPlans(null, "app1", null, null, null, null).body().getList())
+      .extracting(s -> s.hash).contains(hash);
+    assertThat(apiControllerTestAPI.getRecentQueryPlans(null, "no-such-app", null, null, null, null).body().getList())
+      .isEmpty();
+
+    // environment filter (match / no-match)
+    assertThat(apiControllerTestAPI.getRecentQueryPlans(null, null, "local", null, null, null).body().getList())
+      .extracting(s -> s.hash).contains(hash);
+    assertThat(apiControllerTestAPI.getRecentQueryPlans(null, null, "no-such-env", null, null, null).body().getList())
+      .isEmpty();
+
+    // label filter
+    assertThat(apiControllerTestAPI.getRecentQueryPlans(null, null, null, label, null, null).body().getList())
+      .extracting(s -> s.label).containsOnly(label);
+
+    // sinceMinutes recency window (just-captured plan is within 60 min; 0/negative ignored)
+    assertThat(apiControllerTestAPI.getRecentQueryPlans(null, null, null, null, null, 60).body().getList())
+      .extracting(s -> s.hash).contains(hash);
+
+    // per-metric count cap
+    assertThat(apiControllerTestAPI.getQueryPlans(appMetricId, 1).body().getList())
+      .hasSizeLessThanOrEqualTo(1);
   }
 
   private void ingest(String metricsPayload) {

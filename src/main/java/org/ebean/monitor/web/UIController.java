@@ -83,7 +83,7 @@ final class UIController {
   @HxRequest
   @Get("queryplan/{appMetricId}")
   Partial.QueryPlans queryPlans(int appMetricId) {
-    List<DQueryPlan> plans = service.findQueryPlans(appMetricId);
+    List<DQueryPlan> plans = service.findQueryPlans(appMetricId, 200);
     return new Partial.QueryPlans(plans);
   }
 

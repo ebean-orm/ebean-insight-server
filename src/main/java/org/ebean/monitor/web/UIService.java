@@ -66,20 +66,40 @@ final class UIService {
       .findList();
   }
 
-  List<DQueryPlan> findQueryPlans(int appMetricId) {
+  List<DQueryPlan> findQueryPlans(int appMetricId, int max) {
     return new QDQueryPlan()
       .metric.id.eq(appMetricId)
       .orderBy()
       .whenCreated.desc()
+      .setMaxRows(max)
       .findList();
   }
 
-  List<DQueryPlan> findRecentQueryPlans(int max) {
-    return new QDQueryPlan()
+  List<DQueryPlan> findRecentQueryPlans(int max, @Nullable String app, @Nullable String env,
+                                        @Nullable String label, @Nullable String hash,
+                                        @Nullable Integer sinceMinutes) {
+    QDQueryPlan query = new QDQueryPlan();
+    query.app.name.eqIfPresent(trimToNull(app));
+    query.env.name.eqIfPresent(trimToNull(env));
+    query.label.eqIfPresent(trimToNull(label));
+    query.hash.eqIfPresent(trimToNull(hash));
+    if (sinceMinutes != null && sinceMinutes > 0) {
+      query.whenCreated.gt(Instant.now().minus(sinceMinutes, ChronoUnit.MINUTES));
+    }
+    return query
       .orderBy()
       .whenCreated.desc()
       .setMaxRows(max)
       .findList();
+  }
+
+  @Nullable
+  private static String trimToNull(@Nullable String value) {
+    if (value == null) {
+      return null;
+    }
+    value = value.trim();
+    return value.isEmpty() ? null : value;
   }
 
   @Nullable
