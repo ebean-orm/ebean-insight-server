@@ -44,6 +44,16 @@ public class DAppMetricFinder extends Finder<Integer,DAppMetric> {
   }
 
   /**
+   * Return the metric for the given app + hash key, or null if not found.
+   */
+  public DAppMetric byAppHash(DApp app, String hash) {
+    return new QDAppMetric()
+      .app.eq(app)
+      .key.eq(hash)
+      .findOne();
+  }
+
+  /**
    * Return the global metric by name.
    */
   public DAppMetric globalByName(String name) {
