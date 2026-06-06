@@ -51,6 +51,15 @@ public class DAppMetric extends BaseDomain {
   private final String name;
 
   /**
+   * True when this metric is "plan capable" - i.e. an ORM SELECT-style query
+   * that supports query plan capture. Derived from the name prefix {@code orm.}
+   * at insert time. Raw SQL and update/delete metrics are not plan capable.
+   */
+  @NotNull
+  @Index
+  private final boolean planCapable;
+
+  /**
    * The derived "rollup group" this metric will aggregate into.
    */
   @Length(300)
@@ -79,6 +88,7 @@ public class DAppMetric extends BaseDomain {
     this.app = app;
     this.key = key;
     this.name = name;
+    this.planCapable = name != null && name.startsWith("orm.");
   }
 
   public String getKey() {
@@ -91,6 +101,10 @@ public class DAppMetric extends BaseDomain {
 
   public DApp getApp() {
     return app;
+  }
+
+  public boolean isPlanCapable() {
+    return planCapable;
   }
 
   public String getRollupGroup() {
