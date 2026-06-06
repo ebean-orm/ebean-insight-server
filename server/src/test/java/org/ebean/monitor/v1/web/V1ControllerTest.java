@@ -1,10 +1,15 @@
 package org.ebean.monitor.v1.web;
 
 import io.avaje.http.client.HttpClient;
+import io.avaje.http.client.HttpException;
 import io.avaje.inject.test.InjectTest;
 import io.ebean.Database;
 import jakarta.inject.Inject;
 import org.ebean.monitor.rollup.Rollup;
+import org.ebean.monitor.v1.AppsApi;
+import org.ebean.monitor.v1.EnvsApi;
+import org.ebean.monitor.v1.MetricsApi;
+import org.ebean.monitor.v1.PlansApi;
 import org.ebean.monitor.v1.model.App;
 import org.ebean.monitor.v1.model.AppMetric;
 import org.ebean.monitor.v1.model.AppMetricStats;
@@ -22,6 +27,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @InjectTest
 class V1ControllerTest {
@@ -47,135 +53,114 @@ class V1ControllerTest {
     Thread.sleep(500);
     rollup();
 
-    final List<App> apps = httpClient.request().path("v1/apps").GET().asList(App.class).body();
+    final AppsApi appsApi = httpClient.create(AppsApi.class);
+    final EnvsApi envsApi = httpClient.create(EnvsApi.class);
+    final MetricsApi metricsApi = httpClient.create(MetricsApi.class);
+    final PlansApi plansApi = httpClient.create(PlansApi.class);
+
+    final List<App> apps = appsApi.listApps(null, null);
     assertThat(apps).extracting(App::name).contains(APP);
 
-    final AppSummary summary = httpClient.request().path("v1/apps").path(APP).GET().as(AppSummary.class).body();
+    final AppSummary summary = appsApi.getApp(APP);
     assertThat(summary.name()).isEqualTo(APP);
     assertThat(summary.metricCount()).isGreaterThanOrEqualTo(2L);
     assertThat(summary.lastReportAt()).isNotNull();
 
-    final HttpResponse<String> unknownApp = httpClient.request().path("v1/apps/no-such-app-xyz").GET().asString();
-    assertThat(unknownApp.statusCode()).isEqualTo(404);
+    assertThatThrownBy(() -> appsApi.getApp("no-such-app-xyz"))
+      .isInstanceOfSatisfying(HttpException.class, e -> assertThat(e.statusCode()).isEqualTo(404));
 
-    final List<App> recent = httpClient.request().path("v1/apps").queryParam("activeWithinMinutes", 60_000_000L).GET().asList(App.class).body();
+    final List<App> recent = appsApi.listApps(60_000_000L, null);
     assertThat(recent).extracting(App::name).contains(APP);
 
-    final HttpResponse<String> bothWindows = httpClient.request().path("v1/apps")
-      .queryParam("activeWithinMinutes", 60L).queryParam("activeWithinHours", 1L)
-      .GET().asString();
-    assertThat(bothWindows.statusCode()).isEqualTo(400);
+    assertThatThrownBy(() -> appsApi.listApps(60L, 1L))
+      .isInstanceOfSatisfying(HttpException.class, e -> assertThat(e.statusCode()).isEqualTo(400));
 
-    final List<Env> envs = httpClient.request().path("v1/envs").GET().asList(Env.class).body();
+    final List<Env> envs = envsApi.listEnvs();
     assertThat(envs).extracting(Env::name).contains(ENV);
 
-    final List<AppMetric> allMetrics = httpClient.request().path("v1/apps").path(APP).path("metrics").GET().asList(AppMetric.class).body();
+    final List<AppMetric> allMetrics = metricsApi.listAppMetrics(APP, null, null, null);
     assertThat(allMetrics).extracting(AppMetric::name).contains(ORM_LABEL, PLAIN_LABEL);
 
-    final List<AppMetric> ormOnly = httpClient.request().path("v1/apps").path(APP).path("metrics")
-      .queryParam("planCapable", true).GET().asList(AppMetric.class).body();
+    final List<AppMetric> ormOnly = metricsApi.listAppMetrics(APP, null, true, null);
     assertThat(ormOnly).extracting(AppMetric::name).contains(ORM_LABEL).doesNotContain(PLAIN_LABEL);
 
-    final List<AppMetric> plainOnly = httpClient.request().path("v1/apps").path(APP).path("metrics")
-      .queryParam("planCapable", false).GET().asList(AppMetric.class).body();
+    final List<AppMetric> plainOnly = metricsApi.listAppMetrics(APP, null, false, null);
     assertThat(plainOnly).extracting(AppMetric::name).contains(PLAIN_LABEL).doesNotContain(ORM_LABEL);
 
-    final List<AppMetric> labelFilter = httpClient.request().path("v1/apps").path(APP).path("metrics")
-      .queryParam("label", ORM_LABEL).GET().asList(AppMetric.class).body();
+    final List<AppMetric> labelFilter = metricsApi.listAppMetrics(APP, ORM_LABEL, null, null);
     assertThat(labelFilter).extracting(AppMetric::name).containsOnly(ORM_LABEL);
 
-    final HttpResponse<List<AppMetric>> noAppMetrics = httpClient.request().path("v1/apps/no-such-app/metrics")
-      .GET().asList(AppMetric.class);
-    assertThat(noAppMetrics.statusCode()).isEqualTo(200);
-    assertThat(noAppMetrics.body()).isEmpty();
+    assertThat(metricsApi.listAppMetrics("no-such-app", null, null, null)).isEmpty();
 
-    final List<AppMetric> byLabel = httpClient.request().path("v1/apps").path(APP).path("metrics/by-label").path(ORM_LABEL)
-      .GET().asList(AppMetric.class).body();
+    final List<AppMetric> byLabel = metricsApi.listMetricsByLabel(APP, ORM_LABEL);
     assertThat(byLabel).extracting(AppMetric::name).containsOnly(ORM_LABEL);
 
-    final List<AppMetric> byHash = httpClient.request().path("v1/apps").path(APP).path("metrics/by-hash").path(ORM_HASH)
-      .GET().asList(AppMetric.class).body();
+    final List<AppMetric> byHash = metricsApi.getMetricByHash(APP, ORM_HASH);
     assertThat(byHash).extracting(AppMetric::key).containsOnly(ORM_HASH);
 
-    final List<AppMetricStats> stats = httpClient.request().path("v1/apps").path(APP).path("metrics/by-hash").path(ORM_HASH).path("stats")
-      .GET().asList(AppMetricStats.class).body();
+    final List<AppMetricStats> stats = metricsApi.getMetricStatsByHash(APP, ORM_HASH, null, null);
     assertThat(stats).extracting(AppMetricStats::key).containsOnly(ORM_HASH);
     assertThat(stats).extracting(AppMetricStats::planCapable).containsOnly(true);
 
-    final List<AppMetricStats> top = httpClient.request().path("v1/apps").path(APP).path("metrics/top")
-      .queryParam("orderBy", "total").queryParam("limit", 10).GET().asList(AppMetricStats.class).body();
+    final List<AppMetricStats> top = metricsApi.topAppMetrics(APP, "total", null, null, 10, null);
     assertThat(top).extracting(AppMetricStats::app).containsOnly(APP);
     assertThat(top).extracting(AppMetricStats::key).contains(ORM_HASH, PLAIN_HASH);
 
-    final HttpResponse<String> badOrder = httpClient.request().path("v1/apps").path(APP).path("metrics/top")
-      .queryParam("orderBy", "garbage").GET().asString();
-    assertThat(badOrder.statusCode()).isEqualTo(400);
+    assertThatThrownBy(() -> metricsApi.topAppMetrics(APP, "garbage", null, null, null, null))
+      .isInstanceOfSatisfying(HttpException.class, e -> assertThat(e.statusCode()).isEqualTo(400));
 
-    final List<AppMetricStats> topOrm = httpClient.request().path("v1/apps").path(APP).path("metrics/top")
-      .queryParam("planCapable", true).GET().asList(AppMetricStats.class).body();
+    final List<AppMetricStats> topOrm = metricsApi.topAppMetrics(APP, null, null, null, null, true);
     assertThat(topOrm).extracting(AppMetricStats::key).contains(ORM_HASH).doesNotContain(PLAIN_HASH);
 
-    final HttpResponse<String> bothSince = httpClient.request().path("v1/apps").path(APP).path("metrics/top")
-      .queryParam("sinceMinutes", 60L).queryParam("sinceHours", 1L).GET().asString();
-    assertThat(bothSince.statusCode()).isEqualTo(400);
+    assertThatThrownBy(() -> metricsApi.topAppMetrics(APP, null, 60L, 1L, null, null))
+      .isInstanceOfSatisfying(HttpException.class, e -> assertThat(e.statusCode()).isEqualTo(400));
 
-    final List<MissingPlanMetric> missing = httpClient.request().path("v1/apps").path(APP).path("metrics/missing-plans")
-      .GET().asList(MissingPlanMetric.class).body();
+    final List<MissingPlanMetric> missing = metricsApi.listMissingPlans(APP, null, null, null);
     assertThat(missing).extracting(MissingPlanMetric::label).contains(ORM_LABEL).doesNotContain(PLAIN_LABEL);
     assertThat(missing).extracting(MissingPlanMetric::lastCapturedAt).contains((java.time.Instant) null);
 
-    final List<AppMetricStats> globalTop = httpClient.request().path("v1/metrics/top")
-      .queryParam("limit", 50).GET().asList(AppMetricStats.class).body();
+    final List<AppMetricStats> globalTop = metricsApi.topMetrics(null, null, null, 50, null);
     assertThat(globalTop).extracting(AppMetricStats::key).contains(ORM_HASH);
 
-    final PendingResponse pending = httpClient.request().path("v1/apps").path(APP).path("plans/by-hash").path(ORM_HASH).path("request")
-      .queryParam("env", ENV).POST().as(PendingResponse.class).body();
+    final PendingResponse pending = plansApi.requestPlanCapture(APP, ORM_HASH, ENV);
     assertThat(pending.pending()).isGreaterThanOrEqualTo(1);
 
-    final HttpResponse<String> noCap = httpClient.request().path("v1/apps").path(APP).path("plans/by-hash").path(PLAIN_HASH).path("request")
-      .POST().asString();
-    assertThat(noCap.statusCode()).isEqualTo(400);
+    assertThatThrownBy(() -> plansApi.requestPlanCapture(APP, PLAIN_HASH, null))
+      .isInstanceOfSatisfying(HttpException.class, e -> assertThat(e.statusCode()).isEqualTo(400));
 
-    final HttpResponse<String> noApp = httpClient.request().path("v1/apps/no-such-app/plans/by-hash/" + ORM_HASH + "/request")
-      .POST().asString();
-    assertThat(noApp.statusCode()).isEqualTo(404);
+    assertThatThrownBy(() -> plansApi.requestPlanCapture("no-such-app", ORM_HASH, null))
+      .isInstanceOfSatisfying(HttpException.class, e -> assertThat(e.statusCode()).isEqualTo(404));
 
     seedQueryPlan();
     Thread.sleep(500);
 
-    final List<QueryPlanSummary> appPlans = httpClient.request().path("v1/apps").path(APP).path("plans")
-      .GET().asList(QueryPlanSummary.class).body();
+    final List<QueryPlanSummary> appPlans = plansApi.listAppPlans(APP, null, null, null, null, null, null);
     assertThat(appPlans).extracting(QueryPlanSummary::hash).contains(ORM_HASH);
 
-    final List<QueryPlanSummary> byHashPlans = httpClient.request().path("v1/apps").path(APP).path("plans/by-hash").path(ORM_HASH)
-      .GET().asList(QueryPlanSummary.class).body();
+    final List<QueryPlanSummary> byHashPlans = plansApi.listPlansByHash(APP, ORM_HASH, null, null);
     assertThat(byHashPlans).extracting(QueryPlanSummary::hash).containsOnly(ORM_HASH);
 
-    final List<QueryPlanSummary> byLabelPlans = httpClient.request().path("v1/apps").path(APP).path("plans/by-label").path(ORM_LABEL)
-      .GET().asList(QueryPlanSummary.class).body();
+    final List<QueryPlanSummary> byLabelPlans = plansApi.listPlansByLabel(APP, ORM_LABEL, null, null);
     assertThat(byLabelPlans).extracting(QueryPlanSummary::hash).contains(ORM_HASH);
 
-    assertThat(httpClient.request().path("v1/apps").path(APP).path("plans").queryParam("env", ENV).GET().asList(QueryPlanSummary.class).body())
+    assertThat(plansApi.listAppPlans(APP, ENV, null, null, null, null, null))
       .extracting(QueryPlanSummary::hash).contains(ORM_HASH);
-    assertThat(httpClient.request().path("v1/apps").path(APP).path("plans").queryParam("env", "no-such-env").GET().asList(QueryPlanSummary.class).body())
+    assertThat(plansApi.listAppPlans(APP, "no-such-env", null, null, null, null, null))
       .isEmpty();
 
-    final List<QueryPlanSummary> globalPlans = httpClient.request().path("v1/plans")
-      .queryParam("hash", ORM_HASH).GET().asList(QueryPlanSummary.class).body();
+    final List<QueryPlanSummary> globalPlans = plansApi.listPlans(null, null, null, ORM_HASH, null, null, null);
     assertThat(globalPlans).extracting(QueryPlanSummary::hash).containsOnly(ORM_HASH);
 
     final long planId = appPlans.getFirst().id();
-    final QueryPlan one = httpClient.request().path("v1/plans").path(String.valueOf(planId))
-      .GET().as(QueryPlan.class).body();
+    final QueryPlan one = plansApi.getPlan(planId);
     assertThat(one.id()).isEqualTo(planId);
     assertThat(one.hash()).isEqualTo(ORM_HASH);
     assertThat(one.sql()).isNotBlank();
 
-    final HttpResponse<String> noPlan = httpClient.request().path("v1/plans/9999999").GET().asString();
-    assertThat(noPlan.statusCode()).isEqualTo(404);
+    assertThatThrownBy(() -> plansApi.getPlan(9999999L))
+      .isInstanceOfSatisfying(HttpException.class, e -> assertThat(e.statusCode()).isEqualTo(404));
 
-    final List<MissingPlanMetric> missingAfter = httpClient.request().path("v1/apps").path(APP).path("metrics/missing-plans")
-      .GET().asList(MissingPlanMetric.class).body();
+    final List<MissingPlanMetric> missingAfter = metricsApi.listMissingPlans(APP, null, null, null);
     assertThat(missingAfter).extracting(MissingPlanMetric::label).doesNotContain(ORM_LABEL);
   }
 
