@@ -74,6 +74,14 @@ final class UIService {
       .findList();
   }
 
+  List<DQueryPlan> findRecentQueryPlans(int max) {
+    return new QDQueryPlan()
+      .orderBy()
+      .whenCreated.desc()
+      .setMaxRows(max)
+      .findList();
+  }
+
   @Nullable
   DQueryPlan findQueryPlan(int planId) {
     return new QDQueryPlan()

@@ -1,0 +1,16 @@
+[
+  {"name": "org.ebean.monitor.api.App", "allDeclaredConstructors": true, "allPublicMethods": true, "allDeclaredFields": true},
+  {"name": "org.ebean.monitor.api.AppDatabase", "allDeclaredConstructors": true, "allPublicMethods": true, "allDeclaredFields": true},
+  {"name": "org.ebean.monitor.api.AppMetric", "allDeclaredConstructors": true, "allPublicMethods": true, "allDeclaredFields": true},
+  {"name": "org.ebean.monitor.api.DataPoint", "allDeclaredConstructors": true, "allPublicMethods": true, "allDeclaredFields": true},
+  {"name": "org.ebean.monitor.api.Env", "allDeclaredConstructors": true, "allPublicMethods": true, "allDeclaredFields": true},
+  {"name": "org.ebean.monitor.api.ListResponse", "allDeclaredConstructors": true, "allPublicMethods": true, "allDeclaredFields": true},
+  {"name": "org.ebean.monitor.api.MetricData", "allDeclaredConstructors": true, "allPublicMethods": true, "allDeclaredFields": true},
+  {"name": "org.ebean.monitor.api.MetricDbData", "allDeclaredConstructors": true, "allPublicMethods": true, "allDeclaredFields": true},
+  {"name": "org.ebean.monitor.api.MetricRequest", "allDeclaredConstructors": true, "allPublicMethods": true, "allDeclaredFields": true},
+  {"name": "org.ebean.monitor.api.PendingResponse", "allDeclaredConstructors": true, "allPublicMethods": true, "allDeclaredFields": true},
+  {"name": "org.ebean.monitor.api.QueryPlan", "allDeclaredConstructors": true, "allPublicMethods": true, "allDeclaredFields": true},
+  {"name": "org.ebean.monitor.api.QueryPlanRequest", "allDeclaredConstructors": true, "allPublicMethods": true, "allDeclaredFields": true},
+  {"name": "org.ebean.monitor.api.QueryPlanSummary", "allDeclaredConstructors": true, "allPublicMethods": true, "allDeclaredFields": true}
+]
+
