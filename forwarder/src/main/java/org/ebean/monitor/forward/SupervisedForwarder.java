@@ -16,7 +16,7 @@ import static java.util.Objects.requireNonNull;
  * <pre>{@code
  *
  *   try (var fwd = SupervisedForwarder.builder()
- *           .target(ForwardTarget.service("dev-core", "central-insight", 8091))
+ *           .target(ForwardTarget.service("dev-core", "ebean-insight", 8091))
  *           .build()) {
  *
  *     URI base = fwd.start(Duration.ofSeconds(15));   // blocks until READY

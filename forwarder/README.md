@@ -42,7 +42,7 @@ window during a reconnect.
 
 ```java
 try (SupervisedForwarder fwd = SupervisedForwarder.builder()
-        .target(ForwardTarget.service("dev-core", "central-insight", 8091))
+        .target(ForwardTarget.service("dev-core", "ebean-insight", 8091))
         .onStatus(s -> log.debug("forward {}", s.state()))
         .build()) {
 

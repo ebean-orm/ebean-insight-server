@@ -29,10 +29,12 @@ final class ForwardCommand implements Callable<Integer> {
 
   @Override
   public Integer call() throws Exception {
+    conn.resolve();
+    conn.requireForwardTarget();
     var forwarder = SupervisedForwarder.builder()
-        .target(ForwardTarget.service(conn.namespace, conn.service, conn.targetPort))
-        .localPort(conn.localPort)
-        .engine(new KubectlForwardEngine("kubectl", conn.context, Duration.ofSeconds(conn.readySeconds)))
+        .target(ForwardTarget.service(conn.namespace(), conn.service(), conn.targetPort()))
+        .localPort(conn.localPort())
+        .engine(new KubectlForwardEngine("kubectl", conn.context(), Duration.ofSeconds(conn.readySeconds())))
         .onStatus(s -> System.out.println("[" + s.state() + "]"
             + (s.lastError() != null ? " " + s.lastError().getMessage() : "")))
         .build();
@@ -49,7 +51,7 @@ final class ForwardCommand implements Callable<Integer> {
       stopped.countDown();
     }, "insight-forward-shutdown"));
 
-    URI base = forwarder.start(Duration.ofSeconds(conn.readySeconds));
+    URI base = forwarder.start(Duration.ofSeconds(conn.readySeconds()));
     if (!noRegister) {
       registry.write(base, ProcessHandle.current().pid(), target);
     }

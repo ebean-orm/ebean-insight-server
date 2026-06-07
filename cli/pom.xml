@@ -51,6 +51,13 @@
       <version>${avaje-http.version}</version>
     </dependency>
 
+    <dependency>
+      <groupId>io.avaje</groupId>
+      <artifactId>junit</artifactId>
+      <version>1.8</version>
+      <scope>test</scope>
+    </dependency>
+
   </dependencies>
 
   <build>

@@ -28,14 +28,41 @@ Connection options (shared by every subcommand):
 | Option | Default | Meaning |
 |--------|---------|---------|
 | `--url` | – | Static base URL. When set, the port-forward options below are ignored. |
-| `--namespace` | `dev-core` | Kubernetes namespace. |
-| `--service` | `central-insight` | Service to port-forward to. |
+| `--namespace` | *required* | Kubernetes namespace. No built-in default — set per call or persist it (see [Configuration](#configuration)). |
+| `--service` | *required* | Service to port-forward to. No built-in default — set per call or persist it. |
 | `--target-port` | `8091` | Service port. |
 | `--local-port` | `0` | Local port to bind; `0` picks a free ephemeral port. |
 | `--context` | – | `kubectl` context to use. |
 | `--ready-timeout` | `20` | Seconds to wait for the forward to become ready. |
 | `--no-shared` | `false` | Ignore any running `insight forward` daemon; start a private forward. |
 | `--insight-key` | `$INSIGHT_KEY` | API key sent as the `Insight-Key` header. Falls back to the `INSIGHT_KEY` env var. Not needed via port-forward. |
+
+`--namespace` and `--service` are deployment-specific and have **no built-in
+defaults** — supply them on the command line, or persist them once with
+`insight config` (below). A port-forward command fails fast with a clear message
+if neither a flag, config value, nor `--url` provides a target.
+
+## Configuration
+
+Persist any connection option in `~/.insight/config.properties` so you don't have
+to pass it every time. Explicit flags always override the stored value, which in
+turn overrides the built-in default. Manage it with `insight config`:
+
+```bash
+insight config set namespace dev-core
+insight config set service ebean-insight
+insight config list                 # insight-key is masked
+insight config get namespace
+insight config unset service
+insight config path                 # prints the file location
+```
+
+Persistable keys: `url`, `namespace`, `service`, `target-port`, `local-port`,
+`context`, `ready-timeout`, `insight-key`.
+
+Resolution precedence for every option: **explicit flag → config file →
+built-in default** (the built-in default only exists for non-identifying values
+such as `target-port`).
 
 ## Authentication
 
@@ -89,13 +116,18 @@ per-command forward.
 | `insight plans [--app] [--env] [--label] [--hash] [--since-minutes N] [--since-hours N] [-n/--limit N]` | List recently captured query plans (tabular). |
 | `insight plan <planId> [--raw]` | Show one captured plan. `--raw` prints only the EXPLAIN plan text. |
 | `insight capture <app> <hash> [--env]` | Request a fresh plan capture for a metric hash. |
+| `insight config <set\|get\|unset\|list\|path>` | Manage persisted settings in `~/.insight/config.properties`. |
 
 Every command supports `-h`/`--help`, and the root supports `-V`/`--version`.
 
 ## Examples
 
 ```bash
-# Uses the default supervised port-forward to dev-core/central-insight:8091
+# One-time: persist your target so you don't repeat --namespace/--service
+insight config set namespace dev-core
+insight config set service ebean-insight
+
+# Now these use the persisted dev-core/ebean-insight:8091 target
 insight envs
 insight apps
 insight plans -n 5
@@ -104,8 +136,8 @@ insight plan 2 --raw
 # Talk to a server directly instead of port-forwarding
 insight --url http://localhost:8091 plans --app ebean-insight --since-hours 24
 
-# Target a different namespace / context
-insight --context my-eks --namespace staging-core plans
+# Override the persisted target for a single call
+insight --context my-eks --namespace staging-core --service ebean-insight plans
 ```
 
 ## Running

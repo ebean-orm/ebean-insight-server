@@ -36,7 +36,7 @@ final class ForwardRegistry {
   }
 
   static String targetKey(ConnectionOptions conn) {
-    return conn.namespace + "/" + conn.service + ":" + conn.targetPort;
+    return conn.namespace() + "/" + conn.service() + ":" + conn.targetPort();
   }
 
   void write(URI base, long pid, String target) throws IOException {

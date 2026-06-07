@@ -38,14 +38,16 @@ final class Insight implements AutoCloseable {
 
   /** Open a connection per the given options, starting a port-forward if needed. */
   static Insight open(ConnectionOptions conn) {
+    conn.resolve();
     final URI base;
     final SupervisedForwarder forwarder;
-    if (conn.url != null && !conn.url.isBlank()) {
-      Endpoint endpoint = new StaticEndpoint(conn.url.trim());
+    if (conn.hasUrl()) {
+      Endpoint endpoint = new StaticEndpoint(conn.url());
       base = endpoint.baseUri();
       forwarder = null;
     } else {
-      Optional<URI> shared = conn.noShared
+      conn.requireForwardTarget();
+      Optional<URI> shared = conn.noShared()
           ? Optional.empty()
           : new ForwardRegistry().discover(ForwardRegistry.targetKey(conn));
       if (shared.isPresent()) {
@@ -53,11 +55,11 @@ final class Insight implements AutoCloseable {
         forwarder = null;
       } else {
         forwarder = SupervisedForwarder.builder()
-            .target(ForwardTarget.service(conn.namespace, conn.service, conn.targetPort))
-            .localPort(conn.localPort)
-            .engine(new KubectlForwardEngine("kubectl", conn.context, Duration.ofSeconds(conn.readySeconds)))
+            .target(ForwardTarget.service(conn.namespace(), conn.service(), conn.targetPort()))
+            .localPort(conn.localPort())
+            .engine(new KubectlForwardEngine("kubectl", conn.context(), Duration.ofSeconds(conn.readySeconds())))
             .build();
-        base = forwarder.start(Duration.ofSeconds(conn.readySeconds));
+        base = forwarder.start(Duration.ofSeconds(conn.readySeconds()));
       }
     }
 
@@ -65,7 +67,7 @@ final class Insight implements AutoCloseable {
         .baseUrl(base.toString())
         .bodyAdapter(new JsonbBodyAdapter());
 
-    String key = conn.insightKey;
+    String key = conn.insightKey();
     if (key != null && !key.isBlank()) {
       String headerValue = key.trim();
       builder.requestIntercept(new RequestIntercept() {

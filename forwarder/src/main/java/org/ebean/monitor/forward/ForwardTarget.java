@@ -18,7 +18,7 @@ public sealed interface ForwardTarget {
 
   /**
    * The {@code kubectl port-forward} target reference, for example
-   * {@code svc/central-insight} or {@code deploy/central-insight}.
+   * {@code svc/ebean-insight} or {@code deploy/ebean-insight}.
    *
    * @throws UnsupportedOperationException for a {@link PodSelector}, which must be
    *     resolved to a concrete pod before it can be used with the kubectl engine.

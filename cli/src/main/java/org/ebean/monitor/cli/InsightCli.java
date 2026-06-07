@@ -20,7 +20,8 @@ import picocli.CommandLine.Command;
         CaptureCommand.class,
         AppsCommand.class,
         EnvsCommand.class,
-        ForwardCommand.class
+        ForwardCommand.class,
+        ConfigCommand.class
     })
 public final class InsightCli implements Runnable {
 
@@ -30,7 +31,15 @@ public final class InsightCli implements Runnable {
   }
 
   public static void main(String[] args) {
-    int exitCode = new CommandLine(new InsightCli()).execute(args);
+    int exitCode = new CommandLine(new InsightCli())
+        .setExecutionExceptionHandler((ex, commandLine, parseResult) -> {
+          if (ex instanceof CliException) {
+            commandLine.getErr().println("error: " + ex.getMessage());
+            return 2;
+          }
+          throw ex;
+        })
+        .execute(args);
     System.exit(exitCode);
   }
 }
