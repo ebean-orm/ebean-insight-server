@@ -19,7 +19,8 @@ import picocli.CommandLine.Command;
         PlanCommand.class,
         CaptureCommand.class,
         AppsCommand.class,
-        EnvsCommand.class
+        EnvsCommand.class,
+        ForwardCommand.class
     })
 public final class InsightCli implements Runnable {
 

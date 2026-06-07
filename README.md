@@ -14,7 +14,10 @@
 | Module | Purpose |
 |--------|---------|
 | `api`  | OpenAPI spec (`v1.yaml`) and generated `/v1` API interfaces + DTOs (record types). |
+| `client` | Generated typed HTTP client (`*HttpClient`) for the `/v1` API. |
 | `server` | The running service: ingest endpoints, rollups, UI, and `/v1` controllers. |
+| `forwarder` | Library that maintains a stable local endpoint to the server via a supervised `kubectl port-forward`. See [`forwarder/README.md`](forwarder/README.md). |
+| `cli` | `insight` command line tool over the `/v1` API; compiles to a native binary. See [`cli/README.md`](cli/README.md). |
 
 ## /v1 API (agent / CLI / tooling)
 
@@ -85,6 +88,21 @@ curl -H "Insight-Key: $KEY" http://localhost:8090/v1/plans/12345
   `max`, `count`. Anything else → `400`.
 - **Hash vs label** — `hash` is the metric `key` (deterministic SQL hash;
   ORM-only), `label` is the human metric name (e.g. `orm.OrderDao.find`).
+
+### CLI
+
+For interactive / scripted use there is an `insight` CLI ([`cli/README.md`](cli/README.md))
+that wraps these endpoints. It can reach the server via a static `--url`, or — by
+default — a supervised `kubectl port-forward` that reuses your cluster RBAC as
+auth (no `Insight-Key` needed), optionally held open by a background
+`insight forward` daemon:
+
+```shell
+insight forward            # optional: hold one supervised tunnel open
+insight apps
+insight plans -n 5
+insight plan 12345 --raw
+```
 
 ## Deployment modes
 

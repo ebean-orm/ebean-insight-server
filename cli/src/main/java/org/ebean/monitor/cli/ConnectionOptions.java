@@ -35,4 +35,13 @@ final class ConnectionOptions {
   @Option(names = "--ready-timeout", defaultValue = "20",
       description = "Seconds to wait for the port-forward to become ready (default: ${DEFAULT-VALUE}).")
   long readySeconds = 20;
+
+  @Option(names = "--no-shared",
+      description = "Ignore any running `insight forward` daemon and start a private port-forward.")
+  boolean noShared;
+
+  @Option(names = "--insight-key", defaultValue = "${env:INSIGHT_KEY}",
+      description = "API key sent as the Insight-Key header (falls back to the INSIGHT_KEY env var). "
+          + "Not needed when reaching the server via port-forward.")
+  @Nullable String insightKey;
 }
