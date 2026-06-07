@@ -298,32 +298,11 @@
         <os><family>linux</family></os>
       </activation>
       <properties>
-        <!-- fallback when building outside a git checkout; overridden by git-commit-id -->
+        <!-- overridden in CI via -Dgit.commit.id.abbrev; fallback for local/non-CI builds -->
         <git.commit.id.abbrev>unknown</git.commit.id.abbrev>
       </properties>
       <build>
         <plugins>
-          <plugin>
-            <groupId>io.github.git-commit-id</groupId>
-            <artifactId>git-commit-id-maven-plugin</artifactId>
-            <version>9.0.1</version>
-            <executions>
-              <execution>
-                <id>get-git-info</id>
-                <goals>
-                  <goal>revision</goal>
-                </goals>
-                <phase>initialize</phase>
-              </execution>
-            </executions>
-            <configuration>
-              <failOnNoGitDirectory>false</failOnNoGitDirectory>
-              <abbrevLength>8</abbrevLength>
-              <includeOnlyProperties>
-                <includeOnlyProperty>^git.commit.id.abbrev$</includeOnlyProperty>
-              </includeOnlyProperties>
-            </configuration>
-          </plugin>
           <plugin>
             <groupId>org.graalvm.buildtools</groupId>
             <artifactId>native-maven-plugin</artifactId>

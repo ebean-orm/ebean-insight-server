@@ -41,7 +41,7 @@ jobs:
       - name: Build with Maven
         run:   |
           if [ "$RUNNER_OS" == "Linux" ]; then
-               mvn clean package -Pnative
+               mvn clean package -Pnative -Dgit.commit.id.abbrev="${GITHUB_SHA:0:8}"
           else
                mvn clean package -Pnative,mac -DskipTests
           fi
