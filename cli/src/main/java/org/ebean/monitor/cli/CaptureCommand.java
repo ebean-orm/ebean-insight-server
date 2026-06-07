@@ -14,6 +14,7 @@ import picocli.CommandLine.Parameters;
 final class CaptureCommand implements Callable<Integer> {
 
   @Mixin ConnectionOptions conn = new ConnectionOptions();
+  @Mixin OutputOptions out = new OutputOptions();
 
   @Parameters(index = "0", description = "The application name.")
   String app;
@@ -28,6 +29,10 @@ final class CaptureCommand implements Callable<Integer> {
   public Integer call() {
     try (Insight insight = Insight.open(conn)) {
       PendingResponse pending = insight.plans.requestPlanCapture(app, hash, env);
+      if (out.json()) {
+        out.printJson(PendingResponse.class, pending);
+        return 0;
+      }
       System.out.println(pending);
       return 0;
     }

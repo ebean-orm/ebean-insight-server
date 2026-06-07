@@ -12,11 +12,16 @@ import picocli.CommandLine.Mixin;
 final class EnvsCommand implements Callable<Integer> {
 
   @Mixin ConnectionOptions conn = new ConnectionOptions();
+  @Mixin OutputOptions out = new OutputOptions();
 
   @Override
   public Integer call() {
     try (Insight insight = Insight.open(conn)) {
       List<Env> envs = insight.envs.listEnvs();
+      if (out.json()) {
+        out.printJsonList(Env.class, envs);
+        return 0;
+      }
       if (envs.isEmpty()) {
         System.out.println("No envs found.");
         return 0;

@@ -120,6 +120,19 @@ per-command forward.
 
 Every command supports `-h`/`--help`, and the root supports `-V`/`--version`.
 
+## Output format
+
+The data commands (`apps`, `envs`, `plans`, `plan`, `capture`) accept
+`-o`/`--output` with `text` (default) or `json`:
+
+```bash
+insight envs -o json
+insight plans -n 5 --output json | jq '.[].label'
+```
+
+JSON is emitted compact (one line, pipe to `jq` to pretty-print) and an empty
+result is rendered as `[]`. For `plan`, `-o json` takes precedence over `--raw`.
+
 ## Examples
 
 ```bash

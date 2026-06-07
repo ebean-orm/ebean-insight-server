@@ -14,6 +14,7 @@ import picocli.CommandLine.Option;
 final class PlansCommand implements Callable<Integer> {
 
   @Mixin ConnectionOptions conn = new ConnectionOptions();
+  @Mixin OutputOptions out = new OutputOptions();
 
   @Option(names = "--app", description = "Filter by application name.")
   @Nullable String app;
@@ -41,6 +42,10 @@ final class PlansCommand implements Callable<Integer> {
     try (Insight insight = Insight.open(conn)) {
       List<QueryPlanSummary> plans =
           insight.plans.listPlans(app, env, label, hash, sinceMinutes, sinceHours, limit);
+      if (out.json()) {
+        out.printJsonList(QueryPlanSummary.class, plans);
+        return 0;
+      }
       if (plans.isEmpty()) {
         System.out.println("No plans found.");
         return 0;

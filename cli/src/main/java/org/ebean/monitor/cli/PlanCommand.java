@@ -13,17 +13,22 @@ import picocli.CommandLine.Parameters;
 final class PlanCommand implements Callable<Integer> {
 
   @Mixin ConnectionOptions conn = new ConnectionOptions();
+  @Mixin OutputOptions out = new OutputOptions();
 
   @Parameters(index = "0", description = "The plan id.")
   Long planId;
 
-  @Option(names = "--raw", description = "Print only the raw EXPLAIN plan text.")
+  @Option(names = "--raw", description = "Print only the raw EXPLAIN plan text (ignored with -o json).")
   boolean raw;
 
   @Override
   public Integer call() {
     try (Insight insight = Insight.open(conn)) {
       QueryPlan p = insight.plans.getPlan(planId);
+      if (out.json()) {
+        out.printJson(QueryPlan.class, p);
+        return 0;
+      }
       if (raw) {
         System.out.println(p.plan());
         return 0;

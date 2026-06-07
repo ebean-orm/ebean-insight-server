@@ -14,6 +14,7 @@ import picocli.CommandLine.Option;
 final class AppsCommand implements Callable<Integer> {
 
   @Mixin ConnectionOptions conn = new ConnectionOptions();
+  @Mixin OutputOptions out = new OutputOptions();
 
   @Option(names = "--active-within-minutes", description = "Only apps active within the last N minutes.")
   @Nullable Long activeWithinMinutes;
@@ -25,6 +26,10 @@ final class AppsCommand implements Callable<Integer> {
   public Integer call() {
     try (Insight insight = Insight.open(conn)) {
       List<App> apps = insight.apps.listApps(activeWithinMinutes, activeWithinHours);
+      if (out.json()) {
+        out.printJsonList(App.class, apps);
+        return 0;
+      }
       if (apps.isEmpty()) {
         System.out.println("No apps found.");
         return 0;
