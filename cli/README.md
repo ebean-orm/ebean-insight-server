@@ -58,11 +58,17 @@ insight config path                 # prints the file location
 ```
 
 Persistable keys: `url`, `namespace`, `service`, `target-port`, `local-port`,
-`context`, `ready-timeout`, `insight-key`.
+`context`, `ready-timeout`, `insight-key`, `output`.
 
 Resolution precedence for every option: **explicit flag → config file →
 built-in default** (the built-in default only exists for non-identifying values
-such as `target-port`).
+such as `target-port`). For example, set JSON as your default output format:
+
+```bash
+insight config set output json     # every command now defaults to -o json
+insight envs                       # JSON
+insight envs -o text               # flag still overrides to plain text
+```
 
 ## Authentication
 
@@ -132,6 +138,7 @@ insight plans -n 5 --output json | jq '.[].label'
 
 JSON is emitted compact (one line, pipe to `jq` to pretty-print) and an empty
 result is rendered as `[]`. For `plan`, `-o json` takes precedence over `--raw`.
+Set `insight config set output json` to make JSON the default for every command.
 
 ## Examples
 

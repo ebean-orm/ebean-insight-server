@@ -62,4 +62,46 @@ class OutputOptionsTest {
     String json = capture(() -> out.printJsonList(Env.class, List.of()));
     assertThat(json.trim()).isEqualTo("[]");
   }
+
+  @Test
+  void resolve_readsJsonFromConfig() throws Exception {
+    var configFile = java.nio.file.Files.createTempFile("insight-out", ".properties");
+    java.nio.file.Files.writeString(configFile, "output=json\n");
+    try {
+      var out = new OutputOptions();
+      out.resolve(new InsightConfig(configFile));
+      assertThat(out.json()).isTrue();
+    } finally {
+      java.nio.file.Files.deleteIfExists(configFile);
+    }
+  }
+
+  @Test
+  void resolve_flagOverridesConfig() throws Exception {
+    var configFile = java.nio.file.Files.createTempFile("insight-out", ".properties");
+    java.nio.file.Files.writeString(configFile, "output=json\n");
+    try {
+      var out = new OutputOptions();
+      out.format = OutputOptions.Format.text;
+      out.resolve(new InsightConfig(configFile));
+      assertThat(out.json()).isFalse();
+    } finally {
+      java.nio.file.Files.deleteIfExists(configFile);
+    }
+  }
+
+  @Test
+  void resolve_invalidConfigValue_throws() throws Exception {
+    var configFile = java.nio.file.Files.createTempFile("insight-out", ".properties");
+    java.nio.file.Files.writeString(configFile, "output=yaml\n");
+    try {
+      var out = new OutputOptions();
+      assertThat(org.assertj.core.api.Assertions.catchThrowable(
+          () -> out.resolve(new InsightConfig(configFile))))
+          .isInstanceOf(CliException.class)
+          .hasMessageContaining("Invalid output format");
+    } finally {
+      java.nio.file.Files.deleteIfExists(configFile);
+    }
+  }
 }

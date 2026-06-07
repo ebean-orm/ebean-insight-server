@@ -23,7 +23,7 @@ final class InsightConfig {
   /** Settings that may be persisted; these mirror the connection option names. */
   static final List<String> KEYS = List.of(
       "url", "namespace", "service", "target-port", "local-port",
-      "context", "ready-timeout", "insight-key");
+      "context", "ready-timeout", "insight-key", "output");
 
   private final Path file;
 
