@@ -1,0 +1,50 @@
+name: CLI native binaries
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build insight CLI on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            artifact: insight-linux-x64
+            binary: insight
+          - os: macos-latest
+            artifact: insight-macos-arm64
+            binary: insight
+          - os: windows-latest
+            artifact: insight-windows-x64
+            binary: insight.exe
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '25'
+          distribution: 'graalvm'
+          cache: 'maven'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          native-image-job-reports: 'true'
+
+      - name: Versions
+        run: |
+          java --version
+          native-image --version
+
+      # Builds only the CLI and its reactor deps (parent, api, client, forwarder, cli).
+      # The server module is not a dependency of cli, so it is not built here.
+      - name: Build CLI native binary
+        run: mvn -B -pl cli -am package -Pnative -DskipTests
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.artifact }}
+          path: cli/target/${{ matrix.binary }}
+          if-no-files-found: error
