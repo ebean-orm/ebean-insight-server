@@ -82,7 +82,7 @@ Two independent mechanisms, depending on how you reach the server:
 
   ```bash
   export INSIGHT_KEY=...               # or pass --insight-key each call
-  insight --url https://insight.example.com plans
+  insight plans --url https://insight.example.com
   ```
 
 ## Daemon mode
@@ -154,10 +154,10 @@ insight plans -n 5
 insight plan 2 --raw
 
 # Talk to a server directly instead of port-forwarding
-insight --url http://localhost:8091 plans --app ebean-insight --since-hours 24
+insight plans --url http://localhost:8091 --app myk8s-service --since-hours 24
 
 # Override the persisted target for a single call
-insight --context my-eks --namespace staging-core --service ebean-insight plans
+insight plans --context my-eks --namespace staging-core --service ebean-insight
 ```
 
 ## Running
