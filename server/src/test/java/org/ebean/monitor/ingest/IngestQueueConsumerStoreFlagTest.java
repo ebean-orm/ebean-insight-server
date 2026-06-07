@@ -62,7 +62,7 @@ class IngestQueueConsumerStoreFlagTest {
   }
 
   private static IngestQueueConsumer consumer(CountingIngestMessage msg) {
-    return new IngestQueueConsumer(new IngestQueue(), msg, disabledForwarder(), disabledTrigger(), disabledPlanLogger());
+    return new IngestQueueConsumer(new IngestQueue(), msg, disabledForwarder(), disabledTrigger(), disabledPlanLogger(), new MissingEnvWarner());
   }
 
   @Test

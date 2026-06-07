@@ -33,15 +33,17 @@ public class IngestQueueConsumer {
   private final MetricForwarder forwarder;
   private final AutoPlanTrigger autoPlanTrigger;
   private final QueryPlanLogger queryPlanLogger;
+  private final MissingEnvWarner missingEnvWarner;
   private final boolean storeMetrics;
   private final boolean storePlans;
 
-  IngestQueueConsumer(IngestQueue queue, IngestMessage ingestMessage, MetricForwarder forwarder, AutoPlanTrigger autoPlanTrigger, QueryPlanLogger queryPlanLogger) {
+  IngestQueueConsumer(IngestQueue queue, IngestMessage ingestMessage, MetricForwarder forwarder, AutoPlanTrigger autoPlanTrigger, QueryPlanLogger queryPlanLogger, MissingEnvWarner missingEnvWarner) {
     this.queue = queue;
     this.ingestMessage = ingestMessage;
     this.forwarder = forwarder;
     this.autoPlanTrigger = autoPlanTrigger;
     this.queryPlanLogger = queryPlanLogger;
+    this.missingEnvWarner = missingEnvWarner;
     this.storeMetrics = Config.getBool("metrics.store.enabled", true);
     this.storePlans = Config.getBool("plans.store.enabled", storeMetrics);
   }
@@ -72,6 +74,7 @@ public class IngestQueueConsumer {
   @Timed
   private void ingestRequest(MetricRequest data) {
     log.debug("ingesting request");
+    missingEnvWarner.check(data.appName, data.environment);
     // forward to OTLP (no-op if disabled, never throws)
     forwarder.forward(data);
     // detect expensive queries and request plan capture (no-op if disabled)
@@ -93,6 +96,7 @@ public class IngestQueueConsumer {
 
   private void ingestQueryPlans(QueryPlanRequest queryPlans) {
     log.debug("ingesting query plans");
+    missingEnvWarner.check(queryPlans.appName, queryPlans.environment);
     try {
       // emit to dedicated logger (no-op when disabled)
       queryPlanLogger.log(queryPlans);
