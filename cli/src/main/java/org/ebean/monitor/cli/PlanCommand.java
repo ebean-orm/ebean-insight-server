@@ -1,0 +1,48 @@
+package org.ebean.monitor.cli;
+
+import java.util.concurrent.Callable;
+
+import org.ebean.monitor.v1.model.QueryPlan;
+import picocli.CommandLine.Command;
+import picocli.CommandLine.Mixin;
+import picocli.CommandLine.Option;
+import picocli.CommandLine.Parameters;
+
+/** Show a single captured query plan. */
+@Command(name = "plan", mixinStandardHelpOptions = true, description = "Show a single captured query plan by id.")
+final class PlanCommand implements Callable<Integer> {
+
+  @Mixin ConnectionOptions conn = new ConnectionOptions();
+
+  @Parameters(index = "0", description = "The plan id.")
+  Long planId;
+
+  @Option(names = "--raw", description = "Print only the raw EXPLAIN plan text.")
+  boolean raw;
+
+  @Override
+  public Integer call() {
+    try (Insight insight = Insight.open(conn)) {
+      QueryPlan p = insight.plans.getPlan(planId);
+      if (raw) {
+        System.out.println(p.plan());
+        return 0;
+      }
+      System.out.println("id:        " + p.id());
+      System.out.println("hash:      " + p.hash());
+      System.out.println("label:     " + p.label());
+      System.out.println("env:       " + p.envName());
+      System.out.println("queryTime: " + p.queryTimeMicros() + "us");
+      System.out.println("captured:  " + p.whenCaptured());
+      System.out.println();
+      System.out.println("sql:");
+      System.out.println(p.sql());
+      System.out.println();
+      System.out.println("bind: " + p.bind());
+      System.out.println();
+      System.out.println("plan:");
+      System.out.println(p.plan());
+      return 0;
+    }
+  }
+}

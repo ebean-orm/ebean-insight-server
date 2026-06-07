@@ -29,12 +29,16 @@
     <avaje-openapi.version>0.1</avaje-openapi.version>
     <avaje-validator.version>2.17</avaje-validator.version>
     <avaje-record-builder.version>1.4</avaje-record-builder.version>
+    <picocli.version>4.7.6</picocli.version>
+    <jspecify.version>1.0.0</jspecify.version>
   </properties>
 
   <modules>
     <module>api</module>
     <module>client</module>
     <module>server</module>
+    <module>forwarder</module>
+    <module>cli</module>
   </modules>
 
 </project>
