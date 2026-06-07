@@ -10,7 +10,9 @@ public class ForwardException extends RuntimeException {
     /** The requested local port is already in use; the supervisor re-picks a port. */
     BIND_CONFLICT,
     /** No Ready pod is currently available for the target. */
-    NO_POD
+    NO_POD,
+    /** A non-retryable failure (auth/config); the supervisor aborts immediately. */
+    FATAL
   }
 
   private final Kind kind;

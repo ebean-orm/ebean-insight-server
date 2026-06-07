@@ -11,8 +11,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 
 /**
@@ -35,14 +36,17 @@ final class DefaultSupervisedForwarder implements SupervisedForwarder {
 
   private final Object lock = new Object();
   private final List<CompletableFuture<URI>> readyWaiters = new ArrayList<>();
-  private final CountDownLatch firstReady = new CountDownLatch(1);
+  private final CompletableFuture<URI> firstReady = new CompletableFuture<>();
 
   private volatile ForwardStatus status = new ForwardStatus(ForwardState.STOPPED, null, 0, null);
   private volatile @Nullable URI baseUri;
   private volatile int localPort;
   private volatile boolean running;
   private volatile ForwardEngine.@Nullable Upstream current;
-  private volatile @Nullable Throwable failure;
+  // the most recent transient (retryable) error — used for timeout diagnostics
+  private volatile @Nullable Throwable lastError;
+  // a non-retryable error that aborted supervision — terminal
+  private volatile @Nullable Throwable terminalFailure;
   private @Nullable Thread supervisor;
 
   DefaultSupervisedForwarder(Builder b) {
@@ -58,29 +62,32 @@ final class DefaultSupervisedForwarder implements SupervisedForwarder {
   @Override
   public URI start(Duration readyTimeout) {
     synchronized (lock) {
-      if (running) {
-        return requireBaseUri();
+      if (!running) {
+        running = true;
+        localPort = configuredLocalPort != 0 ? configuredLocalPort : pickFreePort();
+        baseUri = localUri(localPort);
+        supervisor = Thread.ofVirtual().name("insight-forwarder").start(this::superviseLoop);
       }
-      running = true;
     }
-    localPort = configuredLocalPort != 0 ? configuredLocalPort : pickFreePort();
-    baseUri = localUri(localPort);
-    supervisor = Thread.ofVirtual().name("insight-forwarder").start(this::superviseLoop);
-
     try {
-      if (!firstReady.await(readyTimeout.toMillis(), TimeUnit.MILLISECONDS)) {
-        var f = failure;
-        close();
-        throw f != null
-            ? new ForwardException("Forward failed before becoming ready", f)
-            : new ForwardException("Timed out waiting for forward READY after " + readyTimeout);
-      }
+      return firstReady.get(readyTimeout.toMillis(), TimeUnit.MILLISECONDS);
+    } catch (TimeoutException e) {
+      var f = lastError;
+      close();
+      throw f != null
+          ? new ForwardException("Forward failed before becoming ready: " + messageOf(f), f)
+          : new ForwardException("Timed out waiting for forward READY after " + readyTimeout);
+    } catch (ExecutionException e) {
+      close();
+      var cause = e.getCause();
+      throw cause instanceof ForwardException fe
+          ? fe
+          : new ForwardException("Forward failed before becoming ready: " + messageOf(cause), cause);
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       close();
       throw new ForwardException("Interrupted starting forward", e);
     }
-    return requireBaseUri();
   }
 
   private void superviseLoop() {
@@ -97,7 +104,7 @@ final class DefaultSupervisedForwarder implements SupervisedForwarder {
           }
           failures = 0;
           transition(ForwardState.READY, 0, null);
-          firstReady.countDown();
+          firstReady.complete(requireBaseUri());
           completeReadyWaiters();
           up.closed().join(); // blocks until the forward drops or is closed
         } finally {
@@ -113,11 +120,20 @@ final class DefaultSupervisedForwarder implements SupervisedForwarder {
           transition(ForwardState.RECONNECTING, failures, e);
           continue; // a port clash is not a real failure — retry immediately
         }
+        if (e.kind() == ForwardException.Kind.FATAL) {
+          abort(e);
+          break; // non-retryable (auth/config) — fail fast, don't burn the retry budget
+        }
         if (!running) {
           break;
         }
         failures = backoffSleep("forward error", failures, e);
       } catch (CompletionException e) {
+        var fatal = fatalCause(e);
+        if (fatal != null) {
+          abort(fatal);
+          break;
+        }
         if (!running) {
           break;
         }
@@ -129,7 +145,9 @@ final class DefaultSupervisedForwarder implements SupervisedForwarder {
         failures = backoffSleep("unexpected error", failures, e);
       }
     }
-    transition(ForwardState.STOPPED, failures, failure);
+    if (status.state() != ForwardState.FAILED) {
+      transition(ForwardState.STOPPED, failures, terminalFailure != null ? terminalFailure : lastError);
+    }
   }
 
   private boolean waitHealthy() {
@@ -149,11 +167,30 @@ final class DefaultSupervisedForwarder implements SupervisedForwarder {
 
   private int backoffSleep(String reason, int failures, @Nullable Throwable err) {
     int attempt = failures + 1;
-    this.failure = err;
+    this.lastError = err;
     log.log(System.Logger.Level.DEBUG, "forward reconnect ({0}) attempt {1}", reason, attempt);
     transition(ForwardState.RECONNECTING, attempt, err);
     sleep(backoff.nextDelay(attempt));
     return attempt;
+  }
+
+  private void abort(Throwable err) {
+    this.terminalFailure = err;
+    running = false;
+    transition(ForwardState.FAILED, status.reconnectCount(), err);
+    firstReady.completeExceptionally(err);
+    failReadyWaiters(err);
+  }
+
+  /** Unwraps Completion/Execution wrappers to find a non-retryable (FATAL) {@link ForwardException}. */
+  private static @Nullable ForwardException fatalCause(@Nullable Throwable t) {
+    for (int i = 0; i < 8 && t != null; i++) {
+      if (t instanceof ForwardException fe && fe.kind() == ForwardException.Kind.FATAL) {
+        return fe;
+      }
+      t = t.getCause();
+    }
+    return null;
   }
 
   private void transition(ForwardState state, int reconnects, @Nullable Throwable err) {
@@ -193,7 +230,7 @@ final class DefaultSupervisedForwarder implements SupervisedForwarder {
   public CompletableFuture<URI> awaitReady(Duration budget) {
     synchronized (lock) {
       if (!running) {
-        var f = failure;
+        var f = currentError();
         return CompletableFuture.failedFuture(
             f != null ? f : new ForwardException("forwarder is not running"));
       }
@@ -222,15 +259,23 @@ final class DefaultSupervisedForwarder implements SupervisedForwarder {
     if (t != null) {
       t.interrupt();
     }
-    firstReady.countDown();
+    firstReady.completeExceptionally(new ForwardException("forwarder closed"));
+    failReadyWaiters(new ForwardException("forwarder closed"));
+  }
+
+  private void failReadyWaiters(Throwable err) {
     List<CompletableFuture<URI>> waiters;
     synchronized (lock) {
       waiters = List.copyOf(readyWaiters);
       readyWaiters.clear();
     }
     for (var w : waiters) {
-      w.completeExceptionally(new ForwardException("forwarder closed"));
+      w.completeExceptionally(err);
     }
+  }
+
+  private @Nullable Throwable currentError() {
+    return terminalFailure != null ? terminalFailure : lastError;
   }
 
   private URI requireBaseUri() {
@@ -259,5 +304,10 @@ final class DefaultSupervisedForwarder implements SupervisedForwarder {
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
     }
+  }
+
+  private static String messageOf(Throwable t) {
+    String m = t.getMessage();
+    return m != null ? m : t.toString();
   }
 }

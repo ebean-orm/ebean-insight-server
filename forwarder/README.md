@@ -65,6 +65,15 @@ The local port is pinned for the lifetime of the forwarder. If `localPort` is
    **same** local port.
 3. A `BIND_CONFLICT` (local port already in use) causes a re-pick where
    applicable; a missing pod surfaces as `ForwardException.Kind.NO_POD`.
+4. A non-retryable failure — `ForwardException.Kind.FATAL` — aborts supervision
+   immediately rather than retrying for the whole ready-timeout window. The
+   `KubectlForwardEngine` classifies kubectl's stderr on early exit: auth/config
+   errors (expired credentials, *Unauthorized*, *getting credentials*, unknown
+   `--context`) are fatal, while reachability errors (e.g. *unable to connect to
+   the server*) stay retryable. On a fatal abort the engine surfaces kubectl's
+   stderr tail (e.g. `kubectl exited (code 255): Token has expired …`) so the
+   cause is obvious, the supervisor moves to `FAILED`, and `start(...)` returns
+   in well under a second instead of after the full timeout.
 
 A mid-session pod roll therefore looks like a ~1–3s blip to a client, after
 which the same `baseUri()` works again — verified end-to-end against a live EKS

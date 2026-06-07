@@ -6,7 +6,9 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.time.Duration;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
@@ -45,6 +47,19 @@ public final class KubectlForwardEngine implements ForwardEngine {
 
   // stderr fragment meaning "local port taken" -> supervisor re-picks a port
   private static final String BIND_CONFLICT_MARKER = "unable to listen on any of the requested ports";
+
+  // stderr fragments meaning the failure is non-retryable (auth/config) -> fail fast.
+  // Network reachability ("unable to connect to the server") is intentionally excluded — that may be transient.
+  private static final List<String> FATAL_MARKERS = List.of(
+      "token has expired",
+      "error: getting credentials",
+      "the server has asked for the client to provide credentials",
+      "you must be logged in to the server",
+      "error: you must be logged in",
+      "unauthorized",
+      "invalid configuration",
+      "no configuration has been provided",
+      "does not exist"); // e.g. error: context "foo" does not exist
 
   private final String kubectlBin;
   private final @Nullable String context;
@@ -119,6 +134,11 @@ public final class KubectlForwardEngine implements ForwardEngine {
     return DROP_MARKERS.stream().anyMatch(lower::contains);
   }
 
+  static boolean isFatal(String line) {
+    var lower = line.toLowerCase(Locale.ROOT);
+    return FATAL_MARKERS.stream().anyMatch(lower::contains);
+  }
+
   /** A single live {@code kubectl port-forward} process. */
   private static final class KubectlUpstream implements Upstream {
 
@@ -126,20 +146,33 @@ public final class KubectlForwardEngine implements ForwardEngine {
     private final CompletableFuture<InetSocketAddress> bound = new CompletableFuture<>();
     private final CompletableFuture<Void> closed = new CompletableFuture<>();
     private final AtomicBoolean closing = new AtomicBoolean();
+    private final Deque<String> stderrLines = new ArrayDeque<>();
     private volatile @Nullable ForwardException bindConflict;
+    private volatile @Nullable Thread errPump;
 
     KubectlUpstream(Process proc, Duration readyTimeout) {
       this.proc = proc;
       pump(proc.inputReader(), this::onStdout, "kubectl-out");
-      pump(proc.errorReader(), this::onStderr, "kubectl-err");
+      errPump = pump(proc.errorReader(), this::onStderr, "kubectl-err");
 
       proc.onExit().thenRun(() -> {
         if (closing.get()) {
           closed.complete(null);
-        } else {
-          var conflict = bindConflict;
-          closed.completeExceptionally(conflict != null ? conflict
-              : new ForwardException("kubectl exited (code " + proc.exitValue() + ")"));
+          return;
+        }
+        // Give stderr a moment to drain so the cause (e.g. expired credentials) is captured.
+        joinQuietly(errPump);
+        var conflict = bindConflict;
+        ForwardException ex = conflict != null
+            ? conflict
+            : new ForwardException(
+                hasFatalStderr() ? ForwardException.Kind.FATAL : ForwardException.Kind.GENERIC,
+                describeExit());
+        if (!bound.isDone()) {
+          bound.completeExceptionally(ex);
+        }
+        if (!closed.isDone()) {
+          closed.completeExceptionally(ex);
         }
       });
 
@@ -174,6 +207,7 @@ public final class KubectlForwardEngine implements ForwardEngine {
     }
 
     private void onStderr(String line) {
+      recordStderr(line);
       if (isBindConflict(line)) {
         var conflict = new ForwardException(ForwardException.Kind.BIND_CONFLICT, line);
         bindConflict = conflict;
@@ -185,6 +219,53 @@ public final class KubectlForwardEngine implements ForwardEngine {
           closed.completeExceptionally(new ForwardException("forward dropped: " + line));
         }
         destroy();
+      }
+    }
+
+    private void recordStderr(String line) {
+      if (line.isBlank()) {
+        return;
+      }
+      synchronized (stderrLines) {
+        stderrLines.addLast(line.strip());
+        while (stderrLines.size() > 8) {
+          stderrLines.removeFirst();
+        }
+      }
+    }
+
+    /** The most recent (up to 3) stderr lines, or {@code null} if none. */
+    private @Nullable String stderrTail() {
+      synchronized (stderrLines) {
+        if (stderrLines.isEmpty()) {
+          return null;
+        }
+        var lines = new ArrayList<>(stderrLines);
+        int from = Math.max(0, lines.size() - 3);
+        return String.join(" | ", lines.subList(from, lines.size()));
+      }
+    }
+
+    private boolean hasFatalStderr() {
+      synchronized (stderrLines) {
+        return stderrLines.stream().anyMatch(KubectlForwardEngine::isFatal);
+      }
+    }
+
+    private String describeExit() {
+      String base = "kubectl exited (code " + proc.exitValue() + ")";
+      String tail = stderrTail();
+      return tail == null ? base : base + ": " + tail;
+    }
+
+    private static void joinQuietly(@Nullable Thread thread) {
+      if (thread == null) {
+        return;
+      }
+      try {
+        thread.join(Duration.ofMillis(500));
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
       }
     }
 
@@ -225,8 +306,8 @@ public final class KubectlForwardEngine implements ForwardEngine {
       }
     }
 
-    private static void pump(BufferedReader reader, Consumer<String> onLine, String name) {
-      Thread.ofVirtual().name(name).start(() -> {
+    private static Thread pump(BufferedReader reader, Consumer<String> onLine, String name) {
+      return Thread.ofVirtual().name(name).start(() -> {
         try (reader) {
           String line;
           while ((line = reader.readLine()) != null) {

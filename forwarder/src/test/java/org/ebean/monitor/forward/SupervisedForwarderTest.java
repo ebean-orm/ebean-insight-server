@@ -9,6 +9,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class SupervisedForwarderTest {
 
@@ -88,5 +89,35 @@ class SupervisedForwarderTest {
 
     assertThat(fwd.awaitReady(Duration.ofSeconds(1)))
         .isCompletedExceptionally();
+  }
+
+  @Test
+  void fatalError_abortsImmediately_withoutBurningRetryBudget() {
+    var opens = new AtomicInteger();
+    ForwardEngine engine = spec -> {
+      opens.incrementAndGet();
+      throw new ForwardException(ForwardException.Kind.FATAL,
+          "kubectl exited (code 255): Token has expired and refresh failed");
+    };
+
+    try (var fwd = SupervisedForwarder.builder()
+        .target(ForwardTarget.service("ns", "svc", 8091))
+        .engine(engine)
+        .healthCheck(uri -> true)
+        // a huge backoff: if the loop retried instead of aborting, start() would block
+        // until its 5s ready-timeout rather than returning quickly.
+        .backoff(attempt -> Duration.ofSeconds(30))
+        .build()) {
+
+      var startNanos = System.nanoTime();
+      assertThatThrownBy(() -> fwd.start(Duration.ofSeconds(5)))
+          .isInstanceOf(ForwardException.class)
+          .hasMessageContaining("Token has expired");
+      var elapsedMs = (System.nanoTime() - startNanos) / 1_000_000;
+
+      assertThat(elapsedMs).isLessThan(2000);                 // failed fast, not after the 5s timeout
+      assertThat(opens.get()).isEqualTo(1);                   // no retry attempts
+      assertThat(fwd.status().state()).isEqualTo(ForwardState.FAILED);
+    }
   }
 }
