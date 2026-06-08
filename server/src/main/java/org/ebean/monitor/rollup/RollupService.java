@@ -94,7 +94,7 @@ public class RollupService implements Runnable {
         .eventTime.after(since)
         .findSingleAttribute();
 
-    log.info("expected currentRollup:{}  lastRollup:{}", currentRollupTime, lastRollupTime);
+    log.debug("expected currentRollup:{}  lastRollup:{}", currentRollupTime, lastRollupTime);
     if (lastRollupTime == null || lastRollupTime.isBefore(currentRollupTime)) {
       final Rollup rollup = new Rollup(database, currentRollupTime);
       rollup.rollup();
