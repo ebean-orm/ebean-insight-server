@@ -51,9 +51,13 @@ public class DAppMetric extends BaseDomain {
   private final String name;
 
   /**
-   * True when this metric is "plan capable" - i.e. an ORM SELECT-style query
-   * that supports query plan capture. Derived from the name prefix {@code orm.}
-   * at insert time. Raw SQL and update/delete metrics are not plan capable.
+   * True when this metric is "plan capable" - i.e. a SELECT-style query that
+   * supports query plan capture. Derived from the name prefix at insert time:
+   * {@code orm.} (ORM entity queries, excluding {@code orm.update.}) and
+   * {@code dto.} (DtoQuery). Native-SQL DTO queries capture directly; ORM-backed
+   * DTO queries ({@code Query.asDto(...)}) are flagged plan capable too but are
+   * captured via their underlying {@code orm.} plan. Raw SQL and update/delete
+   * metrics are not plan capable.
    */
   @NotNull
   @Index
@@ -88,7 +92,9 @@ public class DAppMetric extends BaseDomain {
     this.app = app;
     this.key = key;
     this.name = name;
-    this.planCapable = name != null && name.startsWith("orm.") && !name.startsWith("orm.update.");
+    this.planCapable = name != null
+      && (name.startsWith("orm.") || name.startsWith("dto."))
+      && !name.startsWith("orm.update.");
   }
 
   public String getKey() {

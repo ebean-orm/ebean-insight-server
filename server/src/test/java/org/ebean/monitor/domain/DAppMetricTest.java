@@ -25,8 +25,14 @@ class DAppMetricTest {
   }
 
   @Test
+  void planCapable_dtoQueries() {
+    assertThat(planCapable("dto.CustomerDto_byEmail")).isTrue();
+    assertThat(planCapable("dto.DCust.custDtoPlan")).isTrue();
+    assertThat(planCapable("dto.SensorState")).isTrue();
+  }
+
+  @Test
   void notPlanCapable_other() {
-    assertThat(planCapable("dto.CustomerDto_byEmail")).isFalse();
     assertThat(planCapable("sql.query.findStuff")).isFalse();
     assertThat(planCapable("sql.update.bulkUpdate")).isFalse();
     assertThat(planCapable("iud.Customer.insert")).isFalse();
