@@ -31,9 +31,9 @@ info:
     - `limit`: default 50, hard cap 200.
 
     Plan-capable metrics:
-    - "Plan capable" = an ORM SELECT-style metric whose name starts with
-      `orm.`. Raw SQL and update/delete metrics cannot have query plans
-      captured.
+    - "Plan capable" = a SELECT-style metric whose name starts with
+      `orm.`, `dto.`, or `sql.query.` (excluding `orm.update.`).
+      Update/delete metrics cannot have query plans captured.
 
 servers:
   - url: /
@@ -192,7 +192,7 @@ paths:
           in: query
           schema:
             type: boolean
-          description: Optional filter; when true, restrict to ORM (plan-capable) metrics.
+          description: Optional filter; when true, restrict to plan-capable metrics.
         - $ref: '#/components/parameters/EnvQuery'
       responses:
         '200':

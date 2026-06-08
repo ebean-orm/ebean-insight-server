@@ -32,8 +32,13 @@ class DAppMetricTest {
   }
 
   @Test
+  void planCapable_sqlQueries() {
+    assertThat(planCapable("sql.query.findStuff")).isTrue();
+    assertThat(planCapable("sql.query.custSqlPlan")).isTrue();
+  }
+
+  @Test
   void notPlanCapable_other() {
-    assertThat(planCapable("sql.query.findStuff")).isFalse();
     assertThat(planCapable("sql.update.bulkUpdate")).isFalse();
     assertThat(planCapable("iud.Customer.insert")).isFalse();
     assertThat(planCapable("txn.main")).isFalse();

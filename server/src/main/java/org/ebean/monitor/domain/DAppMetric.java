@@ -93,7 +93,7 @@ public class DAppMetric extends BaseDomain {
     this.key = key;
     this.name = name;
     this.planCapable = name != null
-      && (name.startsWith("orm.") || name.startsWith("dto."))
+      && (name.startsWith("orm.") || name.startsWith("dto.") || name.startsWith("sql.query."))
       && !name.startsWith("orm.update.");
   }
 

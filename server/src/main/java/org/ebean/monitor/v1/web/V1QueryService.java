@@ -463,7 +463,7 @@ public final class V1QueryService {
     }
     if (!metric.isPlanCapable()) {
       throw new BadRequestException(
-        "Metric '" + metric.getName() + "' is not plan-capable; only ORM (orm.*) metrics support plan capture");
+        "Metric '" + metric.getName() + "' is not plan-capable; only orm.*, dto.* and sql.query.* metrics support plan capture");
     }
     final String envName = (env == null || env.isBlank()) ? NO_ENVIRONMENT : env.trim();
     final String message = "qp:" + metric.getKey();

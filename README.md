@@ -81,9 +81,10 @@ curl -H "Insight-Key: $KEY" http://localhost:8090/v1/plans/12345
   natural keys return `200` with an empty list (not `404`) — except
   `GET /v1/apps/{app}` and `POST .../plans/by-hash/{hash}/request` which
   return `404` when the app doesn't exist.
-- **planCapable** — derived as `name LIKE 'orm.%'` and stored on
+- **planCapable** — derived from the metric name (`orm.`, `dto.`, or
+  `sql.query.`, excluding `orm.update.`) and stored on
   `app_metric.plan_capable`. Only plan-capable metrics support
-  `POST .../plans/by-hash/{hash}/request`; non-orm metrics return `400`.
+  `POST .../plans/by-hash/{hash}/request`; other metrics return `400`.
 - **orderBy** — allowlist on `/metrics/top`: `total` (default), `mean`,
   `max`, `count`. Anything else → `400`.
 - **Hash vs label** — `hash` is the metric `key` (deterministic SQL hash;
