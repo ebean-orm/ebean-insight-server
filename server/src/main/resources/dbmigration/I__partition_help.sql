@@ -35,11 +35,19 @@ language plpgsql
 set timezone to 'UTC'
 as $$
 -- play-ebean-start
+declare
+  unlogged_kw text := '';
 begin
+  -- match the partition persistence (logged/unlogged) to its parent table
+  if (select relpersistence = 'u' from pg_class
+      where oid = to_regclass(case when meta.schema_name = '' then meta.base_name
+                                   else meta.schema_name || '.' || meta.base_name end)) then
+    unlogged_kw := 'unlogged';
+  end if;
   if (meta.schema_name = '') then
-    execute format('create table if not exists %I partition of %I for values from (''%s'') TO (''%s'')', meta.part_name, meta.base_name, meta.period_start, meta.period_end);
+    execute format('create %s table if not exists %I partition of %I for values from (''%s'') TO (''%s'')', unlogged_kw, meta.part_name, meta.base_name, meta.period_start, meta.period_end);
   else
-    execute format('create table if not exists %I partition of %I.%I for values from (''%s'') TO (''%s'')', meta.part_name, meta.schema_name, meta.base_name, meta.period_start, meta.period_end);
+    execute format('create %s table if not exists %I partition of %I.%I for values from (''%s'') TO (''%s'')', unlogged_kw, meta.part_name, meta.schema_name, meta.base_name, meta.period_start, meta.period_end);
   end if;
   return meta.part_name;
 end;

@@ -22,9 +22,11 @@
             <column name="app_id" type="integer"/>
             <column name="key" type="varchar(40)" notnull="true"/>
             <column name="name" type="varchar(300)"/>
+            <column name="plan_capable" type="boolean" defaultValue="false" notnull="true"/>
             <column name="rollup_group" type="varchar(300)"/>
             <column name="loc" type="varchar(300)"/>
             <column name="sql" type="clob"/>
+            <column name="plan_threshold_micros" type="bigint"/>
             <column name="version" type="integer" notnull="true"/>
             <column name="when_created" type="timestamp" notnull="true"/>
             <column name="when_modified" type="timestamp" notnull="true"/>
@@ -180,6 +182,7 @@
         </createTable>
         <createIndex indexName="ix_app_metric_key" tableName="ebean_insight.app_metric" columns="key"/>
         <createIndex indexName="ix_app_metric_name" tableName="ebean_insight.app_metric" columns="name"/>
+        <createIndex indexName="ix_app_metric_plan_capable" tableName="ebean_insight.app_metric" columns="plan_capable"/>
         <createIndex indexName="ix_gauge_entry_event_time" tableName="ebean_insight.gauge_entry" columns="event_time"/>
         <createIndex indexName="ix_gauge_d1_app_id" tableName="ebean_insight.gauge_d1" columns="app_id"/>
         <createIndex indexName="ix_gauge_d1_env_id" tableName="ebean_insight.gauge_d1" columns="env_id"/>
