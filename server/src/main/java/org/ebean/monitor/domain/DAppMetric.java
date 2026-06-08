@@ -88,7 +88,7 @@ public class DAppMetric extends BaseDomain {
     this.app = app;
     this.key = key;
     this.name = name;
-    this.planCapable = name != null && name.startsWith("orm.");
+    this.planCapable = name != null && name.startsWith("orm.") && !name.startsWith("orm.update.");
   }
 
   public String getKey() {
