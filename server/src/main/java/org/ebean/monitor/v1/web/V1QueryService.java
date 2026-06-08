@@ -50,6 +50,17 @@ public final class V1QueryService {
   private static final long DEFAULT_ACTIVE_WINDOW_MINUTES = 60L;
   private static final String NO_ENVIRONMENT = "no-environment";
 
+  // Window thresholds (minutes) for selecting the coarsest timed rollup table
+  // that still covers the requested window. Aggregation queries SUM over the
+  // whole window, so the bucket granularity within the window is irrelevant;
+  // this just bounds the number of rows scanned. Results are approximate at the
+  // bucket boundary / leading edge (the newest partial bucket may be excluded).
+  // Boundaries align with partition retention (see CleanupPartitions): m1/m10
+  // 30d, m60 120d, d1 1000d.
+  private static final long M1_MAX_MINUTES = 3L * 60;          // 3 hours
+  private static final long M10_MAX_MINUTES = 2L * 24 * 60;    // 2 days
+  private static final long M60_MAX_MINUTES = 120L * 24 * 60;  // 120 days
+
   private static final Set<String> ORDER_BY_KEYS = Set.of("total", "mean", "max", "count");
 
   private final MessageService messageService;
@@ -181,16 +192,17 @@ public final class V1QueryService {
       return List.of();
     }
     final long minutes = window.minutes();
-    final SqlQuery query = DB.sqlQuery("""
+    final String table = timedTableFor(minutes);
+    final SqlQuery query = DB.sqlQuery(("""
         select
           coalesce(sum(t.count), 0) as count,
           coalesce(sum(t.total), 0) as total,
           coalesce(max(t.max), 0)   as max
-        from ebean_insight.timed_m1 t
+        from %s t
         where t.metric_id = :metricId
           and t.event_time > :from
         """
-      + (envId == null ? "" : "  and t.env_id = :envId\n"))
+      + (envId == null ? "" : "  and t.env_id = :envId\n")).formatted(table))
       .setParameter("metricId", metric.getId())
       .setParameter("from", window.from());
     if (envId != null) {
@@ -250,6 +262,7 @@ public final class V1QueryService {
       return List.of();
     }
     final String sortKey = resolveOrderBy(orderBy);
+    final String table = timedTableFor(window.minutes());
     final String sql = ("""
       select
         m.id          as metric_id,
@@ -261,7 +274,7 @@ public final class V1QueryService {
         coalesce(sum(t.count), 0) as agg_count,
         coalesce(sum(t.total), 0) as agg_total,
         coalesce(max(t.max), 0)   as agg_max
-      from ebean_insight.timed_m1 t
+      from %s t
       join ebean_insight.app_metric m on m.id = t.metric_id
       join ebean_insight.app a        on a.id = m.app_id
       where t.event_time > :from
@@ -273,7 +286,7 @@ public final class V1QueryService {
       group by m.id, a.name, m.name, m.key, m.loc, m.plan_capable
       order by %s desc
       limit :limit
-      """).formatted(orderByExpression(sortKey));
+      """).formatted(table, orderByExpression(sortKey));
 
     final long minutes = window.minutes();
     final SqlQuery sqlQuery = DB.sqlQuery(sql)
@@ -525,6 +538,25 @@ public final class V1QueryService {
    */
   private static boolean envFilterMisses(@Nullable String env, @Nullable Integer envId) {
     return env != null && !env.isBlank() && envId == null;
+  }
+
+  /**
+   * Select the coarsest timed rollup table whose retention covers the requested
+   * window, to bound the number of rows scanned for long windows. The returned
+   * value is one of a fixed set of schema-qualified table names (never derived
+   * from user input), so it is safe to interpolate into SQL.
+   */
+  static String timedTableFor(long windowMinutes) {
+    if (windowMinutes <= M1_MAX_MINUTES) {
+      return "ebean_insight.timed_m1";
+    }
+    if (windowMinutes <= M10_MAX_MINUTES) {
+      return "ebean_insight.timed_m10";
+    }
+    if (windowMinutes <= M60_MAX_MINUTES) {
+      return "ebean_insight.timed_m60";
+    }
+    return "ebean_insight.timed_d1";
   }
 
   private DApp requireApp(String appName) {

@@ -20,8 +20,9 @@ public class CleanupPartitions {
 
     final int base = Config.getInt("partitions.base", 10);
     final int m1 = Config.getInt("partitions.m1", 30);
-    final int m10 = Config.getInt("partitions.m10", 30);
-    final int d1 = Config.getInt("partitions.d1", 40);
+    final int m10 = Config.getInt("partitions.m10", 100);
+    final int m60 = Config.getInt("partitions.m60", 500);
+    final int d1 = Config.getInt("partitions.d1", 1000);
 
     cleanup("timed_entry", base);
     cleanup("gauge_entry", base);
@@ -29,6 +30,8 @@ public class CleanupPartitions {
     cleanup("gauge_m1", m1);
     cleanup("timed_m10", m10);
     cleanup("gauge_m10", m10);
+    cleanup("timed_m60", m60);
+    cleanup("gauge_m60", m60);
     cleanup("timed_d1", d1);
     cleanup("gauge_d1", d1);
     return count;
