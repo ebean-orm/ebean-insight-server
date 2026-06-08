@@ -15,6 +15,7 @@ import org.ebean.monitor.forward.StaticEndpoint;
 import org.ebean.monitor.forward.SupervisedForwarder;
 import org.ebean.monitor.v1.httpclient.AppsApiHttpClient;
 import org.ebean.monitor.v1.httpclient.EnvsApiHttpClient;
+import org.ebean.monitor.v1.httpclient.MetricsApiHttpClient;
 import org.ebean.monitor.v1.httpclient.PlansApiHttpClient;
 import org.jspecify.annotations.Nullable;
 
@@ -28,12 +29,14 @@ final class Insight implements AutoCloseable {
   final PlansApiHttpClient plans;
   final AppsApiHttpClient apps;
   final EnvsApiHttpClient envs;
+  final MetricsApiHttpClient metrics;
 
   private Insight(@Nullable SupervisedForwarder forwarder, HttpClient http) {
     this.forwarder = forwarder;
     this.plans = new PlansApiHttpClient(http);
     this.apps = new AppsApiHttpClient(http);
     this.envs = new EnvsApiHttpClient(http);
+    this.metrics = new MetricsApiHttpClient(http);
   }
 
   /** Open a connection per the given options, starting a port-forward if needed. */
