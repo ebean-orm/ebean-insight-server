@@ -20,14 +20,16 @@ class MetricCommandsParseTest {
     assertThat(cmd.by).isEqualTo(TopCommand.OrderBy.total);
     assertThat(cmd.limit).isEqualTo(20);
     assertThat(cmd.app).isNull();
+    assertThat(cmd.env).isNull();
     assertThat(cmd.planCapable).isNull();
   }
 
   @Test
   void top_parsesOptions() {
     var cmd = CommandLine.populateCommand(new TopCommand(),
-        "--app", "central-notifications", "--by", "mean", "--since-hours", "2", "-n", "5");
+        "--app", "central-notifications", "--env", "test", "--by", "mean", "--since-hours", "2", "-n", "5");
     assertThat(cmd.app).isEqualTo("central-notifications");
+    assertThat(cmd.env).isEqualTo("test");
     assertThat(cmd.by).isEqualTo(TopCommand.OrderBy.mean);
     assertThat(cmd.sinceHours).isEqualTo(2L);
     assertThat(cmd.sinceMinutes).isNull();

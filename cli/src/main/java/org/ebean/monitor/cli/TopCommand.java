@@ -23,6 +23,7 @@ import picocli.CommandLine.Option;
     footer = {
         "  insight top                              # all apps, by total time, last 60m",
         "  insight top --by mean --since-hours 6",
+        "  insight top --app myapp --env test",
         "  insight top --app myapp --plan-capable",
         "  insight top -o json | jq .",
         "  # the HASH column feeds straight into:  insight capture <app> <hash>"
@@ -37,6 +38,10 @@ final class TopCommand implements Callable<Integer> {
   @Option(names = "--app",
       description = "Limit to one application. When omitted, ranks across all apps.")
   @Nullable String app;
+
+  @Option(names = "--env",
+      description = "Limit to one environment (e.g. test, dev). When omitted, spans all envs.")
+  @Nullable String env;
 
   @Option(names = "--by", defaultValue = "total",
       description = "Rank by: ${COMPLETION-CANDIDATES} (default: ${DEFAULT-VALUE}).")
@@ -63,8 +68,8 @@ final class TopCommand implements Callable<Integer> {
     final String orderBy = by.name();
     try (Insight insight = Insight.open(conn)) {
       List<AppMetricStats> rows = (app == null)
-          ? insight.metrics.topMetrics(orderBy, sinceMinutes, sinceHours, limit, planCapable)
-          : insight.metrics.topAppMetrics(app, orderBy, sinceMinutes, sinceHours, limit, planCapable);
+          ? insight.metrics.topMetrics(orderBy, sinceMinutes, sinceHours, limit, planCapable, env)
+          : insight.metrics.topAppMetrics(app, orderBy, sinceMinutes, sinceHours, limit, planCapable, env);
       if (out.json()) {
         out.printJsonList(AppMetricStats.class, rows);
         return 0;

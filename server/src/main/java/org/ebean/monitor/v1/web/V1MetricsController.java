@@ -32,13 +32,13 @@ public final class V1MetricsController implements MetricsApi {
   }
 
   @Override
-  public List<AppMetricStats> getMetricStatsByHash(String app, String hash, Long sinceMinutes, Long sinceHours) {
-    return service.getMetricStatsByHash(app, hash, sinceMinutes, sinceHours);
+  public List<AppMetricStats> getMetricStatsByHash(String app, String hash, Long sinceMinutes, Long sinceHours, String env) {
+    return service.getMetricStatsByHash(app, hash, sinceMinutes, sinceHours, env);
   }
 
   @Override
-  public List<AppMetricStats> topAppMetrics(String app, String orderBy, Long sinceMinutes, Long sinceHours, Integer limit, Boolean planCapable) {
-    return service.topAppMetrics(app, orderBy, sinceMinutes, sinceHours, limit, planCapable);
+  public List<AppMetricStats> topAppMetrics(String app, String orderBy, Long sinceMinutes, Long sinceHours, Integer limit, Boolean planCapable, String env) {
+    return service.topAppMetrics(app, orderBy, sinceMinutes, sinceHours, limit, planCapable, env);
   }
 
   @Override
@@ -47,7 +47,7 @@ public final class V1MetricsController implements MetricsApi {
   }
 
   @Override
-  public List<AppMetricStats> topMetrics(String orderBy, Long sinceMinutes, Long sinceHours, Integer limit, Boolean planCapable) {
-    return service.topMetrics(orderBy, sinceMinutes, sinceHours, limit, planCapable);
+  public List<AppMetricStats> topMetrics(String orderBy, Long sinceMinutes, Long sinceHours, Integer limit, Boolean planCapable, String env) {
+    return service.topMetrics(orderBy, sinceMinutes, sinceHours, limit, planCapable, env);
   }
 }

@@ -162,7 +162,8 @@ public final class V1QueryService {
 
   public List<AppMetricStats> getMetricStatsByHash(String appName, String hash,
                                                    @Nullable Long sinceMinutes,
-                                                   @Nullable Long sinceHours) {
+                                                   @Nullable Long sinceHours,
+                                                   @Nullable String env) {
     final TimeWindow window = TimeWindow.of(sinceMinutes, sinceHours, DEFAULT_TOP_WINDOW_MINUTES);
     final DApp app = findApp(appName);
     if (app == null || hash == null || hash.isBlank()) {
@@ -175,8 +176,12 @@ public final class V1QueryService {
     if (metric == null) {
       return List.of();
     }
+    final Integer envId = resolveEnvId(env);
+    if (envFilterMisses(env, envId)) {
+      return List.of();
+    }
     final long minutes = window.minutes();
-    final AppMetricStats stats = DB.sqlQuery("""
+    final SqlQuery query = DB.sqlQuery("""
         select
           coalesce(sum(t.count), 0) as count,
           coalesce(sum(t.total), 0) as total,
@@ -184,10 +189,15 @@ public final class V1QueryService {
         from ebean_insight.timed_m1 t
         where t.metric_id = :metricId
           and t.event_time > :from
-        """)
+        """
+      + (envId == null ? "" : "  and t.env_id = :envId\n"))
       .setParameter("metricId", metric.getId())
-      .setParameter("from", window.from())
-      .mapTo((rs, i) -> toAppMetricStats(rs, app, metric, minutes))
+      .setParameter("from", window.from());
+    if (envId != null) {
+      query.setParameter("envId", envId);
+    }
+    final AppMetricStats stats = query
+      .mapTo((rs, _) -> toAppMetricStats(rs, app, metric, minutes))
       .findOne();
     return List.of(stats);
   }
@@ -214,24 +224,31 @@ public final class V1QueryService {
 
   public List<AppMetricStats> topAppMetrics(String appName, @Nullable String orderBy,
                                             @Nullable Long sinceMinutes, @Nullable Long sinceHours,
-                                            @Nullable Integer limit, @Nullable Boolean planCapable) {
+                                            @Nullable Integer limit, @Nullable Boolean planCapable,
+                                            @Nullable String env) {
     final TimeWindow window = TimeWindow.of(sinceMinutes, sinceHours, DEFAULT_TOP_WINDOW_MINUTES);
     final DApp app = findApp(appName);
     if (app == null) {
       return List.of();
     }
-    return runTopQuery(app, orderBy, window, planCapable, clampLimit(limit));
+    return runTopQuery(app, orderBy, window, planCapable, env, clampLimit(limit));
   }
 
   public List<AppMetricStats> topMetrics(@Nullable String orderBy,
                                          @Nullable Long sinceMinutes, @Nullable Long sinceHours,
-                                         @Nullable Integer limit, @Nullable Boolean planCapable) {
+                                         @Nullable Integer limit, @Nullable Boolean planCapable,
+                                         @Nullable String env) {
     final TimeWindow window = TimeWindow.of(sinceMinutes, sinceHours, DEFAULT_TOP_WINDOW_MINUTES);
-    return runTopQuery(null, orderBy, window, planCapable, clampLimit(limit));
+    return runTopQuery(null, orderBy, window, planCapable, env, clampLimit(limit));
   }
 
   private List<AppMetricStats> runTopQuery(@Nullable DApp app, @Nullable String orderBy,
-                                           TimeWindow window, @Nullable Boolean planCapable, int limit) {
+                                           TimeWindow window, @Nullable Boolean planCapable,
+                                           @Nullable String env, int limit) {
+    final Integer envId = resolveEnvId(env);
+    if (envFilterMisses(env, envId)) {
+      return List.of();
+    }
     final String sortKey = resolveOrderBy(orderBy);
     final String sql = ("""
       select
@@ -251,6 +268,7 @@ public final class V1QueryService {
       """
       + (app == null ? "" : "  and a.id = :appId\n")
       + (planCapable == null ? "" : "  and m.plan_capable = :planCapable\n")
+      + (envId == null ? "" : "  and t.env_id = :envId\n")
       + """
       group by m.id, a.name, m.name, m.key, m.loc, m.plan_capable
       order by %s desc
@@ -267,7 +285,10 @@ public final class V1QueryService {
     if (planCapable != null) {
       sqlQuery.setParameter("planCapable", planCapable);
     }
-    return sqlQuery.mapTo((rs, i) -> {
+    if (envId != null) {
+      sqlQuery.setParameter("envId", envId);
+    }
+    return sqlQuery.mapTo((rs, _) -> {
         final long count = rs.getLong("agg_count");
         final long total = rs.getLong("agg_total");
         final long max = rs.getLong("agg_max");
@@ -482,6 +503,28 @@ public final class V1QueryService {
       return null;
     }
     return new QDApp().name.eq(appName.trim()).findOne();
+  }
+
+  /**
+   * Resolve an environment name to its id, or {@code null} when no env filter
+   * was requested or the named environment does not exist. Pair with
+   * {@link #envFilterMisses} to distinguish "no filter" from "unknown env".
+   */
+  @Nullable
+  private static Integer resolveEnvId(@Nullable String env) {
+    if (env == null || env.isBlank()) {
+      return null;
+    }
+    final DEnv found = new QDEnv().name.eq(env.trim()).findOne();
+    return found == null ? null : found.getId();
+  }
+
+  /**
+   * True when an env filter was requested but no matching environment exists,
+   * in which case the caller should short-circuit to an empty result.
+   */
+  private static boolean envFilterMisses(@Nullable String env, @Nullable Integer envId) {
+    return env != null && !env.isBlank() && envId == null;
   }
 
   private DApp requireApp(String appName) {

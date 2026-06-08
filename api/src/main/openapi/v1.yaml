@@ -164,6 +164,7 @@ paths:
         - $ref: '#/components/parameters/HashPath'
         - $ref: '#/components/parameters/SinceMinutes'
         - $ref: '#/components/parameters/SinceHours'
+        - $ref: '#/components/parameters/EnvQuery'
       responses:
         '200':
           description: Stats (empty list when no match)
@@ -192,6 +193,7 @@ paths:
           schema:
             type: boolean
           description: Optional filter; when true, restrict to ORM (plan-capable) metrics.
+        - $ref: '#/components/parameters/EnvQuery'
       responses:
         '200':
           description: Top-N stats
@@ -395,6 +397,7 @@ paths:
           in: query
           schema:
             type: boolean
+        - $ref: '#/components/parameters/EnvQuery'
       responses:
         '200':
           description: Top-N stats
