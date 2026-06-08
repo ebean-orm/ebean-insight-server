@@ -25,6 +25,25 @@ import picocli.CommandLine.Command;
         EnvsCommand.class,
         ForwardCommand.class,
         ConfigCommand.class
+    },
+    footerHeading = "%nGetting started:%n",
+    footer = {
+        "  # One-time: persist the cluster target so you can omit --namespace/--service",
+        "  insight config set namespace dev",
+        "  insight config set service ebean-insight",
+        "  insight config set context <kube-context>    # optional",
+        "",
+        "  # Optional: hold one shared port-forward open; other commands reuse it",
+        "  insight forward &",
+        "",
+        "  # Find the most expensive queries, then inspect or capture a plan",
+        "  insight top --by total",
+        "  insight capture <app> <hash> --env <env>",
+        "  insight plans --app <app> --env <env>",
+        "  insight plan <id>",
+        "",
+        "  Connect without kube access via a direct URL:  --url http://host:8091",
+        "  JSON for scripting:  add -o json  (or persist: insight config set output json)"
     })
 public final class InsightCli implements Runnable {
 

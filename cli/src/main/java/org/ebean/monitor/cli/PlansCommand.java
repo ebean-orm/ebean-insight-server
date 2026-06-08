@@ -10,7 +10,13 @@ import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
 
 /** List recently captured query plans. */
-@Command(name = "plans", mixinStandardHelpOptions = true, description = "List recently captured query plans.")
+@Command(name = "plans", mixinStandardHelpOptions = true, description = "List recently captured query plans.",
+    footerHeading = "%nExamples:%n",
+    footer = {
+        "  insight plans --app myapp --env test",
+        "  insight plans --hash <hash>",
+        "  insight plan <id>          # full SQL, bind values and EXPLAIN output"
+    })
 final class PlansCommand implements Callable<Integer> {
 
   @Mixin ConnectionOptions conn = new ConnectionOptions();

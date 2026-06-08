@@ -16,7 +16,13 @@ import picocli.CommandLine.Option;
  * {@code HASH} can be fed straight into {@code insight capture <app> <hash>}.
  */
 @Command(name = "missing-plans", mixinStandardHelpOptions = true,
-    description = "List plan-capable metrics with no recently captured query plan.")
+    description = "List plan-capable metrics with no recently captured query plan.",
+    footerHeading = "%nExamples:%n",
+    footer = {
+        "  insight missing-plans --app myapp",
+        "  insight missing-plans --app myapp --older-than-hours 24",
+        "  # then capture one:  insight capture myapp <hash> --env test"
+    })
 final class MissingPlansCommand implements Callable<Integer> {
 
   @Mixin ConnectionOptions conn = new ConnectionOptions();

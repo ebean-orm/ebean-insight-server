@@ -16,7 +16,13 @@ import picocli.CommandLine.Option;
  * {@code insight plans --hash} or {@code insight top}. Full details (including
  * SQL) are available with {@code -o json}.
  */
-@Command(name = "metrics", mixinStandardHelpOptions = true, description = "List the metrics known for an application.")
+@Command(name = "metrics", mixinStandardHelpOptions = true, description = "List the metrics known for an application.",
+    footerHeading = "%nExamples:%n",
+    footer = {
+        "  insight metrics --app myapp",
+        "  insight metrics --app myapp --plan-capable",
+        "  insight metrics --app myapp -o json   # includes full SQL"
+    })
 final class MetricsCommand implements Callable<Integer> {
 
   @Mixin ConnectionOptions conn = new ConnectionOptions();

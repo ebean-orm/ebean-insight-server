@@ -10,7 +10,15 @@ import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
 /** Request a fresh query plan capture for a metric hash. */
-@Command(name = "capture", mixinStandardHelpOptions = true, description = "Request a fresh query plan capture.")
+@Command(name = "capture", mixinStandardHelpOptions = true, description = "Request a fresh query plan capture.",
+    footerHeading = "%nExamples:%n",
+    footer = {
+        "  # find a plan-capable hash, then request a capture:",
+        "  insight top --plan-capable",
+        "  insight capture myapp a2e2082d... --env test",
+        "  # the plan appears after the next executions (a short bind-collection window):",
+        "  insight plans --app myapp --env test"
+    })
 final class CaptureCommand implements Callable<Integer> {
 
   @Mixin ConnectionOptions conn = new ConnectionOptions();

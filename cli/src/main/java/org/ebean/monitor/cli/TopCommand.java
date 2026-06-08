@@ -18,7 +18,15 @@ import picocli.CommandLine.Option;
  * {@code insight plans --hash}.
  */
 @Command(name = "top", mixinStandardHelpOptions = true,
-    description = "List top metrics by total/mean/max time (or call count) over a recent window.")
+    description = "List top metrics by total/mean/max time (or call count) over a recent window.",
+    footerHeading = "%nExamples:%n",
+    footer = {
+        "  insight top                              # all apps, by total time, last 60m",
+        "  insight top --by mean --since-hours 6",
+        "  insight top --app myapp --plan-capable",
+        "  insight top -o json | jq .",
+        "  # the HASH column feeds straight into:  insight capture <app> <hash>"
+    })
 final class TopCommand implements Callable<Integer> {
 
   enum OrderBy { total, mean, max, count }

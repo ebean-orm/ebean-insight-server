@@ -18,7 +18,14 @@ import picocli.CommandLine.Option;
  * {@link ForwardRegistry}) instead of spinning up their own per command.
  */
 @Command(name = "forward", aliases = {"daemon"}, mixinStandardHelpOptions = true,
-    description = "Hold a supervised port-forward open for other insight commands to reuse.")
+    description = "Hold a supervised port-forward open for other insight commands to reuse.",
+    footerHeading = "%nExamples:%n",
+    footer = {
+        "  insight forward                  # blocks; Ctrl-C to stop. Other commands reuse this tunnel",
+        "  insight forward --namespace dev --service ebean-insight",
+        "  insight forward &                # background it, then run other commands in the same shell",
+        "  insight forward --no-register    # private tunnel; do not advertise to other commands"
+    })
 final class ForwardCommand implements Callable<Integer> {
 
   @Mixin ConnectionOptions conn = new ConnectionOptions();

@@ -14,6 +14,17 @@ import picocli.CommandLine.Model.CommandSpec;
  */
 @Command(name = "config", mixinStandardHelpOptions = true,
     description = "Manage persisted CLI settings (~/.insight/config.properties).",
+    footerHeading = "%nKeys:%n",
+    footer = {
+        "  url, namespace, service, target-port, local-port, context, ready-timeout, insight-key, output",
+        "",
+        "Examples:",
+        "  insight config set namespace dev",
+        "  insight config set service ebean-insight",
+        "  insight config set output json      # default all commands to JSON",
+        "  insight config list",
+        "  insight config path                 # where settings are stored"
+    },
     subcommands = {
         ConfigCommand.Set.class,
         ConfigCommand.Get.class,
