@@ -27,8 +27,6 @@ public class MetricRequest {
    */
   public long eventTime;
 
-  public String key;
-
   /**
    * The name of the application the metrics are collected for.
    */

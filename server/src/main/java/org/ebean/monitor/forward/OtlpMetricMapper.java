@@ -28,7 +28,7 @@ import java.io.StringWriter;
  * <p>Resource attributes:
  * {@code service.name=appName}, {@code deployment.environment.name=environment},
  * {@code service.instance.id=instanceId}, {@code service.version=version},
- * {@code service.namespace=namespace} (configured), {@code insight.key=key} (if present).
+ * {@code service.namespace=namespace} (configured).
  *
  * <p>OTLP/HTTP JSON quirk: int64 fields ({@code startTimeUnixNano},
  * {@code timeUnixNano}, {@code asInt}) are emitted as JSON strings per the

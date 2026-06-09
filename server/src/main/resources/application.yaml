@@ -30,6 +30,13 @@ insight:
     # Cognito issuer, e.g. https://cognito-idp.<region>.amazonaws.com/<userPoolId>
     # JWKS is discovered at <issuer>/.well-known/jwks.json
     issuer: ""
+  ## Ingest shared secret: when set, /api/ingest requests must present a matching
+  ## `Insight-Key` header (forwarders already send this). Unset (default) leaves
+  ## ingestion open — protected only by network isolation. Accepts a single key
+  ## or a comma separated list (old,new) to allow key rotation. This is separate
+  ## from `auth.enabled`: the JWT filter permits /api/ingest, so this is what
+  ## authenticates the ingest path.
+  ingest.key: ""
 
 ##
 ## Forwarder: forward incoming metrics to an OTLP/HTTP endpoint (e.g. Grafana Alloy).

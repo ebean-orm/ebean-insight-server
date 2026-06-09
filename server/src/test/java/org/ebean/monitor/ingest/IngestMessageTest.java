@@ -36,7 +36,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 @InjectTest
 class IngestMessageTest {
 
-  private static final String testHashKey = "testHash";
 
   private final IngestMessage ingest;
 
@@ -49,9 +48,7 @@ class IngestMessageTest {
   }
 
   private static MetricRequest req(String resourcePath) {
-    final MetricRequest request = metricRequest(resourcePath);
-    request.key = testHashKey;
-    return request;
+    return metricRequest(resourcePath);
   }
 
   @BeforeAll

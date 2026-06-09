@@ -24,19 +24,22 @@ final class IngestController {
 
   private final MessageService messageService;
   private final IngestQueue queue;
+  private final IngestKeyValidator ingestKeyValidator;
   private final JsonType<MetricRequest> jsonMetricRequest;
   private final JsonType<QueryPlanRequest> jsonQueryPlans;
 
-  IngestController(MessageService messageService, IngestQueue queue, Jsonb jsonb) {
+  IngestController(MessageService messageService, IngestQueue queue, IngestKeyValidator ingestKeyValidator, Jsonb jsonb) {
     this.messageService = messageService;
     this.queue = queue;
+    this.ingestKeyValidator = ingestKeyValidator;
     this.jsonMetricRequest = jsonb.type(MetricRequest.class);
     this.jsonQueryPlans = jsonb.type(QueryPlanRequest.class);
   }
 
   @Get
   @Produces("text/plain")
-  String ack() {
+  String ack(@Header("Insight-Key") String key) {
+    ingestKeyValidator.validate(key);
     return "ok";
   }
 
@@ -45,6 +48,7 @@ final class IngestController {
    */
   @Post("/metrics")
   void ingest(@Header("Insight-key") String key, @Header("Content-Encoding") String encoding, Context context) {
+    ingestKeyValidator.validate(key);
     try {
       String content;
       if ("gzip".equals(encoding)) {
@@ -54,9 +58,6 @@ final class IngestController {
       }
       MetricRequest data = jsonMetricRequest.fromJson(content);
 
-      if (key != null) {
-        data.key = key;
-      }
       // put it on the queue and ingest into DB in the background
       queue.put(data);
 
@@ -75,7 +76,8 @@ final class IngestController {
   }
 
   @Post("/plans")
-  void ingestQueryPlans(@Header("Content-Encoding") String encoding, Context context) {
+  void ingestQueryPlans(@Header("Insight-Key") String key, @Header("Content-Encoding") String encoding, Context context) {
+    ingestKeyValidator.validate(key);
     try {
       String content;
       if ("gzip".equals(encoding)) {

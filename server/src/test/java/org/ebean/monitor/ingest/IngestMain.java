@@ -45,8 +45,6 @@ public class IngestMain {
   }
 
   private static MetricRequest req(String resourcePath) {
-    final MetricRequest request = metricRequest(resourcePath);
-    request.key = "testHash";
-    return request;
+    return metricRequest(resourcePath);
   }
 }

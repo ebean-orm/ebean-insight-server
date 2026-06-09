@@ -25,7 +25,7 @@ these permitted path prefixes, which stay open:
 | Permitted prefix | Why |
 |------------------|-----|
 | `/health`        | Kubernetes liveness/readiness probes must not require a token. |
-| `/api/ingest`    | App forwarders authenticate with the `Insight-Key` header (unchanged). |
+| `/api/ingest`    | App forwarders authenticate with the `Insight-Key` header (see [Ingest key](#ingest-shared-secret-insight-key)), not a bearer token. |
 
 Everything else is protected, including:
 
@@ -39,6 +39,26 @@ Everything else is protected, including:
 
 A request that is missing a token, or presents an invalid/expired one, on a
 protected path receives **HTTP 401**.
+
+---
+
+## Ingest shared secret (`Insight-Key`)
+
+The JWT filter deliberately **permits `/api/ingest`** because app forwarders are
+not interactive OAuth2 clients. That path is instead authenticated by a shared
+secret: every forwarder sends an `Insight-Key` header, validated directly in the
+ingest controller (no filter).
+
+| Property | Env var | Default | Notes |
+|----------|---------|---------|-------|
+| `insight.ingest.key` | `INSIGHT_INGEST_KEY` | `""` | When set, all `/api/ingest` requests (metrics, plans, ack) must present a matching `Insight-Key` header or receive **401**. When unset (default) ingestion stays **open** — protected only by network isolation, exactly as before. |
+
+The value may be a **single key** or a **comma separated list** (`old,new`) to
+support zero-downtime key rotation: configure both, roll forwarders onto the new
+key, then drop the old one.
+
+> This is independent of `insight.auth.enabled` — you can enforce the ingest key
+> with or without JWT auth on the rest of the server.
 
 ---
 
