@@ -17,6 +17,21 @@ insight.selfReport.enabled: false
 ebean.queryPlan.enable: true
 
 ##
+## Auth: when enabled, every endpoint requires a valid `Authorization: Bearer`
+## JWT access token except the permitted prefixes /health (k8s probes) and
+## /api/ingest (app forwarders using the Insight-Key header). Off by default —
+## the server stays fully open until auth is explicitly enabled per environment
+## (and the CLI login flow has shipped). Enabling this locks the browser UI
+## until a UI login flow exists.
+##
+insight:
+  auth:
+    enabled: false
+    # Cognito issuer, e.g. https://cognito-idp.<region>.amazonaws.com/<userPoolId>
+    # JWKS is discovered at <issuer>/.well-known/jwks.json
+    issuer: ""
+
+##
 ## Forwarder: forward incoming metrics to an OTLP/HTTP endpoint (e.g. Grafana Alloy).
 ## Disabled by default. Storage + UI + query-plan back-channel are unaffected.
 ##

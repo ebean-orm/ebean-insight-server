@@ -131,7 +131,9 @@ curl -H "Insight-Key: change-me-long-random-string" http://localhost:8091/v1/env
 
 If you expose the server outside the cluster, terminate TLS at your ingress
 controller and keep the `Insight-Key` header **secret** — anyone holding it can
-read metrics and request query-plan captures. A minimal ingress:
+read metrics and request query-plan captures. For external exposure consider
+also enabling JWT bearer auth on the server endpoints
+([`auth.md`](auth.md)). A minimal ingress:
 
 ```yaml
 apiVersion: networking.k8s.io/v1
@@ -297,6 +299,7 @@ INSIGHT_KEY=change-me
 ## Next steps
 
 - **Mode/config reference** — [`deployment-modes.md`](deployment-modes.md)
+- **Authentication (JWT bearer)** — [`auth.md`](auth.md)
 - **CLI install** — [`install-cli.md`](install-cli.md)
 - **/v1 API reference** — [top-level README](../README.md#v1-api-agent--cli--tooling)
 - **Verify with a real OTLP stack** — [`verify/README.md`](../verify/README.md)

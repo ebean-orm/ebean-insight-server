@@ -17,8 +17,9 @@
   [`docs/install-cli.md`](docs/install-cli.md)
 
 For the server's full configuration / mode reference see
-[`docs/deployment-modes.md`](docs/deployment-modes.md). For day-to-day CLI
-usage see [`cli/README.md`](cli/README.md).
+[`docs/deployment-modes.md`](docs/deployment-modes.md). To require OAuth2 JWT
+bearer auth on the server's endpoints see [`docs/auth.md`](docs/auth.md). For
+day-to-day CLI usage see [`cli/README.md`](cli/README.md).
 
 ## Modules
 
