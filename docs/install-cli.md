@@ -89,6 +89,7 @@ xattr -d com.apple.quarantine insight 2>/dev/null || true
 
 # 3. Move onto your PATH
 sudo mv insight /usr/local/bin/
+# (no-sudo alternative: mv insight ~/.local/bin/ — ensure ~/.local/bin is on your PATH)
 
 # 4. Verify
 insight --version
@@ -118,8 +119,16 @@ sudo mv insight /usr/local/bin/
 insight --version
 ```
 
-If `/usr/local/bin` isn't on your `PATH`, drop it under `~/.local/bin` or
-extend `PATH` in your shell profile instead.
+No-sudo alternative: `mv insight ~/.local/bin/`. If `~/.local/bin` isn't on your
+`PATH` (common if the directory didn't already exist — check with
+`which insight`), add it to your shell profile and reload:
+
+```bash
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+exec $SHELL -l
+```
+
+Or install system-wide with `sudo mv insight /usr/local/bin/` instead.
 
 > **Linux arm64:** not in the current build matrix; build from source.
 
@@ -210,7 +219,7 @@ installed version and git commit so you can confirm the upgrade.
 
 ```bash
 # macOS / Linux
-sudo rm /usr/local/bin/insight
+sudo rm /usr/local/bin/insight   # or, if installed there: rm ~/.local/bin/insight
 rm -rf ~/.insight                # removes persisted config + daemon advert
 
 # Windows
