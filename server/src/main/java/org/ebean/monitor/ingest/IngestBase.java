@@ -51,7 +51,7 @@ abstract class IngestBase {
       final String key = MetricKey.of(data);
       final IngestEntry dup = entryMap.put(key, new IngestEntry(key, data));
       if (dup != null) {
-        log.error("Lost metric due to duplicate metric key? " + key);
+        log.error("Lost metric due to duplicate metric key? {}", key);
       }
     }
   }
@@ -70,7 +70,7 @@ abstract class IngestBase {
     for (IngestEntry ingestEntry : entryMap.values()) {
       final DAppMetric metric = metricMap.get(ingestEntry.getKey());
       if (metric == null) {
-        log.error("Failed metric lookup for key: " + ingestEntry.getKey());
+        log.error("Failed metric lookup for key: {}", ingestEntry.getKey());
       } else {
         final BaseEntry entry = createMetricEntry(ingestEntry.assignMetric(metric));
         entry.save();
