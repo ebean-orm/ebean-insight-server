@@ -59,7 +59,7 @@ public class RollupService implements Runnable {
         if (owner.equals(rollup.getOwner())) {
           rollup.setWhenExpire(Instant.now());
           rollup.save();
-          log.error("releasing ownership of rollup job {} ", owner);
+          log.info("releasing ownership of rollup job {} ", owner);
           active = false;
         }
       } catch (Exception e) {
