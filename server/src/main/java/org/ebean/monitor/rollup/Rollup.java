@@ -41,7 +41,7 @@ public class Rollup {
   public void rollup() {
     performRollup();
     int rollupCount = rollupGroups.getCount();
-    log.info("rollup time:{} millis:{} count:{} rollupGroups:{}", eventTime, executionMillis, count, rollupCount);
+    log.debug("rollup time:{} millis:{} count:{} rollupGroups:{}", eventTime, executionMillis, count, rollupCount);
     extraRollups();
   }
 
