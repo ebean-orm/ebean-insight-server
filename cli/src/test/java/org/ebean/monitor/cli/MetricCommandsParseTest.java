@@ -118,6 +118,16 @@ class MetricCommandsParseTest {
   }
 
   @Test
+  void capture_flagForms_appAndHash() {
+    var cmd = CommandLine.populateCommand(new CaptureCommand(),
+        "--app", "myapp", "--hash", "h1", "--hash", "h2", "--env", "test");
+    assertThat(cmd.appOption).isEqualTo("myapp");
+    assertThat(cmd.hashOptions).containsExactly("h1", "h2");
+    assertThat(cmd.app).isNull();
+    assertThat(cmd.hashes).isEmpty();
+  }
+
+  @Test
   void pending_parsesAppEnv() {
     var cmd = CommandLine.populateCommand(new PendingCommand(), "--app", "myapp", "--env", "test");
     assertThat(cmd.app).isEqualTo("myapp");

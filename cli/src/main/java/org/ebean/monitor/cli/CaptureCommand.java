@@ -29,6 +29,8 @@ import picocli.CommandLine.Parameters;
         "  # capture several at once (space or comma separated):",
         "  insight capture myapp hashA hashB hashC --env test",
         "  insight capture myapp hashA,hashB,hashC --env test",
+        "  # flag forms (alternative to positionals):",
+        "  insight capture --app myapp --hash hashA --hash hashB --env test",
         "  # pipe hashes straight from missing-plans:",
         "  insight missing-plans --app myapp -o json | jq -r '.[].key' \\",
         "    | insight capture myapp --stdin --env test",
@@ -40,12 +42,21 @@ final class CaptureCommand implements Callable<Integer> {
   @Mixin ConnectionOptions conn = new ConnectionOptions();
   @Mixin OutputOptions out = new OutputOptions();
 
-  @Parameters(index = "0", description = "The application name.")
-  String app;
+  @Parameters(index = "0", arity = "0..1", paramLabel = "<app>",
+      description = "Application name (or use --app / the persisted 'app' config).")
+  @Nullable String app;
 
-  @Parameters(index = "1..*", arity = "0..*",
-      description = "One or more query plan hashes (space or comma separated).")
+  @Parameters(index = "1..*", arity = "0..*", paramLabel = "<hash>",
+      description = "One or more query plan hashes (space or comma separated; or use --hash / --stdin).")
   List<String> hashes = new ArrayList<>();
+
+  @Option(names = "--app",
+      description = "Application name (alternative to the positional <app>).")
+  @Nullable String appOption;
+
+  @Option(names = "--hash",
+      description = "Query plan hash to capture (repeatable; comma/space separated also accepted).")
+  List<String> hashOptions = new ArrayList<>();
 
   @Option(names = "--stdin",
       description = "Also read hashes (whitespace/comma/newline separated) from standard input.")
@@ -60,21 +71,38 @@ final class CaptureCommand implements Callable<Integer> {
       env = ConfigDefaults.envOrNull();
     }
     final Set<String> targets = new LinkedHashSet<>();
+    String targetApp = appOption;
+    if (targetApp == null) {
+      targetApp = app;
+    } else if (app != null) {
+      // --app was supplied, so the leading positional is actually a hash
+      addTokens(targets, app);
+    }
+    if (targetApp == null || targetApp.isBlank()) {
+      targetApp = ConfigDefaults.appOrNull();
+    }
+    if (targetApp == null || targetApp.isBlank()) {
+      throw new CliException(
+          "No application supplied. Pass <app>, --app, or set 'insight config set app <name>'.");
+    }
     for (String h : hashes) {
+      addTokens(targets, h);
+    }
+    for (String h : hashOptions) {
       addTokens(targets, h);
     }
     if (stdin) {
       targets.addAll(readStdinHashes());
     }
     if (targets.isEmpty()) {
-      throw new CliException("No hashes supplied. Pass hash arguments and/or --stdin.");
+      throw new CliException("No hashes supplied. Pass hash arguments, --hash and/or --stdin.");
     }
     try (Insight insight = Insight.open(conn)) {
       final List<CaptureResult> results = new ArrayList<>(targets.size());
       boolean anyError = false;
       for (String hash : targets) {
         try {
-          PendingResponse pending = insight.plans.requestPlanCapture(app, hash, env);
+          PendingResponse pending = insight.plans.requestPlanCapture(targetApp, hash, env);
           results.add(new CaptureResult(hash, pending.pending(), null));
         } catch (HttpException e) {
           anyError = true;

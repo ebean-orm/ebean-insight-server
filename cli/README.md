@@ -172,7 +172,7 @@ per-command forward.
 | `insight plans [--app] [--env] [--label] [--hash] [--since-minutes N] [--since-hours N] [-n/--limit N]` | List recently captured query plans (tabular). |
 | `insight pending [--app] [--env]` | List plan captures queued on the server awaiting delivery to the forwarder (in-memory, ephemeral). |
 | `insight plan <planId> [--raw]` | Show one captured plan. `--raw` prints only the EXPLAIN plan text. |
-| `insight capture <app> <hash>... [--stdin] [--env]` | Request a fresh plan capture for one or more metric hashes (space or comma separated). `--stdin` reads additional whitespace/comma/newline-separated hashes from standard input. |
+| `insight capture [<app>] [<hash>...] [--app] [--hash] [--stdin] [--env]` | Request a fresh plan capture for one or more metric hashes (space or comma separated). `--app`/`--hash` are flag-form alternatives to the positionals; `--stdin` reads additional whitespace/comma/newline-separated hashes from standard input. |
 | `insight config <set\|get\|unset\|list\|path>` | Manage persisted settings in `~/.insight/config.properties`. |
 | `insight login [--timeout-seconds N]` | Authenticate via Cognito (OAuth2 + PKCE) and cache the bearer token. |
 | `insight whoami` | Show the cached login identity and token expiry. |
@@ -211,6 +211,7 @@ insight plan 2 --raw
 insight missing-plans --app myapp --by total
 insight capture myapp hashA hashB --env test            # capture several explicitly
 insight capture myapp hashA,hashB,hashC --env test      # comma-separated also works
+insight capture --app myapp --hash hashA --hash hashB --env test   # flag forms
 insight missing-plans --app myapp -n 10 -o json \
   | jq -r '.[].key' | insight capture myapp --stdin --env test   # pipe hashes
 insight missing-plans --app myapp -n 10 --capture --yes --env test   # one-shot bulk capture
