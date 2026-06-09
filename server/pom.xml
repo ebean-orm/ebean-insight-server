@@ -23,7 +23,7 @@
     <avaje-http.version>3.9</avaje-http.version>
     <avaje-jex.version>3.5</avaje-jex.version>
     <avaje-jsonb.version>3.14</avaje-jsonb.version>
-    <avaje-oauth2.version>1.1-RC1</avaje-oauth2.version>
+    <avaje-oauth2.version>1.1-RC2</avaje-oauth2.version>
   </properties>
 
   <dependencies>

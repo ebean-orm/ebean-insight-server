@@ -81,6 +81,16 @@ final class Insight implements AutoCloseable {
       });
     }
 
+    String bearer = new AuthSession().bearerToken().orElse(null);
+    if (bearer != null) {
+      builder.requestIntercept(new RequestIntercept() {
+        @Override
+        public void beforeRequest(HttpClientRequest request) {
+          request.header("Authorization", "Bearer " + bearer);
+        }
+      });
+    }
+
     return new Insight(forwarder, builder.build());
   }
 

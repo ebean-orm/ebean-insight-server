@@ -24,7 +24,10 @@ import picocli.CommandLine.Command;
         AppsCommand.class,
         EnvsCommand.class,
         ForwardCommand.class,
-        ConfigCommand.class
+        ConfigCommand.class,
+        LoginCommand.class,
+        LogoutCommand.class,
+        WhoamiCommand.class
     },
     footerHeading = "%nGetting started:%n",
     footer = {

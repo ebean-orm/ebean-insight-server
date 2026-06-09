@@ -17,6 +17,7 @@ import picocli.CommandLine.Model.CommandSpec;
     footerHeading = "%nKeys:%n",
     footer = {
         "  url, namespace, service, target-port, local-port, context, ready-timeout, insight-key, output",
+        "  auth-domain, auth-user-pool-id, auth-client-id, auth-scope, auth-redirect-port",
         "",
         "Examples:",
         "  insight config set namespace dev",

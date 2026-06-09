@@ -122,9 +122,6 @@ public final class OtlpMetricMapper {
     if (!namespace.isEmpty() && !clientHasNamespace) {
       writeAttr(w, "service.namespace", namespace);
     }
-    if (req.key != null && !req.key.isEmpty()) {
-      writeAttr(w, "insight.key", req.key);
-    }
     if (req.resAttrs != null) {
       for (var e : req.resAttrs.entrySet()) {
         if (RESERVED_KEYS.contains(e.getKey())) {

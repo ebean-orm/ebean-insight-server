@@ -58,7 +58,8 @@ insight config path                 # prints the file location
 ```
 
 Persistable keys: `url`, `namespace`, `service`, `target-port`, `local-port`,
-`context`, `ready-timeout`, `insight-key`, `output`.
+`context`, `ready-timeout`, `insight-key`, `output`, `auth-domain`,
+`auth-user-pool-id`, `auth-client-id`, `auth-scope`, `auth-redirect-port`.
 
 Resolution precedence for every option: **explicit flag → config file →
 built-in default** (the built-in default only exists for non-identifying values
@@ -72,7 +73,8 @@ insight envs -o text               # flag still overrides to plain text
 
 ## Authentication
 
-Two independent mechanisms, depending on how you reach the server:
+Three independent mechanisms, depending on how the server is configured and how
+you reach it:
 
 - **Port-forward (default)** — auth *is* your Kubernetes access: the tunnel only
   works because your `kubectl`/EKS credentials and RBAC let you forward to the
@@ -84,6 +86,51 @@ Two independent mechanisms, depending on how you reach the server:
   export INSIGHT_KEY=...               # or pass --insight-key each call
   insight plans --url https://insight.example.com
   ```
+
+- **OAuth2 bearer token (`insight login`)** — when the server has JWT
+  enforcement enabled (`insight.auth.enabled=true`, see
+  [docs/auth.md](../docs/auth.md)), authenticate once via the Cognito Hosted UI
+  and the CLI sends `Authorization: Bearer <token>` on every request (alongside
+  any `Insight-Key`). This works over **both** port-forward and `--url`.
+
+### OAuth2 login
+
+One-time setup — point the CLI at your Cognito **public** app client (PKCE; no
+client secret). The redirect port must match a callback URL registered on the
+app client (`http://localhost:<port>/callback`):
+
+```bash
+insight config set auth-domain https://<your>.auth.<region>.amazoncognito.com
+# or derive the domain from the user pool id instead:
+#   insight config set auth-user-pool-id <region>_<poolId>
+insight config set auth-client-id <public-app-client-id>
+insight config set auth-scope insight/read          # optional (default default/default)
+insight config set auth-redirect-port 9876          # optional (default 9876)
+```
+
+Then:
+
+```bash
+insight login      # opens the browser; completes via a loopback redirect
+insight whoami     # show the cached identity + token expiry
+insight logout     # remove the cached token (~/.insight/token.json)
+```
+
+`insight login` runs the OAuth2 Authorization-Code + PKCE flow: it starts a
+short-lived loopback server on `auth-redirect-port`, opens your browser to the
+Hosted UI, captures the redirected code, exchanges it for tokens and caches them
+in `~/.insight/token.json` (owner-only `0600`). Subsequent commands load that
+token and **silently refresh** it (via the refresh token) when it has expired.
+When the cached access token cannot be refreshed, the server returns `401` and
+you simply re-run `insight login`.
+
+| Config key | Default | Meaning |
+|------------|---------|---------|
+| `auth-domain` | – | Cognito Hosted-UI domain (e.g. `https://app.auth.ap-southeast-2.amazoncognito.com`). |
+| `auth-user-pool-id` | – | Alternative to `auth-domain`: derive the domain from the user pool id. `auth-domain` wins if both are set. |
+| `auth-client-id` | – | Public app client id (PKCE, no secret). |
+| `auth-scope` | `default/default` | Requested OAuth2 scope(s). |
+| `auth-redirect-port` | `9876` | Loopback callback port. Must match a registered Cognito callback URL `http://localhost:<port>/callback`. |
 
 ## Daemon mode
 
@@ -123,6 +170,9 @@ per-command forward.
 | `insight plan <planId> [--raw]` | Show one captured plan. `--raw` prints only the EXPLAIN plan text. |
 | `insight capture <app> <hash> [--env]` | Request a fresh plan capture for a metric hash. |
 | `insight config <set\|get\|unset\|list\|path>` | Manage persisted settings in `~/.insight/config.properties`. |
+| `insight login [--timeout-seconds N]` | Authenticate via Cognito (OAuth2 + PKCE) and cache the bearer token. |
+| `insight whoami` | Show the cached login identity and token expiry. |
+| `insight logout` | Remove the cached bearer token. |
 
 Every command supports `-h`/`--help`, and the root supports `-V`/`--version`.
 
@@ -198,6 +248,12 @@ still runs on Ctrl-C / SIGTERM in the native binary.
   `AppsApiHttpClient`, `EnvsApiHttpClient`), and owns the forwarder lifecycle
   (`AutoCloseable`).
 - `PlansCommand`, `PlanCommand`, `CaptureCommand`, `AppsCommand`, `EnvsCommand`.
+- `LoginCommand` / `LogoutCommand` / `WhoamiCommand` — OAuth2 (Cognito + PKCE)
+  login, backed by `AuthConfig` (resolves the `auth-*` settings + builds
+  `CognitoOidc`), `LoopbackReceiver` (loopback redirect capture),
+  `BrowserLauncher` (AWT-free browser open), `TokenStore`/`TokenData`
+  (`~/.insight/token.json`, `0600`) and `AuthSession` (bearer + silent refresh,
+  injected by `Insight.open`).
 
 The typed API clients and DTOs come from `ebean-insight-client` /
 `ebean-insight-api` (generated from `api/src/main/openapi/v1.yaml`). The

@@ -104,8 +104,11 @@ on before clients can obtain a token will lock them out.
 
 Recommended order:
 
-1. **Ship a CLI login** capable of obtaining and sending a bearer token
-   (`insight login`) to all operators.
+1. **Distribute the CLI login config** so operators can obtain a bearer token.
+   `insight login` (Cognito Hosted UI + PKCE) is built in; each operator sets the
+   `auth-*` config keys once and runs `insight login` — see the
+   [CLI README](../cli/README.md#oauth2-login). Tokens are sent on both
+   port-forward and `--url` connections.
 2. Enable on a **non-production** environment first
    (`INSIGHT_AUTH_ENABLED=true`) and validate:
    - probes stay green (`/health/*` permitted),
