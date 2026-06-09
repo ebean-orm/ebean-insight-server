@@ -214,9 +214,13 @@ paths:
       description: |
         Returns plan-capable metrics whose most recent capture is older than
         the supplied window. Metrics that have never been captured are
-        always included regardless of the window.
+        always included regardless of the window. Each row is enriched with
+        execution cost over the `--since` window and ordered by `orderBy`.
       parameters:
         - $ref: '#/components/parameters/AppPath'
+        - $ref: '#/components/parameters/OrderBy'
+        - $ref: '#/components/parameters/SinceMinutes'
+        - $ref: '#/components/parameters/SinceHours'
         - $ref: '#/components/parameters/OlderThanMinutes'
         - $ref: '#/components/parameters/OlderThanHours'
         - $ref: '#/components/parameters/Limit'
@@ -383,6 +387,37 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
+  /v1/plans/pending:
+    get:
+      tags: [plans]
+      operationId: listPendingPlans
+      summary: Plan captures requested but not yet delivered to the forwarder
+      description: |
+        Returns query-plan capture requests currently queued on the server
+        awaiting the application's next poll, optionally filtered by app/env.
+
+        The queue is in-memory and ephemeral: an entry disappears as soon as the
+        forwarder collects it (usually within seconds) and the whole queue is
+        cleared on server restart. A zero result does NOT prove nothing is in
+        flight — a request may already have been delivered and still be inside
+        its bind-collection window. Use this mainly to confirm a (bulk) capture
+        was queued and that a consumer is draining it.
+      parameters:
+        - name: app
+          in: query
+          schema:
+            type: string
+        - $ref: '#/components/parameters/EnvQuery'
+      responses:
+        '200':
+          description: Pending captures
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PendingPlan'
+
   /v1/metrics/top:
     get:
       tags: [metrics]
@@ -407,6 +442,35 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/AppMetricStats'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /v1/metrics/missing-plans:
+    get:
+      tags: [metrics]
+      operationId: topMissingPlans
+      summary: Plan-capable metrics with no recent plan capture, across all applications
+      description: |
+        Cross-app variant of listMissingPlans. Returns plan-capable metrics
+        (across every application) whose most recent capture is older than the
+        supplied window, ranked by execution cost over the `--since` window.
+        Metrics never captured are always included.
+      parameters:
+        - $ref: '#/components/parameters/OrderBy'
+        - $ref: '#/components/parameters/SinceMinutes'
+        - $ref: '#/components/parameters/SinceHours'
+        - $ref: '#/components/parameters/OlderThanMinutes'
+        - $ref: '#/components/parameters/OlderThanHours'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Missing plans
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MissingPlanMetric'
         '400':
           $ref: '#/components/responses/BadRequest'
 
@@ -631,7 +695,7 @@ components:
 
     MissingPlanMetric:
       type: object
-      required: [id, app, label, key, captureCount]
+      required: [id, app, label, key, captureCount, count, totalMicros, meanMicros, maxMicros, windowMinutes]
       properties:
         id:
           type: integer
@@ -653,6 +717,26 @@ components:
           format: int64
         sql:
           type: string
+        count:
+          type: integer
+          format: int64
+          description: Execution count over the cost window (0 if not executed in the window).
+        totalMicros:
+          type: integer
+          format: int64
+          description: Total execution time (micros) over the cost window.
+        meanMicros:
+          type: integer
+          format: int64
+          description: Mean execution time (micros) over the cost window.
+        maxMicros:
+          type: integer
+          format: int64
+          description: Max execution time (micros) over the cost window.
+        windowMinutes:
+          type: integer
+          format: int64
+          description: Size of the cost window in minutes.
 
     QueryPlanSummary:
       type: object
@@ -723,3 +807,17 @@ components:
           type: integer
           format: int32
           description: Number of pending capture requests queued for the target app+env.
+
+    PendingPlan:
+      type: object
+      required: [app, env, hash]
+      properties:
+        app:
+          type: string
+          description: Application the capture was requested for.
+        env:
+          type: string
+          description: Environment the capture was requested for ("no-environment" when unset).
+        hash:
+          type: string
+          description: Metric hash (query plan key) awaiting capture.

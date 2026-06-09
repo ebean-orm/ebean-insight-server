@@ -42,12 +42,17 @@ public final class V1MetricsController implements MetricsApi {
   }
 
   @Override
-  public List<MissingPlanMetric> listMissingPlans(String app, Long olderThanMinutes, Long olderThanHours, Integer limit) {
-    return service.listMissingPlans(app, olderThanMinutes, olderThanHours, limit);
+  public List<MissingPlanMetric> listMissingPlans(String app, String orderBy, Long sinceMinutes, Long sinceHours, Long olderThanMinutes, Long olderThanHours, Integer limit) {
+    return service.listMissingPlans(app, orderBy, sinceMinutes, sinceHours, olderThanMinutes, olderThanHours, limit);
   }
 
   @Override
   public List<AppMetricStats> topMetrics(String orderBy, Long sinceMinutes, Long sinceHours, Integer limit, Boolean planCapable, String env) {
     return service.topMetrics(orderBy, sinceMinutes, sinceHours, limit, planCapable, env);
+  }
+
+  @Override
+  public List<MissingPlanMetric> topMissingPlans(String orderBy, Long sinceMinutes, Long sinceHours, Long olderThanMinutes, Long olderThanHours, Integer limit) {
+    return service.topMissingPlans(orderBy, sinceMinutes, sinceHours, olderThanMinutes, olderThanHours, limit);
   }
 }

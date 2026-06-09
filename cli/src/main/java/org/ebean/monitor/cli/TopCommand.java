@@ -65,6 +65,12 @@ final class TopCommand implements Callable<Integer> {
     if (sinceMinutes != null && sinceHours != null) {
       throw new CliException("Supply only one of --since-minutes / --since-hours, not both.");
     }
+    if (app == null) {
+      app = ConfigDefaults.appOrNull();
+    }
+    if (env == null) {
+      env = ConfigDefaults.envOrNull();
+    }
     final String orderBy = by.name();
     try (Insight insight = Insight.open(conn)) {
       List<AppMetricStats> rows = (app == null)

@@ -63,10 +63,13 @@ curl -H "Insight-Key: $KEY" \
   "http://localhost:8090/v1/metrics/top?sinceHours=24&planCapable=true&limit=50"
 ```
 
-Find ORM metrics that have never had a plan captured:
+Find ORM metrics lacking a recent plan capture, ranked by execution cost
+(omit the `/apps/myapp` segment to rank across all apps):
 ```shell
 curl -H "Insight-Key: $KEY" \
-  "http://localhost:8090/v1/apps/myapp/metrics/missing-plans?limit=50"
+  "http://localhost:8090/v1/apps/myapp/metrics/missing-plans?by=total&sinceHours=24&limit=50"
+curl -H "Insight-Key: $KEY" \
+  "http://localhost:8090/v1/metrics/missing-plans?by=total&limit=50"
 ```
 
 Trace → plan: take a hash from a span attribute (`ebean.query_hash`) and
@@ -85,6 +88,13 @@ curl -X POST -H "Insight-Key: $KEY" \
 Fetch a specific plan (full SQL + plan + bind values) by id:
 ```shell
 curl -H "Insight-Key: $KEY" http://localhost:8090/v1/plans/12345
+```
+
+List capture requests queued on the server but not yet delivered to the
+forwarder (in-memory and ephemeral — drains as soon as the app polls):
+```shell
+curl -H "Insight-Key: $KEY" "http://localhost:8090/v1/plans/pending"
+curl -H "Insight-Key: $KEY" "http://localhost:8090/v1/plans/pending?app=myapp&env=test"
 ```
 
 ### Conventions

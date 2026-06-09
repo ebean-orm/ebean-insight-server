@@ -17,6 +17,7 @@ import org.ebean.monitor.v1.model.AppSummary;
 import org.ebean.monitor.v1.model.Env;
 import org.ebean.monitor.v1.model.MissingPlanMetric;
 import org.ebean.monitor.v1.model.PendingResponse;
+import org.ebean.monitor.v1.model.PendingPlan;
 import org.ebean.monitor.v1.model.QueryPlan;
 import org.ebean.monitor.v1.model.QueryPlanSummary;
 import org.junit.jupiter.api.Test;
@@ -127,9 +128,16 @@ class V1ControllerTest {
     assertThatThrownBy(() -> metricsApi.topAppMetrics(APP, null, 60L, 1L, null, null, null))
       .isInstanceOfSatisfying(HttpException.class, e -> assertThat(e.statusCode()).isEqualTo(400));
 
-    final List<MissingPlanMetric> missing = metricsApi.listMissingPlans(APP, null, null, null);
+    final List<MissingPlanMetric> missing = metricsApi.listMissingPlans(APP, null, null, null, null, null, null);
     assertThat(missing).extracting(MissingPlanMetric::label).contains(ORM_LABEL).doesNotContain(PLAIN_LABEL);
     assertThat(missing).extracting(MissingPlanMetric::lastCapturedAt).contains((java.time.Instant) null);
+    assertThat(missing).allSatisfy(m -> {
+      assertThat(m.windowMinutes()).isGreaterThan(0L);
+      assertThat(m.totalMicros()).isGreaterThanOrEqualTo(0L);
+    });
+
+    final List<MissingPlanMetric> missingGlobal = metricsApi.topMissingPlans("total", null, null, null, null, 50);
+    assertThat(missingGlobal).extracting(MissingPlanMetric::label).contains(ORM_LABEL).doesNotContain(PLAIN_LABEL);
 
     final List<AppMetricStats> globalTop = metricsApi.topMetrics(null, null, null, 50, null, null);
     assertThat(globalTop).extracting(AppMetricStats::key).contains(ORM_HASH);
@@ -146,6 +154,13 @@ class V1ControllerTest {
 
     assertThatThrownBy(() -> plansApi.requestPlanCapture("no-such-app", ORM_HASH, null))
       .isInstanceOfSatisfying(HttpException.class, e -> assertThat(e.statusCode()).isEqualTo(404));
+
+    // the capture request above is queued in-memory until the forwarder polls
+    final List<PendingPlan> pendingPlans = plansApi.listPendingPlans(null, null);
+    assertThat(pendingPlans).extracting(PendingPlan::hash).contains(ORM_HASH);
+    assertThat(plansApi.listPendingPlans(APP, ENV)).extracting(PendingPlan::hash).contains(ORM_HASH);
+    assertThat(plansApi.listPendingPlans("no-such-app", null)).isEmpty();
+    assertThat(plansApi.listPendingPlans(null, "no-such-env")).isEmpty();
 
     seedQueryPlan();
     Thread.sleep(500);
@@ -176,7 +191,7 @@ class V1ControllerTest {
     assertThatThrownBy(() -> plansApi.getPlan(9999999L))
       .isInstanceOfSatisfying(HttpException.class, e -> assertThat(e.statusCode()).isEqualTo(404));
 
-    final List<MissingPlanMetric> missingAfter = metricsApi.listMissingPlans(APP, null, null, null);
+    final List<MissingPlanMetric> missingAfter = metricsApi.listMissingPlans(APP, null, null, null, null, null, null);
     assertThat(missingAfter).extracting(MissingPlanMetric::label).doesNotContain(ORM_LABEL);
   }
 

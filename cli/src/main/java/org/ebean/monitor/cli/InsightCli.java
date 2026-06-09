@@ -17,6 +17,7 @@ import picocli.CommandLine.Command;
     subcommands = {
         PlansCommand.class,
         PlanCommand.class,
+        PendingCommand.class,
         CaptureCommand.class,
         TopCommand.class,
         MetricsCommand.class,

@@ -20,6 +20,7 @@ import org.ebean.monitor.v1.model.AppSummary;
 import org.ebean.monitor.v1.model.Env;
 import org.ebean.monitor.v1.model.MissingPlanMetric;
 import org.ebean.monitor.v1.model.PendingResponse;
+import org.ebean.monitor.v1.model.PendingPlan;
 import org.ebean.monitor.v1.model.QueryPlan;
 import org.ebean.monitor.v1.model.QueryPlanSummary;
 import org.ebean.monitor.web.MessageService;
@@ -29,6 +30,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -323,27 +325,54 @@ public final class V1QueryService {
       .findList();
   }
 
-  public List<MissingPlanMetric> listMissingPlans(String appName,
+  public List<MissingPlanMetric> listMissingPlans(String appName, @Nullable String orderBy,
+                                                  @Nullable Long sinceMinutes, @Nullable Long sinceHours,
                                                   @Nullable Long olderThanMinutes,
                                                   @Nullable Long olderThanHours,
                                                   @Nullable Integer limit) {
-    final TimeWindow window = TimeWindow.of(olderThanMinutes, olderThanHours, 0L);
     final DApp app = findApp(appName);
     if (app == null) {
       return List.of();
     }
-    final int max = clampLimit(limit);
-    final boolean hasWindow = window.hasFrom();
-    final String sql = """
+    return runMissingPlansQuery(app, orderBy, sinceMinutes, sinceHours,
+      olderThanMinutes, olderThanHours, clampLimit(limit));
+  }
+
+  public List<MissingPlanMetric> topMissingPlans(@Nullable String orderBy,
+                                                 @Nullable Long sinceMinutes, @Nullable Long sinceHours,
+                                                 @Nullable Long olderThanMinutes,
+                                                 @Nullable Long olderThanHours,
+                                                 @Nullable Integer limit) {
+    return runMissingPlansQuery(null, orderBy, sinceMinutes, sinceHours,
+      olderThanMinutes, olderThanHours, clampLimit(limit));
+  }
+
+  private List<MissingPlanMetric> runMissingPlansQuery(@Nullable DApp app, @Nullable String orderBy,
+                                                       @Nullable Long sinceMinutes, @Nullable Long sinceHours,
+                                                       @Nullable Long olderThanMinutes,
+                                                       @Nullable Long olderThanHours, int limit) {
+    final String sortKey = resolveOrderBy(orderBy);
+    final TimeWindow costWindow = TimeWindow.of(sinceMinutes, sinceHours, DEFAULT_TOP_WINDOW_MINUTES);
+    final TimeWindow freshness = TimeWindow.of(olderThanMinutes, olderThanHours, 0L);
+    final boolean hasFreshness = freshness.hasFrom();
+    final long minutes = costWindow.minutes();
+    final String table = timedTableFor(minutes);
+    final String sql = ("""
       select
         m.id              as metric_id,
+        a.name            as app_name,
         m.name            as label,
         m.key             as key,
         m.loc             as loc,
         m.sql             as sql,
         agg.last_captured as last_captured,
-        coalesce(agg.capture_count, 0) as capture_count
+        coalesce(agg.capture_count, 0) as capture_count,
+        coalesce(sum(t.count), 0) as agg_count,
+        coalesce(sum(t.total), 0) as agg_total,
+        coalesce(max(t.max), 0)   as agg_max
       from ebean_insight.app_metric m
+      join ebean_insight.app a on a.id = m.app_id
+      left join %s t on t.metric_id = m.id and t.event_time > :from
       left join (
         select metric_id,
                max(when_captured) as last_captured,
@@ -351,36 +380,54 @@ public final class V1QueryService {
         from ebean_insight.query_plan
         group by metric_id
       ) agg on agg.metric_id = m.id
-      where m.app_id = :appId
-        and m.plan_capable = true
+      where m.plan_capable = true
+      """
+      + (app == null ? "" : "  and m.app_id = :appId\n")
+      + """
         and (
           agg.last_captured is null
-          %s
+      """
+      + (hasFreshness ? "      or agg.last_captured < :threshold\n" : "")
+      + """
         )
-      order by coalesce(agg.last_captured, timestamp '1970-01-01') asc, m.name asc
+      group by m.id, a.name, m.name, m.key, m.loc, m.sql, agg.last_captured, agg.capture_count
+      order by %s desc, m.name asc
       limit :limit
-      """.formatted(hasWindow ? "or agg.last_captured < :threshold" : "");
+      """).formatted(table, orderByExpression(sortKey));
+
     final SqlQuery query = DB.sqlQuery(sql)
-      .setParameter("appId", app.getId())
-      .setParameter("limit", max);
-    if (hasWindow) {
-      query.setParameter("threshold", window.from());
+      .setParameter("from", costWindow.from())
+      .setParameter("limit", limit);
+    if (app != null) {
+      query.setParameter("appId", app.getId());
+    }
+    if (hasFreshness) {
+      query.setParameter("threshold", freshness.from());
     }
     return query
-      .mapTo((rs, i) -> toMissingPlanMetric(rs, app))
+      .mapTo((rs, _) -> toMissingPlanMetric(rs, minutes))
       .findList();
   }
 
-  private static MissingPlanMetric toMissingPlanMetric(ResultSet rs, DApp app) throws SQLException {
+  private static MissingPlanMetric toMissingPlanMetric(ResultSet rs, long windowMinutes) throws SQLException {
+    final long count = rs.getLong("agg_count");
+    final long total = rs.getLong("agg_total");
+    final long max = rs.getLong("agg_max");
+    final long mean = count == 0L ? 0L : Math.floorDiv(total, count);
     return MissingPlanMetric.builder()
       .id(rs.getLong("metric_id"))
-      .app(app.getName())
+      .app(rs.getString("app_name"))
       .label(rs.getString("label"))
       .key(rs.getString("key"))
       .loc(rs.getString("loc"))
       .lastCapturedAt(toInstant(rs.getTimestamp("last_captured")))
       .captureCount(rs.getLong("capture_count"))
       .sql(rs.getString("sql"))
+      .count(count)
+      .totalMicros(total)
+      .meanMicros(mean)
+      .maxMicros(max)
+      .windowMinutes(windowMinutes)
       .build();
   }
 
@@ -469,6 +516,25 @@ public final class V1QueryService {
     final String message = "qp:" + metric.getKey();
     final int pending = messageService.pushMessage(app.getName(), envName, message);
     return new PendingResponse(pending);
+  }
+
+  public List<PendingPlan> listPendingPlans(@Nullable String app, @Nullable String env) {
+    final String appFilter = (app == null || app.isBlank()) ? null : app.trim();
+    final String envFilter = (env == null || env.isBlank()) ? null : env.trim();
+    final List<PendingPlan> result = new ArrayList<>();
+    for (MessageService.Pending p : messageService.pendingSnapshot()) {
+      if (!p.message().startsWith("qp:")) {
+        continue;
+      }
+      if (appFilter != null && !appFilter.equals(p.app())) {
+        continue;
+      }
+      if (envFilter != null && !envFilter.equals(p.env())) {
+        continue;
+      }
+      result.add(new PendingPlan(p.app(), p.env(), p.message().substring(3)));
+    }
+    return result;
   }
 
   // ---------------------------------------------------------------------------

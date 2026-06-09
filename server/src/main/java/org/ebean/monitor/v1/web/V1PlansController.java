@@ -4,6 +4,7 @@ import io.avaje.http.api.Controller;
 import java.util.List;
 import org.ebean.monitor.v1.PlansApi;
 import org.ebean.monitor.v1.model.PendingResponse;
+import org.ebean.monitor.v1.model.PendingPlan;
 import org.ebean.monitor.v1.model.QueryPlan;
 import org.ebean.monitor.v1.model.QueryPlanSummary;
 
@@ -44,5 +45,10 @@ public final class V1PlansController implements PlansApi {
   @Override
   public List<QueryPlanSummary> listPlans(String app, String env, String label, String hash, Long sinceMinutes, Long sinceHours, Integer limit) {
     return service.listPlans(app, env, label, hash, sinceMinutes, sinceHours, limit);
+  }
+
+  @Override
+  public List<PendingPlan> listPendingPlans(String app, String env) {
+    return service.listPendingPlans(app, env);
   }
 }

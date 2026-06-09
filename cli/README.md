@@ -166,9 +166,13 @@ per-command forward.
 | `insight forward` (alias `daemon`) | Hold a supervised port-forward open for other commands to reuse. `--no-register` to not advertise it. |
 | `insight apps [--active-within-minutes N \| --active-within-hours N]` | List known applications. |
 | `insight envs` | List known environments. |
+| `insight metrics --app X [--label] [--plan-capable]` | List an app's metrics (ID, NAME, HASH, LOC); full SQL with `-o json`. |
+| `insight top [--app] [--env] [--by total\|mean\|max\|count] [--since-minutes N \| --since-hours N] [--plan-capable] [-n N]` | Rank metrics by cost over a window. Omit `--app` to span all apps. |
+| `insight missing-plans [--app] [--by total\|mean\|max\|count] [--since-minutes N \| --since-hours N] [--older-than-minutes N \| --older-than-hours N] [--capture [--yes] [--env]] [-n N]` | Plan-capable metrics with no recent plan, ranked by cost. `--capture` requests a plan for every listed row (capped by `-n`). |
 | `insight plans [--app] [--env] [--label] [--hash] [--since-minutes N] [--since-hours N] [-n/--limit N]` | List recently captured query plans (tabular). |
+| `insight pending [--app] [--env]` | List plan captures queued on the server awaiting delivery to the forwarder (in-memory, ephemeral). |
 | `insight plan <planId> [--raw]` | Show one captured plan. `--raw` prints only the EXPLAIN plan text. |
-| `insight capture <app> <hash> [--env]` | Request a fresh plan capture for a metric hash. |
+| `insight capture <app> <hash>... [--stdin] [--env]` | Request a fresh plan capture for one or more metric hashes (space or comma separated). `--stdin` reads additional whitespace/comma/newline-separated hashes from standard input. |
 | `insight config <set\|get\|unset\|list\|path>` | Manage persisted settings in `~/.insight/config.properties`. |
 | `insight login [--timeout-seconds N]` | Authenticate via Cognito (OAuth2 + PKCE) and cache the bearer token. |
 | `insight whoami` | Show the cached login identity and token expiry. |
@@ -202,6 +206,14 @@ insight envs
 insight apps
 insight plans -n 5
 insight plan 2 --raw
+
+# Find the most expensive queries lacking a fresh plan, then capture them
+insight missing-plans --app myapp --by total
+insight capture myapp hashA hashB --env test            # capture several explicitly
+insight capture myapp hashA,hashB,hashC --env test      # comma-separated also works
+insight missing-plans --app myapp -n 10 -o json \
+  | jq -r '.[].key' | insight capture myapp --stdin --env test   # pipe hashes
+insight missing-plans --app myapp -n 10 --capture --yes --env test   # one-shot bulk capture
 
 # Talk to a server directly instead of port-forwarding
 insight plans --url http://localhost:8091 --app myk8s-service --since-hours 24

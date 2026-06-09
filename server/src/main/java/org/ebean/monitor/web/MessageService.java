@@ -47,6 +47,32 @@ public class MessageService {
     return msgs.size();
   }
 
+  /**
+   * A read-only snapshot of a queued, not-yet-delivered message.
+   */
+  public record Pending(String app, String env, String message) {}
+
+  /**
+   * Return a read-only snapshot of all queued messages awaiting delivery.
+   *
+   * <p>This does not remove anything from the queue. The snapshot is inherently
+   * racy: entries vanish as soon as the owning app polls.
+   */
+  public List<Pending> pendingSnapshot() {
+    var result = new java.util.ArrayList<Pending>();
+    responseMap.forEach((key, msgs) -> {
+      int sep = key.lastIndexOf('|');
+      String app = sep < 0 ? key : key.substring(0, sep);
+      String env = sep < 0 ? "" : key.substring(sep + 1);
+      synchronized (msgs) {
+        for (String msg : msgs) {
+          result.add(new Pending(app, env, msg));
+        }
+      }
+    });
+    return result;
+  }
+
   private static String key(String appName, String environment) {
     var env = environment == null ? "no-environment" : environment;
     return appName + '|' + env;

@@ -1,8 +1,10 @@
 package org.ebean.monitor.cli;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
 
+import io.avaje.http.client.HttpException;
 import org.ebean.monitor.v1.model.MissingPlanMetric;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
@@ -10,26 +12,45 @@ import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
 
 /**
- * List plan-capable metrics that have no recently captured query plan.
+ * List plan-capable metrics that have no recently captured query plan, ranked
+ * by execution cost.
  *
- * <p>Useful for deciding what to {@code insight capture} next: each row's
- * {@code HASH} can be fed straight into {@code insight capture <app> <hash>}.
+ * <p>This is the home for "find the most expensive queries that lack a fresh
+ * plan, then capture them". Omit {@code --app} to rank across all apps; supply
+ * it to scope to one. Each row's {@code HASH} feeds straight into
+ * {@code insight capture <app> <hash>}.
  */
 @Command(name = "missing-plans", mixinStandardHelpOptions = true,
-    description = "List plan-capable metrics with no recently captured query plan.",
+    description = "List plan-capable metrics with no recently captured query plan, ranked by cost.",
     footerHeading = "%nExamples:%n",
     footer = {
-        "  insight missing-plans --app myapp",
+        "  insight missing-plans                       # all apps, ranked by total time",
+        "  insight missing-plans --app myapp --by mean",
         "  insight missing-plans --app myapp --older-than-hours 24",
-        "  # then capture one:  insight capture myapp <hash> --env test"
+        "  # then capture one:  insight capture myapp <hash> --env test",
+        "  # or capture every listed metric in one go (capped by -n):",
+        "  insight missing-plans --app myapp -n 10 --capture --yes --env test"
     })
 final class MissingPlansCommand implements Callable<Integer> {
+
+  enum OrderBy { total, mean, max, count }
 
   @Mixin ConnectionOptions conn = new ConnectionOptions();
   @Mixin OutputOptions out = new OutputOptions();
 
-  @Option(names = "--app", required = true, description = "The application name.")
-  String app;
+  @Option(names = "--app",
+      description = "Limit to one application. When omitted, ranks across all apps.")
+  @Nullable String app;
+
+  @Option(names = "--by", defaultValue = "total",
+      description = "Rank by: ${COMPLETION-CANDIDATES} (default: ${DEFAULT-VALUE}).")
+  OrderBy by = OrderBy.total;
+
+  @Option(names = "--since-minutes", description = "Cost window size in minutes (default: 60).")
+  @Nullable Long sinceMinutes;
+
+  @Option(names = "--since-hours", description = "Cost window size in hours (mutually exclusive with --since-minutes).")
+  @Nullable Long sinceHours;
 
   @Option(names = "--older-than-minutes",
       description = "Only metrics whose last capture is older than N minutes (or never captured).")
@@ -42,13 +63,39 @@ final class MissingPlansCommand implements Callable<Integer> {
   @Option(names = {"-n", "--limit"}, defaultValue = "20", description = "Maximum rows (default: ${DEFAULT-VALUE}).")
   Integer limit = 20;
 
+  @Option(names = "--capture",
+      description = "Request a plan capture for every listed metric (capped by -n). Needs confirmation or --yes.")
+  boolean capture;
+
+  @Option(names = "--yes", description = "Skip the confirmation prompt when used with --capture.")
+  boolean yes;
+
+  @Option(names = "--env",
+      description = "Environment to target with --capture (falls back to the persisted 'env' config).")
+  @Nullable String env;
+
   @Override
   public Integer call() {
+    if (sinceMinutes != null && sinceHours != null) {
+      throw new CliException("Supply only one of --since-minutes / --since-hours, not both.");
+    }
     if (olderThanMinutes != null && olderThanHours != null) {
       throw new CliException("Supply only one of --older-than-minutes / --older-than-hours, not both.");
     }
+    if (app == null) {
+      app = ConfigDefaults.appOrNull();
+    }
+    if (env == null) {
+      env = ConfigDefaults.envOrNull();
+    }
+    final String orderBy = by.name();
     try (Insight insight = Insight.open(conn)) {
-      List<MissingPlanMetric> rows = insight.metrics.listMissingPlans(app, olderThanMinutes, olderThanHours, limit);
+      List<MissingPlanMetric> rows = (app == null)
+          ? insight.metrics.topMissingPlans(orderBy, sinceMinutes, sinceHours, olderThanMinutes, olderThanHours, limit)
+          : insight.metrics.listMissingPlans(app, orderBy, sinceMinutes, sinceHours, olderThanMinutes, olderThanHours, limit);
+      if (capture) {
+        return captureAll(insight, rows);
+      }
       if (out.json()) {
         out.printJsonList(MissingPlanMetric.class, rows);
         return 0;
@@ -57,15 +104,65 @@ final class MissingPlansCommand implements Callable<Integer> {
         System.out.println("No missing plans found.");
         return 0;
       }
-      System.out.printf("%-8s %-34s %9s %-26s %-34s %s%n",
-          "ID", "LABEL", "CAPTURES", "LAST_CAPTURED", "HASH", "LOC");
+      System.out.printf("%-24s %-34s %10s %16s %14s %14s %9s %-26s %s%n",
+          "APP", "LABEL", "COUNT", "TOTAL(us)", "MEAN(us)", "MAX(us)", "CAPTURES", "LAST_CAPTURED", "HASH");
       for (MissingPlanMetric m : rows) {
-        System.out.printf("%-8d %-34s %9d %-26s %-34s %s%n",
-            m.id(), m.label(), m.captureCount(),
+        System.out.printf("%-24s %-34s %10d %16d %14d %14d %9d %-26s %s%n",
+            m.app(), m.label(), m.count(), m.totalMicros(), m.meanMicros(), m.maxMicros(),
+            m.captureCount(),
             m.lastCapturedAt() == null ? "never" : m.lastCapturedAt().toString(),
-            m.key(), m.loc() == null ? "" : m.loc());
+            m.key());
       }
       return 0;
     }
+  }
+
+  private Integer captureAll(Insight insight, List<MissingPlanMetric> rows) {
+    if (rows.isEmpty()) {
+      System.out.println("No missing plans found.");
+      return 0;
+    }
+    if (!confirmCapture(rows.size())) {
+      System.out.println("Aborted.");
+      return 1;
+    }
+    final List<CaptureResult> results = new ArrayList<>(rows.size());
+    boolean anyError = false;
+    for (MissingPlanMetric m : rows) {
+      try {
+        var pending = insight.plans.requestPlanCapture(m.app(), m.key(), env);
+        results.add(new CaptureResult(m.key(), pending.pending(), null));
+      } catch (HttpException e) {
+        anyError = true;
+        results.add(new CaptureResult(m.key(), null, "HTTP " + e.statusCode()));
+      }
+    }
+    if (out.json()) {
+      out.printJsonList(CaptureResult.class, results);
+      return anyError ? 1 : 0;
+    }
+    for (CaptureResult r : results) {
+      if (r.error() == null) {
+        System.out.printf("%-34s requested (pending=%d)%n", r.hash(), r.pending());
+      } else {
+        System.out.printf("%-34s FAILED (%s)%n", r.hash(), r.error());
+      }
+    }
+    final long ok = results.stream().filter(r -> r.error() == null).count();
+    System.out.printf("%nRequested %d of %d captures.%n", ok, results.size());
+    return anyError ? 1 : 0;
+  }
+
+  private boolean confirmCapture(int count) {
+    if (yes) {
+      return true;
+    }
+    final var console = System.console();
+    if (console == null) {
+      throw new CliException("Refusing to capture " + count
+          + " plan(s) without confirmation; re-run with --yes.");
+    }
+    final String answer = console.readLine("Capture %d plan(s)? [y/N] ", count);
+    return answer != null && (answer.equalsIgnoreCase("y") || answer.equalsIgnoreCase("yes"));
   }
 }

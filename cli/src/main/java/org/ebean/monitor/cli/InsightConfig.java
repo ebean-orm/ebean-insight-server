@@ -23,7 +23,7 @@ final class InsightConfig {
   /** Settings that may be persisted; these mirror the connection option names. */
   static final List<String> KEYS = List.of(
       "url", "namespace", "service", "target-port", "local-port",
-      "context", "ready-timeout", "insight-key", "output",
+      "context", "ready-timeout", "insight-key", "output", "env", "app",
       "auth-domain", "auth-user-pool-id", "auth-client-id", "auth-scope",
       "auth-redirect-port");
 

@@ -99,7 +99,7 @@ public class RollupService implements Runnable {
       final Rollup rollup = new Rollup(database, currentRollupTime);
       rollup.rollup();
     } else {
-      log.warn("skip already existing rollup?");
+      log.info("skipping already existing rollup");
     }
   }
 
