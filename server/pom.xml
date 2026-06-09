@@ -315,6 +315,7 @@
                 <buildArg>--no-fallback</buildArg>
                 <buildArg>--allow-incomplete-classpath</buildArg>
                 <buildArg>-march=compatibility</buildArg>
+                <buildArg>-H:+ReportExceptionStackTraces</buildArg>
                 <buildArg>--static-nolibc</buildArg>
               </buildArgs>
             </configuration>

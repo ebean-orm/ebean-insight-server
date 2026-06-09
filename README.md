@@ -9,6 +9,17 @@
 - Exposes a versioned, agent-friendly REST API at `/v1` (contract-first via
   OpenAPI; see [`api/src/main/openapi/v1.yaml`](api/src/main/openapi/v1.yaml)).
 
+## Install
+
+- **Server** — Kubernetes, Docker, or standalone native binary:
+  [`docs/install-server.md`](docs/install-server.md)
+- **CLI** (`insight`) — per-OS binaries for macOS, Linux, Windows:
+  [`docs/install-cli.md`](docs/install-cli.md)
+
+For the server's full configuration / mode reference see
+[`docs/deployment-modes.md`](docs/deployment-modes.md). For day-to-day CLI
+usage see [`cli/README.md`](cli/README.md).
+
 ## Modules
 
 | Module | Purpose |

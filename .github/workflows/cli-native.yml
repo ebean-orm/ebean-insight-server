@@ -1,26 +1,31 @@
-name: CLI native binaries
+name: CLI Native Image builds
 
 on:
   workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
 
 jobs:
   build:
-    name: Build insight CLI on ${{ matrix.os }}
+    name: Build CLI on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-24.04
-            artifact: insight-linux-x64
-            binary: insight
           - os: macos-latest
             artifact: insight-macos-arm64
             binary: insight
+            archive_ext: zip
+          - os: ubuntu-24.04
+            artifact: insight-linux-x64
+            binary: insight
+            archive_ext: zip
           - os: windows-latest
             artifact: insight-windows-x64
             binary: insight.exe
-
+            archive_ext: zip
     steps:
       - uses: actions/checkout@v6
 
@@ -32,19 +37,113 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           native-image-job-reports: 'true'
 
-      - name: Versions
+      - name: Show versions
+        shell: bash
         run: |
+          mvn --version
           java --version
           native-image --version
 
-      # Builds only the CLI and its reactor deps (parent, api, client, forwarder, cli).
-      # The server module is not a dependency of cli, so it is not built here.
-      - name: Build CLI native binary
-        run: mvn -B -pl cli -am package -Pnative -DskipTests
+      - name: Determine version stamp
+        id: ver
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/}"
+          else
+            VERSION="dev-${GITHUB_SHA::8}"
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "stage_dir=${{ matrix.artifact }}-${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Building ${{ matrix.artifact }} version=${VERSION}"
 
-      - name: Upload binary
+      - name: Build CLI native image
+        shell: bash
+        run: mvn -B -pl cli -am package -Pnative -DskipTests -Dgit.commit.id.abbrev="${GITHUB_SHA:0:8}"
+
+      - name: Stage release directory (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          STAGE="${{ steps.ver.outputs.stage_dir }}"
+          mkdir -p "$STAGE"
+          cp "cli/target/${{ matrix.binary }}" "$STAGE/"
+          chmod +x "$STAGE/${{ matrix.binary }}" || true
+          cp docs/install-cli.md "$STAGE/" 2>/dev/null || true
+          cp LICENSE "$STAGE/" 2>/dev/null || true
+          ls -la "$STAGE"
+
+      - name: Stage release directory (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $stage = "${{ steps.ver.outputs.stage_dir }}"
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          Copy-Item "cli/target/${{ matrix.binary }}" -Destination $stage
+          if (Test-Path "docs/install-cli.md") { Copy-Item "docs/install-cli.md" -Destination $stage }
+          if (Test-Path "LICENSE") { Copy-Item "LICENSE" -Destination $stage }
+          Get-ChildItem $stage
+
+      - name: Create archive (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          STAGE="${{ steps.ver.outputs.stage_dir }}"
+          ARCHIVE="${STAGE}.zip"
+          if command -v zip >/dev/null 2>&1; then
+            zip -r "$ARCHIVE" "$STAGE"
+          else
+            python3 -c "import shutil; shutil.make_archive('${STAGE}', 'zip', '.', '${STAGE}')"
+          fi
+          ls -la "$ARCHIVE"
+
+      - name: Create archive (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $stage = "${{ steps.ver.outputs.stage_dir }}"
+          Compress-Archive -Path "$stage/*" -DestinationPath "$stage.zip" -Force
+          Get-Item "$stage.zip"
+
+      - name: Upload archive artifact
         uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}
-          path: cli/target/${{ matrix.binary }}
+          path: ${{ steps.ver.outputs.stage_dir }}.zip
           if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download all CLI artifacts
+        uses: actions/download-artifact@v6
+        with:
+          path: dist
+
+      - name: Flatten and checksum
+        shell: bash
+        run: |
+          mkdir -p release
+          find dist -type f -name '*.zip' -exec cp {} release/ \;
+          cd release
+          ls -la
+          sha256sum *.zip > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Create / update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            release/*.zip
+            release/SHA256SUMS

@@ -152,6 +152,8 @@
                   <buildArgs>
                     <buildArg>--no-fallback</buildArg>
                     <buildArg>--install-exit-handlers</buildArg>
+                    <buildArg>-march=compatibility</buildArg>
+                    <buildArg>-H:+ReportExceptionStackTraces</buildArg>
                     <buildArg>-H:IncludeResources=ebean-insight-cli\.properties</buildArg>
                   </buildArgs>
                 </configuration>
