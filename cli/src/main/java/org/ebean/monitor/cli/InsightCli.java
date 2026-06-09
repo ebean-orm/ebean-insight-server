@@ -12,7 +12,7 @@ import picocli.CommandLine.Command;
 @Command(
     name = "insight",
     mixinStandardHelpOptions = true,
-    version = "ebean-insight-cli",
+    versionProvider = VersionProvider.class,
     description = "Inspect ebean-insight metrics and captured query plans.",
     subcommands = {
         PlansCommand.class,

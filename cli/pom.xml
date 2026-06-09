@@ -68,7 +68,46 @@
 
   <build>
     <finalName>insight</finalName>
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+        <filtering>true</filtering>
+        <includes>
+          <include>ebean-insight-cli.properties</include>
+        </includes>
+      </resource>
+      <resource>
+        <directory>src/main/resources</directory>
+        <filtering>false</filtering>
+        <excludes>
+          <exclude>ebean-insight-cli.properties</exclude>
+        </excludes>
+      </resource>
+    </resources>
     <plugins>
+
+      <plugin>
+        <groupId>io.github.git-commit-id</groupId>
+        <artifactId>git-commit-id-maven-plugin</artifactId>
+        <version>9.0.1</version>
+        <executions>
+          <execution>
+            <id>get-the-git-infos</id>
+            <goals>
+              <goal>revision</goal>
+            </goals>
+            <phase>initialize</phase>
+          </execution>
+        </executions>
+        <configuration>
+          <generateGitPropertiesFile>false</generateGitPropertiesFile>
+          <dateFormat>yyyy-MM-dd'T'HH:mm:ss'Z'</dateFormat>
+          <dateFormatTimeZone>UTC</dateFormatTimeZone>
+          <abbrevLength>7</abbrevLength>
+          <failOnNoGitDirectory>false</failOnNoGitDirectory>
+          <failOnUnableToExtractRepoInfo>false</failOnUnableToExtractRepoInfo>
+        </configuration>
+      </plugin>
 
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -113,6 +152,7 @@
                   <buildArgs>
                     <buildArg>--no-fallback</buildArg>
                     <buildArg>--install-exit-handlers</buildArg>
+                    <buildArg>-H:IncludeResources=ebean-insight-cli\.properties</buildArg>
                   </buildArgs>
                 </configuration>
               </execution>
