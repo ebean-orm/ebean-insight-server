@@ -47,7 +47,7 @@ final class IngestController {
    * Ingest the metrics.
    */
   @Post("/metrics")
-  void ingest(@Header("Insight-key") String key, @Header("Content-Encoding") String encoding, Context context) {
+  void ingest(@Header("Insight-Key") String key, @Header("Content-Encoding") String encoding, Context context) {
     ingestKeyValidator.validate(key);
     try {
       String content;
