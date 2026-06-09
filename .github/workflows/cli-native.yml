@@ -40,7 +40,6 @@ jobs:
       - name: Show versions
         shell: bash
         run: |
-          mvn --version
           java --version
           native-image --version
 
