@@ -41,7 +41,9 @@ jobs:
         shell: bash
         run: |
           java --version
-          native-image --version
+          # native-image isn't on PATH in bash on Windows; the maven native plugin
+          # invokes it via $GRAALVM_HOME directly, so this is purely diagnostic.
+          native-image --version || "$GRAALVM_HOME/bin/native-image" --version || true
 
       - name: Determine version stamp
         id: ver
