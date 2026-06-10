@@ -51,7 +51,7 @@ final class TrendCommand implements Callable<Integer> {
   @Option(names = "--env", description = "Limit to one environment (falls back to the persisted 'env' config).")
   @Nullable String env;
 
-  @Option(names = "--since-minutes", description = "Window size in minutes (default: 60).")
+  @Option(names = "--since-minutes", description = "Window size in minutes (default: 180).")
   @Nullable Long sinceMinutes;
 
   @Option(names = "--since-hours", description = "Window size in hours (mutually exclusive with --since-minutes).")
@@ -82,8 +82,12 @@ final class TrendCommand implements Callable<Integer> {
     }
     try (Insight insight = Insight.open(conn)) {
       MetricTimeseries ts;
+      Long windowMinutes = sinceMinutes;
+      if (windowMinutes == null && sinceHours == null) {
+        windowMinutes = DEFAULT_TREND_WINDOW_MINUTES;
+      }
       try {
-        ts = insight.metrics.getMetricTimeseries(app, hash, sinceMinutes, sinceHours, env);
+        ts = insight.metrics.getMetricTimeseries(app, hash, windowMinutes, sinceHours, env);
       } catch (HttpException e) {
         if (e.statusCode() == 404) {
           throw new CliException("This server build does not serve the metric time-series endpoint yet"
@@ -100,17 +104,24 @@ final class TrendCommand implements Callable<Integer> {
     }
   }
 
+  /**
+   * Default trend window when none is given: 3 hours. The server serves
+   * 1-minute buckets for windows up to 3 hours, so this yields ~180 buckets
+   * (one column per minute) — see {@link #TARGET_WIDTH}.
+   */
+  static final long DEFAULT_TREND_WINDOW_MINUTES = 180L;
+
   /** Rows tall for the mean column chart (the headline series). */
   private static final int MEAN_ROWS = 8;
   /** Rows tall for the secondary call-volume column chart. */
   private static final int CALLS_ROWS = 3;
   /**
    * Target chart width in columns. Width is one column per bucket, capped here:
-   * the server's bucket resolution gives ~60 columns for the default 60-minute
+   * the server's bucket resolution gives ~180 columns for the default 3-hour
    * window (1-minute buckets); longer windows that return more buckets are
-   * down-sampled to this width so the chart stays ~60 wide and readable.
+   * down-sampled to this width so the chart stays readable.
    */
-  static final int TARGET_WIDTH = 60;
+  static final int TARGET_WIDTH = 180;
 
   static void printTrend(MetricTimeseries ts) {
     printTrend(ts, Measure.mean);

@@ -41,6 +41,9 @@ class V1ControllerTest {
   private static final String ORM_HASH = "v1ormhash00000000000000000000001";
   private static final String PLAIN_LABEL = "OrderDao.findOrdersForPublishing";
   private static final String PLAIN_HASH = "v1plainhash0000000000000000000001";
+  // plan-capable metric whose only execution is outside the cost window
+  private static final String STALE_LABEL = "orm.OrderDao.findStaleNeverExecutedInWindow";
+  private static final String STALE_HASH = "v1stalehash0000000000000000000001";
 
   @Inject
   HttpClient httpClient;
@@ -49,12 +52,16 @@ class V1ControllerTest {
   Database database;
 
   private final Instant eventMinute = Instant.now().truncatedTo(ChronoUnit.MINUTES);
+  // two hours ago: outside the default 60-minute missing-plans cost window
+  private final Instant staleMinute = eventMinute.minus(120, ChronoUnit.MINUTES);
 
   @Test
   void v1Endpoints() throws InterruptedException {
     seedMetrics();
+    seedStaleMetric();
     Thread.sleep(500);
     rollup();
+    rollupStale();
 
     final AppsApi appsApi = httpClient.create(AppsApi.class);
     final EnvsApi envsApi = httpClient.create(EnvsApi.class);
@@ -162,6 +169,9 @@ class V1ControllerTest {
 
     final List<MissingPlanMetric> missing = metricsApi.listMissingPlans(APP, null, null, null, null, null, null);
     assertThat(missing).extracting(MissingPlanMetric::label).contains(ORM_LABEL).doesNotContain(PLAIN_LABEL);
+    // a plan-capable metric with no executions in the cost window is excluded:
+    // a plan cannot be captured for a query that never runs in the window.
+    assertThat(missing).extracting(MissingPlanMetric::label).doesNotContain(STALE_LABEL);
     assertThat(missing).extracting(MissingPlanMetric::lastCapturedAt).contains((java.time.Instant) null);
     assertThat(missing).allSatisfy(m -> {
       assertThat(m.windowMinutes()).isGreaterThan(0L);
@@ -170,6 +180,7 @@ class V1ControllerTest {
 
     final List<MissingPlanMetric> missingGlobal = metricsApi.topMissingPlans("total", null, null, null, null, 50);
     assertThat(missingGlobal).extracting(MissingPlanMetric::label).contains(ORM_LABEL).doesNotContain(PLAIN_LABEL);
+    assertThat(missingGlobal).extracting(MissingPlanMetric::label).doesNotContain(STALE_LABEL);
 
     final List<AppMetricStats> globalTop = metricsApi.topMetrics(null, null, null, 50, null, null);
     assertThat(globalTop).extracting(AppMetricStats::key).contains(ORM_HASH);
@@ -254,6 +265,10 @@ class V1ControllerTest {
     new Rollup(database, eventMinute).rollup();
   }
 
+  private void rollupStale() {
+    new Rollup(database, staleMinute).rollup();
+  }
+
   private void seedMetrics() {
     final String payload = """
       {
@@ -273,6 +288,32 @@ class V1ControllerTest {
       """.formatted(eventMinute.toEpochMilli(), APP, ENV,
         ORM_LABEL, ORM_HASH,
         PLAIN_LABEL, PLAIN_HASH);
+    final HttpResponse<String> res = httpClient.request()
+      .path("api/ingest/metrics")
+      .header("Content-Type", "application/json")
+      .header("Insight-Key", "testHash")
+      .body(payload)
+      .POST()
+      .asString();
+    assertThat(res.statusCode()).isEqualTo(204);
+  }
+
+  private void seedStaleMetric() {
+    final String payload = """
+      {
+        "eventTime": %d,
+        "appName": "%s",
+        "environment": "%s",
+        "dbs": [
+          {
+            "db": "db",
+            "metrics": [
+              {"name": "%s", "count": 7, "total": 5000, "mean": 700, "max": 900, "hash": "%s", "loc": "x.java:3", "sql": "select 3"}
+            ]
+          }
+        ]
+      }
+      """.formatted(staleMinute.toEpochMilli(), APP, ENV, STALE_LABEL, STALE_HASH);
     final HttpResponse<String> res = httpClient.request()
       .path("api/ingest/metrics")
       .header("Content-Type", "application/json")

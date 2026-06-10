@@ -350,7 +350,8 @@ final class Interactive {
   private void showTrend(Row row) {
     System.out.println();
     try {
-      var ts = insight.metrics.getMetricTimeseries(row.app(), row.hash(), null, null, env);
+      var ts = insight.metrics.getMetricTimeseries(row.app(), row.hash(),
+          TrendCommand.DEFAULT_TREND_WINDOW_MINUTES, null, env);
       if (!ts.buckets().isEmpty()) {
         TrendCommand.printTrend(ts, measure);
         return;
