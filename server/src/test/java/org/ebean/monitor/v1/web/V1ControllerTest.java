@@ -117,12 +117,24 @@ class V1ControllerTest {
     assertThat(ts.hash()).isEqualTo(ORM_HASH);
     assertThat(ts.bucketMinutes()).isEqualTo(1L);
     assertThat(ts.buckets()).isNotEmpty();
-    assertThat(ts.buckets()).allSatisfy(b -> assertThat(b.count()).isPositive());
+    // Dense series: the whole 60-minute window is returned (one 1-minute bucket
+    // each), empty minutes filled with explicit zeros so the time axis stays
+    // continuous. The seed only populates one minute, so there is a positive
+    // bucket alongside many zero buckets.
+    assertThat(ts.buckets()).hasSizeGreaterThanOrEqualTo(60);
+    assertThat(ts.buckets()).anySatisfy(b -> assertThat(b.count()).isPositive());
+    assertThat(ts.buckets()).anySatisfy(b -> assertThat(b.count()).isZero());
+    assertThat(ts.buckets()).allSatisfy(b -> assertThat(b.count()).isGreaterThanOrEqualTo(0L));
+    // Buckets are strictly time-ordered and aligned to the bucket boundary.
+    assertThat(ts.buckets()).extracting(MetricTimeBucket::eventTime).isSorted();
+    assertThat(ts.buckets()).allSatisfy(b ->
+      assertThat(b.eventTime().getEpochSecond() % 60L).isZero());
     final long tsCalls = ts.buckets().stream().mapToLong(MetricTimeBucket::count).sum();
     assertThat(tsCalls).isEqualTo(stats.getFirst().count());
 
     final MetricTimeseries tsEnv = metricsApi.getMetricTimeseries(APP, ORM_HASH, null, null, ENV);
     assertThat(tsEnv.buckets()).isNotEmpty();
+    assertThat(tsEnv.buckets()).anySatisfy(b -> assertThat(b.count()).isPositive());
 
     final MetricTimeseries tsNoEnv = metricsApi.getMetricTimeseries(APP, ORM_HASH, null, null, "no-such-env");
     assertThat(tsNoEnv.buckets()).isEmpty();

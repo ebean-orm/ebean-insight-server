@@ -248,6 +248,10 @@ public final class V1QueryService {
    * Per-bucket time-series for a single metric (raw additive components per
    * bucket — count, total, max). Mean is derived client-side. Bucket resolution
    * follows {@link #timedTableFor(long)} so long windows stay cheap.
+   *
+   * <p>The series is dense: every bucket boundary across the window is returned,
+   * with empty buckets reported as explicit zeros, so the consumer's time axis
+   * stays continuous even for sparse metrics.
    */
   public MetricTimeseries getMetricTimeseries(String appName, String hash,
                                               @Nullable Long sinceMinutes,
@@ -272,23 +276,40 @@ public final class V1QueryService {
     if (envFilterMisses(env, envId)) {
       return emptyTimeseries(app.getName(), hash, minutes, bucketMinutes);
     }
+    // Generate a dense grid of bucket boundaries across the whole window (epoch
+    // arithmetic keeps it timezone-independent and aligned to the same UTC
+    // boundaries the timed tables store) and LEFT JOIN the metric so empty
+    // buckets come back as explicit zeros rather than being dropped. This keeps
+    // the client trend chart's time axis honest for sparse metrics.
+    final long stepSeconds = bucketMinutes * 60L;
     final SqlQuery query = DB.sqlQuery(("""
+        with grid as (
+          select to_timestamp(s) as event_time
+          from generate_series(
+                 (cast(floor(extract(epoch from cast(:from as timestamptz)) / :step) as bigint) + 1) * :step,
+                 (cast(floor(extract(epoch from now()) / :step) as bigint)) * :step,
+                 :step
+               ) as s
+        )
         select
-          t.event_time              as event_time,
+          grid.event_time           as event_time,
           coalesce(sum(t.count), 0) as count,
           coalesce(sum(t.total), 0) as total,
           coalesce(max(t.max), 0)   as max
-        from %s t
-        where t.metric_id = :metricId
-          and t.event_time > :from
+        from grid
+        left join %s t
+          on t.event_time = grid.event_time
+         and t.metric_id = :metricId
+         and t.event_time > :from
         """
-      + (envId == null ? "" : "  and t.env_id = :envId\n")
+      + (envId == null ? "" : "     and t.env_id = :envId\n")
       + """
-        group by t.event_time
-        order by t.event_time asc
+        group by grid.event_time
+        order by grid.event_time asc
         """).formatted(table))
       .setParameter("metricId", metric.getId())
-      .setParameter("from", window.from());
+      .setParameter("from", window.from())
+      .setParameter("step", stepSeconds);
     if (envId != null) {
       query.setParameter("envId", envId);
     }
