@@ -143,23 +143,17 @@ final class MissingPlansCommand implements Callable<Integer> {
     for (MissingPlanMetric m : rows) {
       try {
         var pending = insight.plans.requestPlanCapture(m.app(), m.key(), env);
-        results.add(new CaptureResult(m.key(), pending.pending(), null));
+        results.add(new CaptureResult(m.key(), pending.label() != null ? pending.label() : m.label(), null));
       } catch (HttpException e) {
         anyError = true;
-        results.add(new CaptureResult(m.key(), null, "HTTP " + e.statusCode()));
+        results.add(new CaptureResult(m.key(), m.label(), "HTTP " + e.statusCode()));
       }
     }
     if (out.json()) {
       out.printJsonList(CaptureResult.class, results);
       return anyError ? 1 : 0;
     }
-    for (CaptureResult r : results) {
-      if (r.error() == null) {
-        System.out.printf("%-34s requested (pending=%d)%n", r.hash(), r.pending());
-      } else {
-        System.out.printf("%-34s FAILED (%s)%n", r.hash(), r.error());
-      }
-    }
+    CaptureResult.printText(results);
     final long ok = results.stream().filter(r -> r.error() == null).count();
     System.out.printf("%nRequested %d of %d captures.%n", ok, results.size());
     return anyError ? 1 : 0;

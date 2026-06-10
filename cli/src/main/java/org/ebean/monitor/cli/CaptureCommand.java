@@ -103,7 +103,7 @@ final class CaptureCommand implements Callable<Integer> {
       for (String hash : targets) {
         try {
           PendingResponse pending = insight.plans.requestPlanCapture(targetApp, hash, env);
-          results.add(new CaptureResult(hash, pending.pending(), null));
+          results.add(new CaptureResult(hash, pending.label(), null));
         } catch (HttpException e) {
           anyError = true;
           results.add(new CaptureResult(hash, null, "HTTP " + e.statusCode()));
@@ -113,13 +113,7 @@ final class CaptureCommand implements Callable<Integer> {
         out.printJsonList(CaptureResult.class, results);
         return anyError ? 1 : 0;
       }
-      for (CaptureResult r : results) {
-        if (r.error() == null) {
-          System.out.printf("%-34s requested (pending=%d)%n", r.hash(), r.pending());
-        } else {
-          System.out.printf("%-34s FAILED (%s)%n", r.hash(), r.error());
-        }
-      }
+      CaptureResult.printText(results);
       if (targets.size() > 1) {
         final long ok = results.stream().filter(r -> r.error() == null).count();
         System.out.printf("%nRequested %d of %d captures.%n", ok, results.size());

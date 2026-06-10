@@ -7,8 +7,11 @@ import jakarta.inject.Singleton;
 import org.ebean.monitor.api.QueryPlanRequest;
 import org.ebean.monitor.domain.DApp;
 import org.ebean.monitor.domain.DAppMetric;
+import org.ebean.monitor.domain.DCaptureRequest;
+import org.ebean.monitor.domain.DEnv;
 import org.ebean.monitor.domain.DQueryPlan;
 import org.ebean.monitor.domain.query.QDAppMetric;
+import org.ebean.monitor.domain.query.QDCaptureRequest;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,7 +19,9 @@ import org.slf4j.LoggerFactory;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Ingests the metrics request into the DB.
@@ -71,6 +76,46 @@ public class IngestMessage {
 
     database.saveAll(newPlans);
     log.info("Obtained {} new query plans", newPlans.size());
+    markCollected(header.app(), header.env(), queryPlans.plans);
+  }
+
+  /**
+   * Mark any open (durable) capture requests for these hashes as collected, so
+   * the in-flight pending view stops reporting them once the plan has landed.
+   *
+   * <p>Matches both env-specific requests and "any environment" requests (env
+   * null); the latter have their env filled in from the plan that arrived.
+   */
+  private void markCollected(DApp app, DEnv env, List<QueryPlanRequest.QPlan> plans) {
+    final Set<String> hashes = new LinkedHashSet<>();
+    for (QueryPlanRequest.QPlan plan : plans) {
+      if (plan.hash != null) {
+        hashes.add(plan.hash);
+      }
+    }
+    if (hashes.isEmpty()) {
+      return;
+    }
+    final List<DCaptureRequest> open = new QDCaptureRequest()
+      .app.eq(app)
+      .hash.in(hashes)
+      .collectedAt.isNull()
+      .or()
+        .env.eq(env)
+        .env.isNull()
+      .endOr()
+      .findList();
+    if (open.isEmpty()) {
+      return;
+    }
+    final Instant now = Instant.now();
+    for (DCaptureRequest request : open) {
+      if (request.env() == null) {
+        request.setEnv(env);
+      }
+      request.setCollectedAt(now);
+    }
+    database.saveAll(open);
   }
 
   private static Instant parseWhenCaptured(String whenCaptured) {

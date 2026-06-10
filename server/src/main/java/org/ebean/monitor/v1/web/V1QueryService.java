@@ -7,10 +7,12 @@ import io.ebean.DB;
 import io.ebean.SqlQuery;
 import org.ebean.monitor.domain.DApp;
 import org.ebean.monitor.domain.DAppMetric;
+import org.ebean.monitor.domain.DCaptureRequest;
 import org.ebean.monitor.domain.DEnv;
 import org.ebean.monitor.domain.DQueryPlan;
 import org.ebean.monitor.domain.query.QDApp;
 import org.ebean.monitor.domain.query.QDAppMetric;
+import org.ebean.monitor.domain.query.QDCaptureRequest;
 import org.ebean.monitor.domain.query.QDEnv;
 import org.ebean.monitor.domain.query.QDQueryPlan;
 import org.ebean.monitor.v1.model.App;
@@ -29,8 +31,8 @@ import org.jspecify.annotations.Nullable;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -50,7 +52,6 @@ public final class V1QueryService {
   private static final int MAX_LIMIT = 200;
   private static final long DEFAULT_TOP_WINDOW_MINUTES = 60L;
   private static final long DEFAULT_ACTIVE_WINDOW_MINUTES = 60L;
-  private static final String NO_ENVIRONMENT = "no-environment";
 
   // Window thresholds (minutes) for selecting the coarsest timed rollup table
   // that still covers the requested window. Aggregation queries SUM over the
@@ -64,6 +65,11 @@ public final class V1QueryService {
   private static final long M60_MAX_MINUTES = 120L * 24 * 60;  // 120 days
 
   private static final Set<String> ORDER_BY_KEYS = Set.of("total", "mean", "max", "count");
+
+  // How long a requested-but-not-yet-collected capture stays visible in the
+  // pending view. Covers the app's ~5 minute bind-collection window with margin;
+  // beyond this a never-collected request (query never executed) drops off.
+  private static final long PENDING_STALE_MINUTES = 15L;
 
   private final MessageService messageService;
 
@@ -512,29 +518,51 @@ public final class V1QueryService {
       throw new BadRequestException(
         "Metric '" + metric.getName() + "' is not plan-capable; only orm.*, dto.* and sql.query.* metrics support plan capture");
     }
-    final String envName = (env == null || env.isBlank()) ? NO_ENVIRONMENT : env.trim();
+    final boolean anyEnv = (env == null || env.isBlank());
+    final String envName = anyEnv ? null : env.trim();
     final String message = "qp:" + metric.getKey();
-    final int pending = messageService.pushMessage(app.getName(), envName, message);
-    return new PendingResponse(pending);
+    final String routeEnv = anyEnv ? MessageService.ANY_ENV : envName;
+    final int pending = messageService.pushMessage(app.getName(), routeEnv, message);
+    recordCaptureRequest(app, envName, metric);
+    return new PendingResponse(pending, app.getName(), anyEnv ? MessageService.ANY_ENV : envName, metric.getName());
+  }
+
+  /**
+   * Persist a durable record of the capture request so the pending view
+   * survives forwarder polls and server restarts (see {@link DCaptureRequest}).
+   * A null {@code envName} records an "any environment" request (env is filled
+   * in from the plan that is ultimately collected).
+   */
+  private void recordCaptureRequest(DApp app, @Nullable String envName, DAppMetric metric) {
+    new DCaptureRequest(app, metric.getKey())
+      .setEnv(envName == null ? null : findOrCreateEnv(envName))
+      .setLabel(metric.getName())
+      .setRequestedAt(Instant.now())
+      .save();
   }
 
   public List<PendingPlan> listPendingPlans(@Nullable String app, @Nullable String env) {
-    final String appFilter = (app == null || app.isBlank()) ? null : app.trim();
-    final String envFilter = (env == null || env.isBlank()) ? null : env.trim();
-    final List<PendingPlan> result = new ArrayList<>();
-    for (MessageService.Pending p : messageService.pendingSnapshot()) {
-      if (!p.message().startsWith("qp:")) {
-        continue;
-      }
-      if (appFilter != null && !appFilter.equals(p.app())) {
-        continue;
-      }
-      if (envFilter != null && !envFilter.equals(p.env())) {
-        continue;
-      }
-      result.add(new PendingPlan(p.app(), p.env(), p.message().substring(3)));
+    final Instant from = Instant.now().minus(Duration.ofMinutes(PENDING_STALE_MINUTES));
+    final QDCaptureRequest q = new QDCaptureRequest()
+      .collectedAt.isNull()
+      .requestedAt.gt(from)
+      .app.name.eqIfNotBlank(app);
+    if (env != null && !env.isBlank()) {
+      // include "any environment" requests (env is null) when filtering by env,
+      // since such a request may yet be collected in the requested environment
+      q.env.name.eqOrNull(env.trim());
     }
-    return result;
+    return q
+      .orderBy().requestedAt.asc()
+      .findStream()
+      .map(r -> PendingPlan.builder()
+        .app(r.app().getName())
+        .env(r.env() == null ? MessageService.ANY_ENV : r.env().getName())
+        .hash(r.hash())
+        .label(r.label())
+        .requestedAt(r.requestedAt())
+        .build())
+      .toList();
   }
 
   // ---------------------------------------------------------------------------
@@ -582,6 +610,21 @@ public final class V1QueryService {
       return null;
     }
     return new QDApp().name.eq(appName.trim()).findOne();
+  }
+
+  /**
+   * Resolve an environment by name, creating it if it does not yet exist.
+   * A capture request may name an env before any metrics for it have been
+   * ingested, so we cannot assume the {@link DEnv} row already exists.
+   */
+  private DEnv findOrCreateEnv(String envName) {
+    final DEnv found = new QDEnv().name.eq(envName).findOne();
+    if (found != null) {
+      return found;
+    }
+    final DEnv created = new DEnv(envName);
+    created.save();
+    return created;
   }
 
   /**

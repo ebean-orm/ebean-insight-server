@@ -14,6 +14,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Singleton
 public class MessageService {
 
+  /**
+   * Sentinel environment meaning "deliver on the app's next poll regardless of
+   * which environment it reports". Used when a capture is requested without a
+   * specific target environment. Apps never report this value themselves.
+   */
+  public static final String ANY_ENV = "*";
+
   private final ConcurrentMap<String, List<String>> responseMap = new ConcurrentHashMap<>();
   private final AtomicBoolean pendingResponse = new AtomicBoolean();
 
@@ -23,20 +30,29 @@ public class MessageService {
 
   @Nullable
   public String responseBody(MetricRequest data) {
-    String key = key(data.appName, data.environment);
-    List<String> msgs = responseMap.remove(key);
-    if (msgs == null) {
-      if (responseMap.isEmpty()) {
-        pendingResponse.set(false);
-      }
+    // deliver both the env-specific bucket and the "any env" bucket for this app
+    List<String> exact = responseMap.remove(key(data.appName, data.environment));
+    List<String> any = responseMap.remove(key(data.appName, ANY_ENV));
+    if (responseMap.isEmpty()) {
+      pendingResponse.set(false);
+    }
+    if (exact == null && any == null) {
       return null;
     }
     var sb = new StringBuilder(200);
     sb.append("v1");
-    for (String msg : msgs) {
-      sb.append('|').append(msg);
-    }
+    appendAll(sb, exact);
+    appendAll(sb, any);
     return sb.toString();
+  }
+
+  private void appendAll(StringBuilder sb, @Nullable List<String> msgs) {
+    if (msgs != null) {
+      // the list has been removed from responseMap so this thread exclusively owns it
+      for (String msg : msgs) {
+        sb.append('|').append(msg);
+      }
+    }
   }
 
   public int pushMessage(String appName, String environment, String message) {
@@ -45,32 +61,6 @@ public class MessageService {
     msgs.add(message);
     pendingResponse.set(true);
     return msgs.size();
-  }
-
-  /**
-   * A read-only snapshot of a queued, not-yet-delivered message.
-   */
-  public record Pending(String app, String env, String message) {}
-
-  /**
-   * Return a read-only snapshot of all queued messages awaiting delivery.
-   *
-   * <p>This does not remove anything from the queue. The snapshot is inherently
-   * racy: entries vanish as soon as the owning app polls.
-   */
-  public List<Pending> pendingSnapshot() {
-    var result = new java.util.ArrayList<Pending>();
-    responseMap.forEach((key, msgs) -> {
-      int sep = key.lastIndexOf('|');
-      String app = sep < 0 ? key : key.substring(0, sep);
-      String env = sep < 0 ? "" : key.substring(sep + 1);
-      synchronized (msgs) {
-        for (String msg : msgs) {
-          result.add(new Pending(app, env, msg));
-        }
-      }
-    });
-    return result;
   }
 
   private static String key(String appName, String environment) {

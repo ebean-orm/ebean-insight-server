@@ -1,5 +1,7 @@
 package org.ebean.monitor.cli;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.Callable;
 
@@ -10,22 +12,21 @@ import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
 
 /**
- * List query-plan capture requests queued on the server awaiting delivery.
+ * List in-flight query-plan capture requests tracked durably on the server.
  *
- * <p>The server holds capture requests in memory until the application's
- * forwarder next polls (usually within seconds), then drains them. A zero
- * result therefore does not prove nothing is in flight — a request may already
- * have been delivered and still be inside its bind-collection window. Use this
- * mainly to confirm a (bulk) capture was queued and that a consumer is draining
- * it.
+ * <p>The server records each capture request in the database and clears it once
+ * the matching plan is ingested, so this view survives forwarder polls and
+ * server restarts and covers the whole bind-collection window. A request that is
+ * never collected (its query did not execute) ages out after ~15 minutes. The
+ * AGE column shows how long each request has been in flight.
  */
 @Command(name = "pending", mixinStandardHelpOptions = true,
-    description = "List plan captures queued on the server awaiting delivery to the forwarder.",
+    description = "List in-flight plan captures (requested but not yet collected).",
     footerHeading = "%nExamples:%n",
     footer = {
         "  insight pending",
         "  insight pending --app myapp --env test",
-        "  # right after a bulk request, confirm it queued:",
+        "  # right after a bulk request, confirm it is in flight:",
         "  insight missing-plans --app myapp --env test -n 10 --capture --yes",
         "  insight pending --app myapp"
     })
@@ -49,11 +50,13 @@ final class PendingCommand implements Callable<Integer> {
         return 0;
       }
       if (pending.isEmpty()) {
-        System.out.println("No pending captures queued.");
+        System.out.println("No captures in flight.");
         return 0;
       }
+      Instant now = Instant.now();
       int appWidth = "APP".length();
       int envWidth = "ENV".length();
+      int labelWidth = "LABEL".length();
       for (PendingPlan p : pending) {
         if (p.app() != null) {
           appWidth = Math.max(appWidth, p.app().length());
@@ -61,14 +64,32 @@ final class PendingCommand implements Callable<Integer> {
         if (p.env() != null) {
           envWidth = Math.max(envWidth, p.env().length());
         }
+        if (p.label() != null) {
+          labelWidth = Math.max(labelWidth, p.label().length());
+        }
       }
-      String fmt = "%-" + appWidth + "s  %-" + envWidth + "s  %s%n";
-      System.out.printf(fmt, "APP", "ENV", "HASH");
+      String fmt = "%-" + appWidth + "s  %-" + envWidth + "s  %-32s  %-" + labelWidth + "s  %s%n";
+      System.out.printf(fmt, "APP", "ENV", "HASH", "LABEL", "AGE");
       for (PendingPlan p : pending) {
-        System.out.printf(fmt, p.app(), p.env(), p.hash());
+        System.out.printf(fmt, p.app(), p.env(), p.hash(), p.label() == null ? "" : p.label(), age(now, p.requestedAt()));
       }
-      System.out.printf("%n%d pending capture(s) queued.%n", pending.size());
+      System.out.printf("%n%d capture(s) in flight.%n", pending.size());
       return 0;
     }
   }
+
+  private static String age(Instant now, @Nullable Instant requestedAt) {
+    if (requestedAt == null) {
+      return "-";
+    }
+    long seconds = Math.max(0, Duration.between(requestedAt, now).getSeconds());
+    if (seconds < 60) {
+      return seconds + "s";
+    }
+    if (seconds < 3600) {
+      return (seconds / 60) + "m";
+    }
+    return (seconds / 3600) + "h";
+  }
 }
+

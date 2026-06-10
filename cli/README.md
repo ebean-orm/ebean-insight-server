@@ -170,7 +170,7 @@ per-command forward.
 | `insight top [--app] [--env] [--by total\|mean\|max\|count] [--since-minutes N \| --since-hours N] [--plan-capable] [-n N]` | Rank metrics by cost over a window. Omit `--app` to span all apps. |
 | `insight missing-plans [--app] [--by total\|mean\|max\|count] [--since-minutes N \| --since-hours N] [--older-than-minutes N \| --older-than-hours N] [--capture [--yes] [--env]] [-n N]` | Plan-capable metrics with no recent plan, ranked by cost. `--capture` requests a plan for every listed row (capped by `-n`). |
 | `insight plans [--app] [--env] [--label] [--hash] [--since-minutes N] [--since-hours N] [-n/--limit N]` | List recently captured query plans (tabular). |
-| `insight pending [--app] [--env]` | List plan captures queued on the server awaiting delivery to the forwarder (in-memory, ephemeral). |
+| `insight pending [--app] [--env]` | List in-flight plan captures — requested but not yet collected (durable; shows AGE, ages out after ~15 min). |
 | `insight plan <planId> [--raw]` | Show one captured plan. `--raw` prints only the EXPLAIN plan text. |
 | `insight capture [<app>] [<hash>...] [--app] [--hash] [--stdin] [--env]` | Request a fresh plan capture for one or more metric hashes (space or comma separated). `--app`/`--hash` are flag-form alternatives to the positionals; `--stdin` reads additional whitespace/comma/newline-separated hashes from standard input. |
 | `insight config <set\|get\|unset\|list\|path>` | Manage persisted settings in `~/.insight/config.properties`. |
@@ -255,19 +255,27 @@ insight missing-plans --app myapp -n 10 -o json \
 insight missing-plans --app myapp --env test -n 10 --capture --yes
 ```
 
+Omitting `--env` requests the capture for **any environment**: it is delivered
+to the app's next poll whichever environment it reports (shown as env `*` in
+`insight pending`, with the actual env filled in once the plan is collected).
+Pass `--env` to target a specific environment.
+
 A capture is **not instant**: the app collects the bind values of the slowest
 execution over a ~5-minute window before the EXPLAIN plan is forwarded back.
 Wait ~6 minutes before checking, and the query must actually run in that window.
 
-### 5. Check pending capture requests
+### 5. Check in-flight capture requests
 
 ```bash
-insight pending                       # captures queued on the server, not yet collected
+insight pending                       # captures requested but not yet collected
 insight pending --app myapp --env test
 ```
 
-Note: this queue is in-memory and drains as soon as the app polls — an empty
-result does not prove nothing is in flight.
+Capture requests are tracked durably on the server: each request is recorded
+when made and cleared once its plan is ingested, so this view survives forwarder
+polls and server restarts and covers the whole collection window. The `AGE`
+column shows how long each request has been in flight; a request whose query
+never executes ages out after ~15 minutes.
 
 ### 6. Inspect collected query plans
 

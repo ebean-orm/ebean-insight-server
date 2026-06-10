@@ -391,17 +391,16 @@ paths:
     get:
       tags: [plans]
       operationId: listPendingPlans
-      summary: Plan captures requested but not yet delivered to the forwarder
+      summary: In-flight plan captures (requested but not yet collected)
       description: |
-        Returns query-plan capture requests currently queued on the server
-        awaiting the application's next poll, optionally filtered by app/env.
+        Returns query-plan capture requests that have been made but whose plan
+        has not yet been ingested, optionally filtered by app/env.
 
-        The queue is in-memory and ephemeral: an entry disappears as soon as the
-        forwarder collects it (usually within seconds) and the whole queue is
-        cleared on server restart. A zero result does NOT prove nothing is in
-        flight — a request may already have been delivered and still be inside
-        its bind-collection window. Use this mainly to confirm a (bulk) capture
-        was queued and that a consumer is draining it.
+        Requests are tracked durably on the server: each is recorded when made
+        and cleared once the matching plan is ingested, so this view survives
+        forwarder polls and server restarts and covers the whole bind-collection
+        window. A request whose query never executes ages out after ~15 minutes.
+        Each entry carries the time it was requested.
       parameters:
         - name: app
           in: query
@@ -807,6 +806,15 @@ components:
           type: integer
           format: int32
           description: Number of pending capture requests queued for the target app+env.
+        app:
+          type: string
+          description: Application the capture was requested for.
+        env:
+          type: string
+          description: Environment the capture was requested for; "*" means any environment (the capture was requested without a target env).
+        label:
+          type: string
+          description: Human-readable metric label (e.g. "orm.OrderDao.findOrders") for the requested capture.
 
     PendingPlan:
       type: object
@@ -817,7 +825,14 @@ components:
           description: Application the capture was requested for.
         env:
           type: string
-          description: Environment the capture was requested for ("no-environment" when unset).
+          description: Environment the capture was requested for; "*" means any environment (the capture was requested without a target env).
         hash:
           type: string
           description: Metric hash (query plan key) awaiting capture.
+        label:
+          type: string
+          description: Human-readable metric label (e.g. "orm.OrderDao.findOrders") for the awaited capture.
+        requestedAt:
+          type: string
+          format: date-time
+          description: When the capture was requested (UTC). Used to show how long it has been in-flight.

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<migration xmlns="http://ebean-orm.github.io/xml/ns/dbmigration">
+    <changeSet type="apply">
+        <createTable name="ebean_insight.capture_request" pkName="pk_capture_request">
+            <column name="id" type="integer" primaryKey="true"/>
+            <column name="app_id" type="integer" notnull="true"/>
+            <column name="env_id" type="integer"/>
+            <column name="hash" type="varchar" notnull="true"/>
+            <column name="label" type="varchar"/>
+            <column name="requested_at" type="timestamp" notnull="true"/>
+            <column name="collected_at" type="timestamp"/>
+            <column name="version" type="integer" notnull="true"/>
+            <column name="when_created" type="timestamp" notnull="true"/>
+            <column name="when_modified" type="timestamp" notnull="true"/>
+        </createTable>
+        <createIndex indexName="ix_capture_request_open" tableName="ebean_insight.capture_request" columns="collected_at,requested_at"/>
+    </changeSet>
+</migration>

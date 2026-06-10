@@ -90,8 +90,9 @@ Fetch a specific plan (full SQL + plan + bind values) by id:
 curl -H "Insight-Key: $KEY" http://localhost:8090/v1/plans/12345
 ```
 
-List capture requests queued on the server but not yet delivered to the
-forwarder (in-memory and ephemeral — drains as soon as the app polls):
+List in-flight capture requests — requested but not yet collected (tracked
+durably; survives forwarder polls and server restarts; a request whose query
+never executes ages out after ~15 minutes):
 ```shell
 curl -H "Insight-Key: $KEY" "http://localhost:8090/v1/plans/pending"
 curl -H "Insight-Key: $KEY" "http://localhost:8090/v1/plans/pending?app=myapp&env=test"

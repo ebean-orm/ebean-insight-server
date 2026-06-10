@@ -148,6 +148,9 @@ class V1ControllerTest {
 
     final PendingResponse pending = plansApi.requestPlanCapture(APP, ORM_HASH, ENV);
     assertThat(pending.pending()).isGreaterThanOrEqualTo(1);
+    assertThat(pending.app()).isEqualTo(APP);
+    assertThat(pending.env()).isEqualTo(ENV);
+    assertThat(pending.label()).isEqualTo(ORM_LABEL);
 
     assertThatThrownBy(() -> plansApi.requestPlanCapture(APP, PLAIN_HASH, null))
       .isInstanceOfSatisfying(HttpException.class, e -> assertThat(e.statusCode()).isEqualTo(400));
@@ -155,15 +158,36 @@ class V1ControllerTest {
     assertThatThrownBy(() -> plansApi.requestPlanCapture("no-such-app", ORM_HASH, null))
       .isInstanceOfSatisfying(HttpException.class, e -> assertThat(e.statusCode()).isEqualTo(404));
 
-    // the capture request above is queued in-memory until the forwarder polls
+    // the capture request above is durably recorded and visible until collected
     final List<PendingPlan> pendingPlans = plansApi.listPendingPlans(null, null);
     assertThat(pendingPlans).extracting(PendingPlan::hash).contains(ORM_HASH);
+    assertThat(pendingPlans).filteredOn(p -> ORM_HASH.equals(p.hash()))
+      .allSatisfy(p -> {
+        assertThat(p.requestedAt()).isNotNull();
+        assertThat(p.label()).isEqualTo(ORM_LABEL);
+      });
     assertThat(plansApi.listPendingPlans(APP, ENV)).extracting(PendingPlan::hash).contains(ORM_HASH);
     assertThat(plansApi.listPendingPlans("no-such-app", null)).isEmpty();
     assertThat(plansApi.listPendingPlans(null, "no-such-env")).isEmpty();
 
+    // an "any environment" capture (no env) is bucketed as "*" and is visible
+    // regardless of env filter, since it may be collected in any environment
+    final PendingResponse anyResp = plansApi.requestPlanCapture(APP, ORM_HASH, null);
+    assertThat(anyResp.env()).isEqualTo("*");
+    assertThat(plansApi.listPendingPlans(null, null))
+      .anySatisfy(p -> {
+        assertThat(p.hash()).isEqualTo(ORM_HASH);
+        assertThat(p.env()).isEqualTo("*");
+      });
+    assertThat(plansApi.listPendingPlans(null, "no-such-env"))
+      .extracting(PendingPlan::hash).contains(ORM_HASH);
+
     seedQueryPlan();
     Thread.sleep(500);
+
+    // ingesting the plan marks both the env-specific and any-env requests
+    // collected (the any-env one having its env filled in), so they drop out
+    assertThat(plansApi.listPendingPlans(null, null)).extracting(PendingPlan::hash).doesNotContain(ORM_HASH);
 
     final List<QueryPlanSummary> appPlans = plansApi.listAppPlans(APP, null, null, null, null, null, null);
     assertThat(appPlans).extracting(QueryPlanSummary::hash).contains(ORM_HASH);
