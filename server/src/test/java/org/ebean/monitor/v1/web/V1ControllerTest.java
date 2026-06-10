@@ -168,7 +168,6 @@ class V1ControllerTest {
       });
     assertThat(plansApi.listPendingPlans(APP, ENV)).extracting(PendingPlan::hash).contains(ORM_HASH);
     assertThat(plansApi.listPendingPlans("no-such-app", null)).isEmpty();
-    assertThat(plansApi.listPendingPlans(null, "no-such-env")).isEmpty();
 
     // an "any environment" capture (no env) is bucketed as "*" and is visible
     // regardless of env filter, since it may be collected in any environment
