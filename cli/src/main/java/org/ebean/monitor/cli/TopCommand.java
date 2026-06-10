@@ -84,9 +84,10 @@ final class TopCommand implements Callable<Integer> {
     }
     final String orderBy = by.name();
     try (Insight insight = Insight.open(conn)) {
-      List<AppMetricStats> rows = (app == null)
-          ? insight.metrics.topMetrics(orderBy, sinceMinutes, sinceHours, limit, planCapable, env)
-          : insight.metrics.topAppMetrics(app, orderBy, sinceMinutes, sinceHours, limit, planCapable, env);
+      java.util.function.Function<String, List<AppMetricStats>> fetch = ob -> (app == null)
+          ? insight.metrics.topMetrics(ob, sinceMinutes, sinceHours, limit, planCapable, env)
+          : insight.metrics.topAppMetrics(app, ob, sinceMinutes, sinceHours, limit, planCapable, env);
+      List<AppMetricStats> rows = fetch.apply(orderBy);
       if (out.json()) {
         out.printJsonList(AppMetricStats.class, rows);
         return 0;
@@ -96,7 +97,7 @@ final class TopCommand implements Callable<Integer> {
         return 0;
       }
       if (interactive) {
-        return Interactive.topLoop(insight, rows, by, env);
+        return Interactive.topLoop(insight, rows, by, env, fetch);
       }
       if (chart) {
         Charts.printPareto(rows, by);

@@ -40,21 +40,25 @@ final class PlanCommand implements Callable<Integer> {
         System.out.println(p.plan());
         return 0;
       }
-      System.out.println("id:        " + p.id());
-      System.out.println("hash:      " + p.hash());
-      System.out.println("label:     " + p.label());
-      System.out.println("env:       " + p.envName());
-      System.out.println("queryTime: " + p.queryTimeMicros() + "us");
-      System.out.println("captured:  " + p.whenCaptured());
-      System.out.println();
-      System.out.println("sql:");
-      System.out.println(p.sql());
-      System.out.println();
-      System.out.println("bind: " + p.bind());
-      System.out.println();
-      System.out.println("plan:");
-      System.out.println(p.plan());
+      printPlan(p);
       return 0;
     }
+  }
+
+  static void printPlan(QueryPlan p) {
+    System.out.println("id:        " + p.id());
+    System.out.println("hash:      " + p.hash());
+    System.out.println("label:     " + p.label());
+    System.out.println("env:       " + p.envName());
+    System.out.println("queryTime: " + p.queryTimeMicros() + "us");
+    System.out.println("captured:  " + p.whenCaptured());
+    System.out.println();
+    System.out.println("sql:");
+    System.out.println(p.sql());
+    System.out.println();
+    System.out.println("bind: " + p.bind());
+    System.out.println();
+    System.out.println("plan:");
+    System.out.println(p.plan());
   }
 }

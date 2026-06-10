@@ -8,81 +8,51 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class InteractiveRenderTest {
 
-  @Test
-  void columnTitle_timeMeasures_haveUsSuffix() {
-    assertThat(Interactive.columnTitle("total", "us")).isEqualTo("TOTAL(us)");
-    assertThat(Interactive.columnTitle("mean", "us")).isEqualTo("MEAN(us)");
-    assertThat(Interactive.columnTitle("max", "us")).isEqualTo("MAX(us)");
+  private static final String HASH = "a2e2082df04620910f8fa034561b3346";
+
+  private static Interactive.Row top(String app, String hash, String label, long mean) {
+    return new Interactive.Row(app, hash, label, mean, "us", 1000, 5_000_000, mean, 120_000, true, null, null);
   }
 
   @Test
-  void columnTitle_count_hasNoUsSuffix() {
-    assertThat(Interactive.columnTitle("count", "calls")).isEqualTo("COUNT");
-  }
-
-  @Test
-  void renderList_hasHeaderRowWithIndexLabelAndValueTitle() {
-    var i = Interactive.forRender(false, "MEAN(us)");
+  void renderList_topMode_showsCoreColumnsValuesAndShortHash() {
+    var i = Interactive.forRender(Interactive.Mode.TOP, true);
     List<Interactive.Row> rows = List.of(
-        new Interactive.Row("app", "h1", "orm.A.find", 93203, "us"),
-        new Interactive.Row("app", "h2", "orm.B.find", 12612, "us"));
+        top("central-access", HASH, "orm.A.find", 93203),
+        top("central-access", "h2", "orm.B.find", 12612));
 
     String out = i.renderList("Top 2 by mean", rows);
-    String[] lines = out.split("\n");
+    String header = headerLine(out.split("\n"));
 
-    // title line, blank, header line, then rows
-    assertThat(out).contains("Top 2 by mean");
-    String header = headerLine(lines);
-    assertThat(header).contains("#");
-    assertThat(header).contains("LABEL");
-    assertThat(header).contains("MEAN(us)");
+    assertThat(header).contains("#").contains("APP").contains("LABEL")
+        .contains("COUNT").contains("TOTAL(us)").contains("MEAN(us)").contains("MAX(us)")
+        .contains("PLAN").contains("HASH").contains("chart");
     assertThat(out).contains("orm.A.find");
-    assertThat(out).contains("93,203 us");
+    assertThat(out).contains("93,203");        // grouped digits, no unit suffix in columns
+    assertThat(out).contains("a2e2082df046");  // 12-char short hash
+    assertThat(out).doesNotContain(HASH);      // full hash trimmed
+    assertThat(out).contains("yes");           // plan-capable flag
   }
 
   @Test
-  void renderList_zeroValues_stillTitlesValueColumn() {
-    var i = Interactive.forRender(true, "TOTAL(us)");
-    List<Interactive.Row> rows = List.of(
-        new Interactive.Row("app", "h1", "orm.CDriver.driver_all_since", 0, "us"),
-        new Interactive.Row("app", "h2", "orm.CDriver.driver_by_gid", 0, "us"));
-
-    String out = i.renderList("Missing plans 2 by total", rows);
-
-    assertThat(headerLine(out.split("\n"))).contains("TOTAL(us)");
-    assertThat(out).contains("0 us");
-    // value title aligns with the value column (both end-justified to width 14)
-    assertThat(out).contains("     TOTAL(us)");
+  void renderList_singleApp_hidesAppColumn() {
+    var i = Interactive.forRender(Interactive.Mode.TOP, false);
+    String out = i.renderList("Top 1 by mean", List.of(top("central-access", HASH, "orm.A.find", 5)));
+    assertThat(headerLine(out.split("\n"))).doesNotContain("APP");
   }
 
   @Test
-  void renderChart_additive_showsCumColumnHeader() {
-    var i = Interactive.forRender(true, "TOTAL(us)");
-    List<Interactive.Row> rows = List.of(
-        new Interactive.Row("app", "h1", "orm.A.find", 100, "us"),
-        new Interactive.Row("app", "h2", "orm.B.find", 50, "us"));
+  void renderList_missingMode_showsCapturesAndCaptured() {
+    var i = Interactive.forRender(Interactive.Mode.MISSING, false);
+    Interactive.Row r = new Interactive.Row("app", HASH, "orm.CDriver.driver_all_since",
+        0, "us", 0, 0, 0, 0, false, 0L, null);
 
-    String out = i.renderChart("Top 2 by total", rows);
-
+    String out = i.renderList("Missing plans 1 by total", List.of(r));
     String header = headerLine(out.split("\n"));
-    assertThat(header).contains("#");
-    assertThat(header).contains("LABEL");
-    assertThat(header).contains("TOTAL(us)").contains("CUM%");
-    assertThat(out).contains("(cum");
-  }
 
-  @Test
-  void renderChart_nonAdditive_omitsCumColumnHeader() {
-    var i = Interactive.forRender(false, "MEAN(us)");
-    List<Interactive.Row> rows = List.of(
-        new Interactive.Row("app", "h1", "orm.A.find", 100, "us"));
-
-    String out = i.renderChart("Top 1 by mean", rows);
-
-    String header = headerLine(out.split("\n"));
-    assertThat(header).contains("MEAN(us)");
-    assertThat(header).doesNotContain("CUM%");
-    assertThat(out).doesNotContain("(cum");
+    assertThat(header).contains("CAPTURES").contains("CAPTURED").contains("HASH");
+    assertThat(header).doesNotContain("PLAN");
+    assertThat(out).contains("never");
   }
 
   private static String headerLine(String[] lines) {

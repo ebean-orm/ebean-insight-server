@@ -95,9 +95,10 @@ final class MissingPlansCommand implements Callable<Integer> {
     }
     final String orderBy = by.name();
     try (Insight insight = Insight.open(conn)) {
-      List<MissingPlanMetric> rows = (app == null)
-          ? insight.metrics.topMissingPlans(orderBy, sinceMinutes, sinceHours, olderThanMinutes, olderThanHours, limit)
-          : insight.metrics.listMissingPlans(app, orderBy, sinceMinutes, sinceHours, olderThanMinutes, olderThanHours, limit);
+      java.util.function.Function<String, List<MissingPlanMetric>> fetch = ob -> (app == null)
+          ? insight.metrics.topMissingPlans(ob, sinceMinutes, sinceHours, olderThanMinutes, olderThanHours, limit)
+          : insight.metrics.listMissingPlans(app, ob, sinceMinutes, sinceHours, olderThanMinutes, olderThanHours, limit);
+      List<MissingPlanMetric> rows = fetch.apply(orderBy);
       if (capture) {
         return captureAll(insight, rows);
       }
@@ -110,7 +111,7 @@ final class MissingPlansCommand implements Callable<Integer> {
         return 0;
       }
       if (interactive) {
-        return Interactive.missingPlansLoop(insight, rows, by, env);
+        return Interactive.missingPlansLoop(insight, rows, by, env, fetch);
       }
       int appWidth = "APP".length();
       int labelWidth = "LABEL".length();

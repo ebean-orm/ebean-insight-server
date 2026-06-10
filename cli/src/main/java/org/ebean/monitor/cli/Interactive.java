@@ -29,60 +29,138 @@ import org.ebean.monitor.v1.model.QueryPlanSummary;
 final class Interactive {
 
   private static final int BAR_WIDTH = 24;
+  private static final int LABEL_MAX = 70;
+  private static final int HASH_SHORT = 12;
+
+  /** Which ranked list is being shown — drives the per-mode columns. */
+  enum Mode { TOP, MISSING }
 
   /** A flattened ranked row: enough to render and to drive the row actions. */
-  record Row(String app, String hash, String label, double value, String unit) {
+  record Row(String app, String hash, String label, double value, String unit,
+             long count, long total, long mean, long max,
+             boolean planCapable, Long captureCount, String lastCaptured) {
+
+    /** Compact constructor for tests that only need the identity + ranked value. */
+    Row(String app, String hash, String label, double value, String unit) {
+      this(app, hash, label, value, unit, 0, 0, 0, 0, false, null, null);
+    }
+  }
+
+  /** A rendered column: header, justification and a per-row cell extractor. */
+  private record Col(String header, boolean right, java.util.function.Function<Row, String> cell) {
+  }
+
+  /** Ranking measure — switchable live in the interactive loop. */
+  enum By {
+    total, mean, max, count;
+
+    String unit() {
+      return this == count ? "calls" : "us";
+    }
   }
 
   private final Insight insight;
   private final String env;
-  private final boolean additive;
-  private final String valueTitle;
-  private final TrendCommand.Measure measure;
+  private final Mode mode;
+  private final boolean showApp;
+  private final String titleHead;
+  private final String titleTail;
+  private final java.util.function.Function<By, List<Row>> reload;
   private final BufferedReader in;
 
-  private Interactive(Insight insight, String env, boolean additive, String valueTitle, TrendCommand.Measure measure) {
+  private List<Row> rows;
+  private By by;
+  private TrendCommand.Measure measure;
+
+  private Interactive(Insight insight, String env, Mode mode, boolean showApp,
+                      String titleHead, String titleTail, By by,
+                      List<Row> rows, java.util.function.Function<By, List<Row>> reload) {
     this.insight = insight;
     this.env = env;
-    this.additive = additive;
-    this.valueTitle = valueTitle;
-    this.measure = measure;
+    this.mode = mode;
+    this.showApp = showApp;
+    this.titleHead = titleHead;
+    this.titleTail = titleTail;
+    this.rows = rows;
+    this.reload = reload;
+    applyBy(by);
     this.in = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8));
   }
 
-  static int topLoop(Insight insight, List<AppMetricStats> rows, TopCommand.OrderBy by, String env) {
-    List<Row> mapped = new ArrayList<>(rows.size());
-    String unit = Charts.unit(by);
-    for (AppMetricStats r : rows) {
-      mapped.add(new Row(r.app(), r.key(), r.label(), Charts.measure(r, by), unit));
+  /** Constructor for the pure-render tests (no HTTP client, no reload). */
+  private Interactive(Mode mode, boolean showApp) {
+    this.insight = null;
+    this.env = null;
+    this.mode = mode;
+    this.showApp = showApp;
+    this.titleHead = "";
+    this.titleTail = "";
+    this.rows = List.of();
+    this.reload = null;
+    this.by = By.total;
+    this.measure = TrendCommand.Measure.mean;
+    this.in = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8));
+  }
+
+  private void applyBy(By by) {
+    this.by = by;
+    this.measure = TrendCommand.Measure.of(by.name());
+  }
+
+  static int topLoop(Insight insight, List<AppMetricStats> initial, TopCommand.OrderBy by, String env,
+                     java.util.function.Function<String, List<AppMetricStats>> fetch) {
+    String only = singleApp(initial.stream().map(AppMetricStats::app).toList());
+    long window = initial.isEmpty() ? 0 : initial.get(0).windowMinutes();
+    String titleTail = (only != null ? " — " + only : "")
+        + (window > 0 ? " — window " + window + "m" : "");
+    java.util.function.Function<By, List<Row>> reload = b -> toTopRows(fetch.apply(b.name()), b);
+    List<Row> rows = toTopRows(initial, By.valueOf(by.name()));
+    return new Interactive(insight, env, Mode.TOP, only == null, "Top", titleTail,
+        By.valueOf(by.name()), rows, reload).run();
+  }
+
+  static int missingPlansLoop(Insight insight, List<MissingPlanMetric> initial, MissingPlansCommand.OrderBy by,
+                              String env, java.util.function.Function<String, List<MissingPlanMetric>> fetch) {
+    String only = singleApp(initial.stream().map(MissingPlanMetric::app).toList());
+    String titleTail = only != null ? " — " + only : "";
+    java.util.function.Function<By, List<Row>> reload = b -> toMissingRows(fetch.apply(b.name()), b);
+    List<Row> rows = toMissingRows(initial, By.valueOf(by.name()));
+    return new Interactive(insight, env, Mode.MISSING, only == null, "Missing plans", titleTail,
+        By.valueOf(by.name()), rows, reload).run();
+  }
+
+  private static List<Row> toTopRows(List<AppMetricStats> src, By by) {
+    String unit = by.unit();
+    List<Row> out = new ArrayList<>(src.size());
+    for (AppMetricStats r : src) {
+      out.add(new Row(r.app(), r.key(), r.label(), measure(r, by), unit,
+          r.count(), r.totalMicros(), r.meanMicros(), r.maxMicros(),
+          Boolean.TRUE.equals(r.planCapable()), null, null));
     }
-    return new Interactive(insight, env, Charts.additive(by), columnTitle(by.name(), unit), TrendCommand.Measure.of(by.name()))
-        .run("Top " + rows.size() + " by " + by.name(), mapped);
+    return out;
   }
 
-  static int missingPlansLoop(Insight insight, List<MissingPlanMetric> rows, MissingPlansCommand.OrderBy by, String env) {
-    List<Row> mapped = new ArrayList<>(rows.size());
-    String unit = by == MissingPlansCommand.OrderBy.count ? "calls" : "us";
-    boolean additive = by == MissingPlansCommand.OrderBy.total || by == MissingPlansCommand.OrderBy.count;
-    for (MissingPlanMetric m : rows) {
-      mapped.add(new Row(m.app(), m.key(), m.label(), missingMeasure(m, by), unit));
+  private static List<Row> toMissingRows(List<MissingPlanMetric> src, By by) {
+    String unit = by.unit();
+    List<Row> out = new ArrayList<>(src.size());
+    for (MissingPlanMetric m : src) {
+      out.add(new Row(m.app(), m.key(), m.label(), measure(m, by), unit,
+          m.count(), m.totalMicros(), m.meanMicros(), m.maxMicros(),
+          false, m.captureCount(), m.lastCapturedAt() == null ? "never" : m.lastCapturedAt().toString()));
     }
-    return new Interactive(insight, env, additive, columnTitle(by.name(), unit), TrendCommand.Measure.of(by.name()))
-        .run("Missing plans " + rows.size() + " by " + by.name(), mapped);
+    return out;
   }
 
-  /** Column heading for the value column, e.g. {@code TOTAL(us)}, {@code MEAN(us)}, {@code COUNT}. */
-  static String columnTitle(String byName, String unit) {
-    String name = byName.toUpperCase(Locale.ROOT);
-    return "us".equals(unit) ? name + "(us)" : name;
+  private static double measure(AppMetricStats r, By by) {
+    return switch (by) {
+      case total -> r.totalMicros();
+      case mean -> r.meanMicros();
+      case max -> r.maxMicros();
+      case count -> r.count();
+    };
   }
 
-  /** Test-only factory for exercising the pure renderers without an HTTP client. */
-  static Interactive forRender(boolean additive, String valueTitle) {
-    return new Interactive(null, null, additive, valueTitle, TrendCommand.Measure.mean);
-  }
-
-  private static double missingMeasure(MissingPlanMetric m, MissingPlansCommand.OrderBy by) {
+  private static double measure(MissingPlanMetric m, By by) {
     return switch (by) {
       case total -> m.totalMicros();
       case mean -> m.meanMicros();
@@ -91,15 +169,35 @@ final class Interactive {
     };
   }
 
-  private int run(String title, List<Row> rows) {
+  /** Test-only factory for exercising the pure list renderer without an HTTP client. */
+  static Interactive forRender(Mode mode, boolean showApp) {
+    return new Interactive(mode, showApp);
+  }
+
+  /** The single app shared by every row, or null when rows span more than one app. */
+  private static String singleApp(List<String> apps) {
+    String found = null;
+    for (String a : apps) {
+      if (a == null) {
+        continue;
+      }
+      if (found == null) {
+        found = a;
+      } else if (!found.equals(a)) {
+        return null;
+      }
+    }
+    return found;
+  }
+
+  private int run() {
     if (rows.isEmpty()) {
       System.out.println("Nothing to show.");
       return 0;
     }
     while (true) {
-      printList(title, rows);
-      System.out.print("Select " + AnsiColor.hot("1-" + rows.size(), "") + "  "
-          + AnsiColor.hot("c", "hart") + "  " + AnsiColor.hot("q", "uit") + " > ");
+      printList(title(), rows);
+      System.out.print(prompt());
       System.out.flush();
       String line = readLine();
       if (line == null) {
@@ -110,18 +208,64 @@ final class Interactive {
       if (line.isEmpty() || line.equalsIgnoreCase("q")) {
         return 0;
       }
-      if (line.equalsIgnoreCase("c")) {
-        printChart(title, rows);
+      By chosen = parseBy(line);
+      if (chosen != null) {
+        switchMeasure(chosen);
         continue;
       }
       Integer idx = parseIndex(line, rows.size());
       if (idx == null) {
-        System.out.println("Enter a number 1-" + rows.size() + ", 'c' for a chart, or 'q' to quit.");
+        System.out.println("Enter a number 1-" + rows.size()
+            + ", a measure (t/m/x/n), or 'q' to quit.");
         continue;
       }
       if (!rowMenu(rows.get(idx - 1))) {
         return 0;
       }
+    }
+  }
+
+  private String title() {
+    return titleHead + " " + rows.size() + " by " + by.name() + titleTail;
+  }
+
+  private String prompt() {
+    return "Select " + AnsiColor.hot("1-" + rows.size(), "") + "   by " + measureKeys()
+        + "   " + AnsiColor.hot("q", "uit") + " > ";
+  }
+
+  /** Measure hotkeys with the active measure noted. */
+  private String measureKeys() {
+    return AnsiColor.hot("t", "otal") + " " + AnsiColor.hot("m", "ean")
+        + " ma" + AnsiColor.hot("x", "") + " cou" + AnsiColor.hot("n", "t")
+        + " (now: " + by.name() + ")";
+  }
+
+  private static By parseBy(String line) {
+    return switch (line.toLowerCase(Locale.ROOT)) {
+      case "t", "total" -> By.total;
+      case "m", "mean" -> By.mean;
+      case "x", "max" -> By.max;
+      case "n", "count" -> By.count;
+      default -> null;
+    };
+  }
+
+  /** Re-query the server ranked by the chosen measure (the top-N set differs per measure). */
+  private void switchMeasure(By target) {
+    if (target == by || reload == null) {
+      return;
+    }
+    try {
+      List<Row> fresh = reload.apply(target);
+      if (fresh.isEmpty()) {
+        System.out.println("No rows ranked by " + target.name() + ".");
+        return;
+      }
+      this.rows = fresh;
+      applyBy(target);
+    } catch (RuntimeException e) {
+      System.out.println("Reload failed: " + e.getMessage());
     }
   }
 
@@ -211,52 +355,16 @@ final class Interactive {
         TrendCommand.printTrend(ts, measure);
         return;
       }
+      System.out.println("Trend — " + row.label() + " [" + row.app() + "]");
+      System.out.println("  No time-series data for this metric in the last " + ts.windowMinutes() + "m"
+          + (env == null ? "" : " (env " + env + ")") + ".");
     } catch (HttpException e) {
-      // older server without the timeseries route -> fall through to preview
-    }
-    // No live time-series available: show a clearly-labelled rendering preview so
-    // the trend visual can still be evaluated. The headline numbers below ARE real
-    // (current-window aggregate); only the bucket shape is illustrative.
-    AppMetricStats current = null;
-    try {
-      List<AppMetricStats> stats = insight.metrics.getMetricStatsByHash(row.app(), row.hash(), null, null, env);
-      if (!stats.isEmpty()) {
-        current = stats.get(0);
+      if (e.statusCode() == 404) {
+        System.out.println("This server build does not serve the per-hash time-series endpoint yet.");
+      } else {
+        System.out.println("Failed to load trend: HTTP " + e.statusCode());
       }
-    } catch (HttpException e) {
-      // fall through to preview-only
     }
-    System.out.println("Trend — " + row.label() + " [" + row.app() + "]  (preview)");
-    if (current != null) {
-      System.out.printf("  now (window %dm): count %,d  mean %,d us  max %,d us%n",
-          current.windowMinutes(), current.count(), current.meanMicros(), current.maxMicros());
-    }
-    long[] meanSample = sampleSeries(row.hash(), 0);
-    long[] callsSample = sampleSeries(row.hash(), 1);
-    if (measure == TrendCommand.Measure.count) {
-      TrendCommand.printColumns("calls", "illustrative shape, " + callsSample.length + " buckets", callsSample, 8);
-    } else {
-      TrendCommand.printColumns(measure.label(), "illustrative shape, " + meanSample.length + " buckets", meanSample, 8);
-      TrendCommand.printColumns("calls", "illustrative shape", callsSample, 3);
-    }
-    System.out.println();
-    System.out.println("  NOTE: trend shape is a rendering preview — this server build does not");
-    System.out.println("        yet serve the per-hash time-series endpoint (ix-trend-endpoint).");
-  }
-
-  /** Deterministic illustrative series derived from the hash (preview only). */
-  private static long[] sampleSeries(String hash, int salt) {
-    long seed = (hash == null ? 1L : hash.hashCode()) * 31L + salt;
-    long[] out = new long[TrendCommand.TARGET_WIDTH];
-    long state = seed == 0 ? 1L : seed;
-    double phase = salt * 1.7;
-    for (int i = 0; i < out.length; i++) {
-      state = state * 6364136223846793005L + 1442695040888963407L;
-      int wave = (int) (40 + 30 * Math.sin(i / 6.0 + phase));
-      int jitter = (int) ((state >>> 40) % 25);
-      out[i] = Math.max(1, wave + jitter);
-    }
-    return out;
   }
 
   private void printList(String title, List<Row> rows) {
@@ -264,57 +372,115 @@ final class Interactive {
   }
 
   String renderList(String title, List<Row> rows) {
+    List<Col> pre = preColumns();
+    List<Col> post = postColumns();
     double max = 0;
-    int labelWidth = "LABEL".length();
     for (Row r : rows) {
       max = Math.max(max, r.value());
-      labelWidth = Math.max(labelWidth, Math.min(40, r.label() == null ? 0 : r.label().length()));
     }
+    int idxWidth = Math.max(1, Integer.toString(rows.size()).length());
+    int[] preW = widths(pre, rows);
+    int[] postW = widths(post, rows);
+
     StringBuilder sb = new StringBuilder();
     sb.append('\n').append(title).append('\n').append('\n');
-    String fmt = "  %2s  %-" + labelWidth + "s  %s  %14s%n";
-    sb.append(String.format(fmt, "#", "LABEL", " ".repeat(BAR_WIDTH), valueTitle));
+    sb.append("  ").append(pad("#", idxWidth, true));
+    appendHeaders(sb, pre, preW);
+    sb.append("  ").append(pad("chart", BAR_WIDTH, false));
+    appendHeaders(sb, post, postW);
+    sb.append('\n');
     int i = 1;
     for (Row r : rows) {
-      String label = Charts.truncate(r.label() == null ? "" : r.label(), labelWidth);
-      String bar = AnsiColor.chart(TermChart.bar(r.value(), max, BAR_WIDTH));
-      sb.append(String.format(fmt, Integer.toString(i++), label, bar,
-          String.format("%,.0f %s", r.value(), r.unit())));
+      sb.append("  ").append(pad(Integer.toString(i++), idxWidth, true));
+      appendCells(sb, pre, preW, r);
+      sb.append("  ").append(AnsiColor.chart(TermChart.bar(r.value(), max, BAR_WIDTH)));
+      appendCells(sb, post, postW, r);
+      sb.append('\n');
     }
     sb.append('\n');
     return sb.toString();
   }
 
-  private void printChart(String title, List<Row> rows) {
-    System.out.print(renderChart(title, rows));
+  /** Identity + the fixed numeric block (rendered before the bar). */
+  private List<Col> preColumns() {
+    List<Col> cols = new ArrayList<>();
+    if (showApp) {
+      cols.add(new Col("APP", false, r -> r.app() == null ? "" : r.app()));
+    }
+    cols.add(new Col("LABEL", false, r -> tail(r.label(), LABEL_MAX)));
+    cols.add(new Col("HASH", false, r -> shortHash(r.hash())));
+    cols.add(new Col("COUNT", true, r -> num(r.count())));
+    cols.add(new Col("TOTAL(us)", true, r -> num(r.total())));
+    cols.add(new Col("MEAN(us)", true, r -> num(r.mean())));
+    cols.add(new Col("MAX(us)", true, r -> num(r.max())));
+    return cols;
   }
 
-  String renderChart(String title, List<Row> rows) {
-    double max = 0;
-    double total = 0;
-    int labelWidth = "LABEL".length();
-    for (Row r : rows) {
-      max = Math.max(max, r.value());
-      total += r.value();
-      labelWidth = Math.max(labelWidth, Math.min(40, r.label() == null ? 0 : r.label().length()));
+  /** Mode-specific columns rendered after the bar. */
+  private List<Col> postColumns() {
+    List<Col> cols = new ArrayList<>();
+    if (mode == Mode.TOP) {
+      cols.add(new Col("PLAN", false, r -> r.planCapable() ? "yes" : "no"));
+    } else {
+      cols.add(new Col("CAPTURES", true, r -> num(r.captureCount() == null ? 0 : r.captureCount())));
+      cols.add(new Col("CAPTURED", false, r -> r.lastCaptured() == null ? "never" : r.lastCaptured()));
     }
-    boolean cum = additive && total > 0;
-    StringBuilder sb = new StringBuilder();
-    sb.append('\n').append(title).append(" — chart").append('\n').append('\n');
-    String fmt = "  %2s  %-" + labelWidth + "s  %s  %14s%s%n";
-    sb.append(String.format(fmt, "#", "LABEL", " ".repeat(32), valueTitle, cum ? "  CUM%" : ""));
-    double running = 0;
-    int i = 1;
-    for (Row r : rows) {
-      running += r.value();
-      String label = Charts.truncate(r.label() == null ? "" : r.label(), labelWidth);
-      String bar = AnsiColor.chart(TermChart.bar(r.value(), max, 32));
-      String value = String.format("%,.0f %s", r.value(), r.unit());
-      String cumStr = cum ? String.format("  (cum %3.0f%%)", running / total * 100.0) : "";
-      sb.append(String.format(fmt, Integer.toString(i++), label, bar, value, cumStr));
+    return cols;
+  }
+
+  private static int[] widths(List<Col> cols, List<Row> rows) {
+    int[] w = new int[cols.size()];
+    for (int c = 0; c < cols.size(); c++) {
+      w[c] = cols.get(c).header().length();
     }
-    sb.append('\n');
-    return sb.toString();
+    for (Row r : rows) {
+      for (int c = 0; c < cols.size(); c++) {
+        w[c] = Math.max(w[c], cols.get(c).cell().apply(r).length());
+      }
+    }
+    return w;
+  }
+
+  private static void appendHeaders(StringBuilder sb, List<Col> cols, int[] w) {
+    for (int c = 0; c < cols.size(); c++) {
+      sb.append("  ").append(pad(cols.get(c).header(), w[c], cols.get(c).right()));
+    }
+  }
+
+  private static void appendCells(StringBuilder sb, List<Col> cols, int[] w, Row r) {
+    for (int c = 0; c < cols.size(); c++) {
+      sb.append("  ").append(pad(cols.get(c).cell().apply(r), w[c], cols.get(c).right()));
+    }
+  }
+
+  private static String num(long v) {
+    return String.format(Locale.ROOT, "%,d", v);
+  }
+
+  private static String shortHash(String h) {
+    if (h == null) {
+      return "";
+    }
+    return h.length() <= HASH_SHORT ? h : h.substring(0, HASH_SHORT);
+  }
+
+  /** Truncate keeping the distinguishing tail — ORM query labels share a long prefix and differ in their suffix. */
+  private static String tail(String s, int width) {
+    if (s == null) {
+      return "";
+    }
+    if (s.length() <= width) {
+      return s;
+    }
+    return "…" + s.substring(s.length() - (width - 1));
+  }
+
+  private static String pad(String s, int width, boolean right) {
+    if (s.length() >= width) {
+      return s;
+    }
+    String spaces = " ".repeat(width - s.length());
+    return right ? spaces + s : s + spaces;
   }
 
   private static Integer parseIndex(String line, int size) {
