@@ -505,6 +505,7 @@ public final class V1QueryService {
       + """
         )
       group by m.id, a.name, m.name, m.key, m.loc, m.sql, agg.last_captured, agg.capture_count
+      having coalesce(sum(t.count), 0) > 0
       order by %s desc, m.name asc
       limit :limit
       """).formatted(table, orderByExpression(sortKey));
