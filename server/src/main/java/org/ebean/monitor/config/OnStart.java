@@ -47,5 +47,6 @@ public class OnStart {
     log.info("maintain db partitions");
     DB.script().run("/extend-partitions.sql");
     cleanupPartitions.run();
+    cleanupPartitions.cleanupCaptureRequests();
   }
 }

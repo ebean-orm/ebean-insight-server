@@ -2,9 +2,12 @@ package org.ebean.monitor.cleanup;
 
 import io.avaje.config.Config;
 import io.ebean.DB;
+import org.ebean.monitor.domain.query.QDCaptureRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -35,6 +38,23 @@ public class CleanupPartitions {
     cleanup("timed_d1", d1);
     cleanup("gauge_d1", d1);
     return count;
+  }
+
+  /**
+   * Delete old in-flight capture-request rows. These track query-plan captures
+   * only until the plan is collected (the pending view looks back ~15 minutes),
+   * so anything older than the retention window is dead weight.
+   */
+  public long cleanupCaptureRequests() {
+    final int retentionDays = Config.getInt("captureRequest.retentionDays", 30);
+    final Instant before = Instant.now().minus(Duration.ofDays(retentionDays));
+    final int deleted = new QDCaptureRequest()
+      .requestedAt.before(before)
+      .delete();
+    if (deleted > 0) {
+      log.info("deleted {} capture_request rows older than {} days", deleted, retentionDays);
+    }
+    return deleted;
   }
 
   private void cleanup(String prefix, int days) {
