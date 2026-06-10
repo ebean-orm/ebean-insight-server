@@ -58,10 +58,10 @@ final class PlansCommand implements Callable<Integer> {
         System.out.println("No plans found.");
         return 0;
       }
-      System.out.printf("%-8s %-12s %-10s %-30s %12s %8s  %s%n",
+      System.out.printf("%-8s %-12s %-32s %-30s %12s %8s  %s%n",
           "ID", "ENV", "HASH", "LABEL", "TIME(us)", "COUNT", "CAPTURED");
       for (QueryPlanSummary p : plans) {
-        System.out.printf("%-8d %-12s %-10s %-30s %12d %8d  %s%n",
+        System.out.printf("%-8d %-12s %-32s %-30s %12d %8d  %s%n",
             p.id(), p.envName(), p.hash(), p.label(),
             p.queryTimeMicros(), p.captureCount(), p.whenCaptured());
       }
