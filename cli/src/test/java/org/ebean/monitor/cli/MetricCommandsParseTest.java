@@ -118,6 +118,15 @@ class MetricCommandsParseTest {
   }
 
   @Test
+  void capture_envBetweenAppAndHashes() {
+    var cmd = CommandLine.populateCommand(new CaptureCommand(),
+        "myapp", "--env", "test", "hashA", "hashB");
+    assertThat(cmd.app).isEqualTo("myapp");
+    assertThat(cmd.env).isEqualTo("test");
+    assertThat(cmd.hashes).containsExactly("hashA", "hashB");
+  }
+
+  @Test
   void capture_flagForms_appAndHash() {
     var cmd = CommandLine.populateCommand(new CaptureCommand(),
         "--app", "myapp", "--hash", "h1", "--hash", "h2", "--env", "test");

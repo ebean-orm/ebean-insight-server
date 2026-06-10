@@ -9,7 +9,14 @@ import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
 /** Show a single captured query plan. */
-@Command(name = "plan", mixinStandardHelpOptions = true, description = "Show a single captured query plan by id.")
+@Command(name = "plan", mixinStandardHelpOptions = true, description = "Show a single captured query plan by id.",
+    footerHeading = "%nExamples:%n",
+    footer = {
+        "  insight plan 12345          # full SQL, bind values and EXPLAIN output",
+        "  insight plan 12345 --raw    # EXPLAIN plan text only",
+        "  insight plan 12345 -o json",
+        "  # find a plan id first:  insight plans --app myapp --env test"
+    })
 final class PlanCommand implements Callable<Integer> {
 
   @Mixin ConnectionOptions conn = new ConnectionOptions();

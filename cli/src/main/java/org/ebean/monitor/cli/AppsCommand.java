@@ -10,7 +10,13 @@ import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
 
 /** List known applications. */
-@Command(name = "apps", mixinStandardHelpOptions = true, description = "List known applications.")
+@Command(name = "apps", mixinStandardHelpOptions = true, description = "List known applications.",
+    footerHeading = "%nExamples:%n",
+    footer = {
+        "  insight apps",
+        "  insight apps --active-within-hours 24    # only recently active apps",
+        "  insight apps -o json"
+    })
 final class AppsCommand implements Callable<Integer> {
 
   @Mixin ConnectionOptions conn = new ConnectionOptions();

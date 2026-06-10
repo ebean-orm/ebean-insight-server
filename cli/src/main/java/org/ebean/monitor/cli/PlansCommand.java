@@ -14,8 +14,10 @@ import picocli.CommandLine.Option;
     footerHeading = "%nExamples:%n",
     footer = {
         "  insight plans --app myapp --env test",
-        "  insight plans --hash <hash>",
-        "  insight plan <id>          # full SQL, bind values and EXPLAIN output"
+        "  insight plans --hash <hash>                # all plans for one query",
+        "  insight plans --since-hours 6              # captured in the last 6h",
+        "  insight plan <id>          # full SQL, bind values and EXPLAIN output",
+        "  insight plan <id> --raw    # EXPLAIN plan text only"
     })
 final class PlansCommand implements Callable<Integer> {
 

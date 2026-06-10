@@ -26,7 +26,8 @@ import picocli.CommandLine.Option;
         "  insight pending",
         "  insight pending --app myapp --env test",
         "  # right after a bulk request, confirm it queued:",
-        "  insight missing-plans --app myapp -n 10 --capture --yes --env test && insight pending --app myapp"
+        "  insight missing-plans --app myapp --env test -n 10 --capture --yes",
+        "  insight pending --app myapp"
     })
 final class PendingCommand implements Callable<Integer> {
 

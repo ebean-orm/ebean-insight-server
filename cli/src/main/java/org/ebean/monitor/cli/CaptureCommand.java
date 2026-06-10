@@ -25,15 +25,15 @@ import picocli.CommandLine.Parameters;
     footer = {
         "  # find plan-capable hashes lacking a recent plan, then capture one:",
         "  insight missing-plans --app myapp",
-        "  insight capture myapp a2e2082d... --env test",
+        "  insight capture myapp --env test a2e2082d...",
         "  # capture several at once (space or comma separated):",
-        "  insight capture myapp hashA hashB hashC --env test",
-        "  insight capture myapp hashA,hashB,hashC --env test",
+        "  insight capture myapp --env test hashA hashB hashC",
+        "  insight capture myapp --env test hashA,hashB,hashC",
         "  # flag forms (alternative to positionals):",
-        "  insight capture --app myapp --hash hashA --hash hashB --env test",
+        "  insight capture --app myapp --env test --hash hashA --hash hashB",
         "  # pipe hashes straight from missing-plans:",
         "  insight missing-plans --app myapp -o json | jq -r '.[].key' \\",
-        "    | insight capture myapp --stdin --env test",
+        "    | insight capture myapp --env test --stdin",
         "  # the plans appear after the next executions (a short bind-collection window):",
         "  insight plans --app myapp --env test"
     })

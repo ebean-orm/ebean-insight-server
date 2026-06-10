@@ -22,11 +22,13 @@ import picocli.CommandLine.Option;
     footerHeading = "%nExamples:%n",
     footer = {
         "  insight top                              # all apps, by total time, last 60m",
-        "  insight top --by mean --since-hours 6",
-        "  insight top --app myapp --env test",
-        "  insight top --app myapp --plan-capable",
+        "  insight top --by mean --since-hours 6    # rank by mean over a wider window",
+        "  insight top --by max                     # worst single execution",
+        "  insight top --by count                   # highest call volume",
+        "  insight top --app myapp --env test       # scope to one app / one env",
+        "  insight top --plan-capable               # only plan-capable queries",
         "  insight top -o json | jq .",
-        "  # the HASH column feeds straight into:  insight capture <app> <hash>"
+        "  # the HASH column feeds straight into:  insight capture <app> --env <env> <hash>"
     })
 final class TopCommand implements Callable<Integer> {
 

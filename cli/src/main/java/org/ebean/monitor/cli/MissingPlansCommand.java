@@ -27,9 +27,9 @@ import picocli.CommandLine.Option;
         "  insight missing-plans                       # all apps, ranked by total time",
         "  insight missing-plans --app myapp --by mean",
         "  insight missing-plans --app myapp --older-than-hours 24",
-        "  # then capture one:  insight capture myapp <hash> --env test",
+        "  # then capture one:  insight capture myapp --env test <hash>",
         "  # or capture every listed metric in one go (capped by -n):",
-        "  insight missing-plans --app myapp -n 10 --capture --yes --env test"
+        "  insight missing-plans --app myapp --env test -n 10 --capture --yes"
     })
 final class MissingPlansCommand implements Callable<Integer> {
 

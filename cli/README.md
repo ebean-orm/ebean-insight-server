@@ -182,8 +182,9 @@ Every command supports `-h`/`--help`, and the root supports `-V`/`--version`.
 
 ## Output format
 
-The data commands (`apps`, `envs`, `plans`, `plan`, `capture`) accept
-`-o`/`--output` with `text` (default) or `json`:
+The data commands (`apps`, `envs`, `top`, `metrics`, `missing-plans`, `plans`,
+`plan`, `pending`, `capture`) accept `-o`/`--output` with `text` (default) or
+`json`:
 
 ```bash
 insight envs -o json
@@ -194,33 +195,114 @@ JSON is emitted compact (one line, pipe to `jq` to pretty-print) and an empty
 result is rendered as `[]`. For `plan`, `-o json` takes precedence over `--raw`.
 Set `insight config set output json` to make JSON the default for every command.
 
-## Examples
+## Common use cases
+
+### 0. One-time setup — persist your target
 
 ```bash
-# One-time: persist your target so you don't repeat --namespace/--service
 insight config set namespace dev-core
 insight config set service ebean-insight
+insight config set context <nonprod-kube-context>   # the core_nonprod EKS context
+insight config set output json                       # optional: default to JSON
+insight config list
+```
 
-# Now these use the persisted dev-core/ebean-insight:8091 target
-insight envs
-insight apps
-insight plans -n 5
-insight plan 2 --raw
+With these persisted, every command below "just works" without connection flags.
 
-# Find the most expensive queries lacking a fresh plan, then capture them
-insight missing-plans --app myapp --by total
-insight capture myapp hashA hashB --env test            # capture several explicitly
-insight capture myapp hashA,hashB,hashC --env test      # comma-separated also works
-insight capture --app myapp --hash hashA --hash hashB --env test   # flag forms
+### 1. See what's reporting
+
+```bash
+insight apps                       # applications sending metrics
+insight envs                       # environments (e.g. dev, test)
+```
+
+### 2. Find the most expensive queries
+
+```bash
+insight top                                  # all apps, by total time, last 60 min
+insight top --by mean --since-hours 6        # rank by mean over a wider window
+insight top --by max                         # worst single execution
+insight top --by count                       # highest call volume
+insight top --app myapp --env test           # scope to one app / one env
+insight top --plan-capable                   # only queries that can have a plan captured
+```
+
+### 3. Find expensive queries lacking a recent plan
+
+```bash
+insight missing-plans --by total                       # all apps, ranked by total time
+insight missing-plans --by mean --since-hours 6        # rank by mean, wider window
+insight missing-plans --app myapp                      # scope to one app
+insight missing-plans --app myapp --older-than-hours 24 # "recent" = captured within 24h
+```
+
+### 4. Capture a query plan
+
+```bash
+# one hash  (--env comes right after the app: it sets which env to capture in)
+insight capture myapp --env test <hash>
+
+# several at once (space or comma separated, or repeated --hash)
+insight capture myapp --env test hashA hashB hashC
+insight capture myapp --env test hashA,hashB,hashC
+insight capture --app myapp --env test --hash hashA --hash hashB
+
+# pipe hashes straight from missing-plans
 insight missing-plans --app myapp -n 10 -o json \
-  | jq -r '.[].key' | insight capture myapp --stdin --env test   # pipe hashes
-insight missing-plans --app myapp -n 10 --capture --yes --env test   # one-shot bulk capture
+  | jq -r '.[].key' | insight capture myapp --env test --stdin
 
-# Talk to a server directly instead of port-forwarding
-insight plans --url http://localhost:8091 --app myk8s-service --since-hours 24
+# one-shot: capture every expensive-and-unplanned query (capped by -n)
+insight missing-plans --app myapp --env test -n 10 --capture --yes
+```
 
-# Override the persisted target for a single call
-insight plans --context my-eks --namespace staging-core --service ebean-insight
+A capture is **not instant**: the app collects the bind values of the slowest
+execution over a ~5-minute window before the EXPLAIN plan is forwarded back.
+Wait ~6 minutes before checking, and the query must actually run in that window.
+
+### 5. Check pending capture requests
+
+```bash
+insight pending                       # captures queued on the server, not yet collected
+insight pending --app myapp --env test
+```
+
+Note: this queue is in-memory and drains as soon as the app polls — an empty
+result does not prove nothing is in flight.
+
+### 6. Inspect collected query plans
+
+```bash
+insight plans --app myapp --env test          # recently captured plans (tabular)
+insight plans --hash <hash>                    # all plans for one query
+insight plans --since-hours 6                  # captured in the last 6h
+insight plan <id>                              # full SQL + bind values + EXPLAIN
+insight plan <id> --raw                        # EXPLAIN plan text only
+```
+
+### 7. Inspect one app's metrics (with full SQL)
+
+```bash
+insight metrics --app myapp                    # ID, NAME, HASH, LOC
+insight metrics --app myapp -o json            # includes full SQL text
+insight metrics --app myapp --plan-capable
+```
+
+### 8. Scripting
+
+```bash
+# any command supports -o json (compact, empty = []); pipe to jq
+insight top -o json | jq '.[] | {key, label, totalMicros}'
+insight plans -n 5 --output json | jq '.[].label'
+```
+
+### Connection overrides (when not using persisted config)
+
+```bash
+# talk to a server directly instead of port-forwarding
+insight plans --url http://localhost:8091 --app myapp --since-hours 24
+
+# override the persisted target for a single call
+insight top --context my-eks --namespace staging-core --service ebean-insight
 ```
 
 ## Running

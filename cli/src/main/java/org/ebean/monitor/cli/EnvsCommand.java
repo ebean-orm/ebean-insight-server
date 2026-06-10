@@ -8,7 +8,12 @@ import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
 /** List known environments. */
-@Command(name = "envs", mixinStandardHelpOptions = true, description = "List known environments.")
+@Command(name = "envs", mixinStandardHelpOptions = true, description = "List known environments.",
+    footerHeading = "%nExamples:%n",
+    footer = {
+        "  insight envs",
+        "  insight envs -o json"
+    })
 final class EnvsCommand implements Callable<Integer> {
 
   @Mixin ConnectionOptions conn = new ConnectionOptions();
