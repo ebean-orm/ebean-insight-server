@@ -104,10 +104,22 @@ final class MissingPlansCommand implements Callable<Integer> {
         System.out.println("No missing plans found.");
         return 0;
       }
-      System.out.printf("%-24s %-34s %10s %16s %14s %14s %9s %-26s %s%n",
+      int appWidth = "APP".length();
+      int labelWidth = "LABEL".length();
+      for (MissingPlanMetric m : rows) {
+        if (m.app() != null) {
+          appWidth = Math.max(appWidth, m.app().length());
+        }
+        if (m.label() != null) {
+          labelWidth = Math.max(labelWidth, m.label().length());
+        }
+      }
+      String headFmt = "%-" + appWidth + "s  %-" + labelWidth + "s  %10s  %16s  %14s  %14s  %9s  %-26s  %s%n";
+      String rowFmt = "%-" + appWidth + "s  %-" + labelWidth + "s  %10d  %16d  %14d  %14d  %9d  %-26s  %s%n";
+      System.out.printf(headFmt,
           "APP", "LABEL", "COUNT", "TOTAL(us)", "MEAN(us)", "MAX(us)", "CAPTURES", "LAST_CAPTURED", "HASH");
       for (MissingPlanMetric m : rows) {
-        System.out.printf("%-24s %-34s %10d %16d %14d %14d %9d %-26s %s%n",
+        System.out.printf(rowFmt,
             m.app(), m.label(), m.count(), m.totalMicros(), m.meanMicros(), m.maxMicros(),
             m.captureCount(),
             m.lastCapturedAt() == null ? "never" : m.lastCapturedAt().toString(),

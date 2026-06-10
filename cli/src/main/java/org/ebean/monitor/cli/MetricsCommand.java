@@ -53,9 +53,9 @@ final class MetricsCommand implements Callable<Integer> {
         System.out.println("No metrics found.");
         return 0;
       }
-      System.out.printf("%-8s %-40s %-34s %s%n", "ID", "NAME", "HASH", "LOC");
+      System.out.printf("%-8s  %-40s  %-34s  %s%n", "ID", "NAME", "HASH", "LOC");
       for (AppMetric m : metrics) {
-        System.out.printf("%-8d %-40s %-34s %s%n",
+        System.out.printf("%-8d  %-40s  %-34s  %s%n",
             m.id(), m.name(), m.key() == null ? "" : m.key(), m.loc() == null ? "" : m.loc());
       }
       return 0;

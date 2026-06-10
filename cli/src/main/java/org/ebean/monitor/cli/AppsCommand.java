@@ -41,7 +41,7 @@ final class AppsCommand implements Callable<Integer> {
         return 0;
       }
       for (App app : apps) {
-        System.out.printf("%-8d %s%n", app.id(), app.name());
+        System.out.printf("%-8d  %s%n", app.id(), app.name());
       }
       return 0;
     }

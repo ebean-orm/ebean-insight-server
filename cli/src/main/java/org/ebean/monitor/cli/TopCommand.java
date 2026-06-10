@@ -86,10 +86,22 @@ final class TopCommand implements Callable<Integer> {
         System.out.println("No metrics found.");
         return 0;
       }
-      System.out.printf("%-24s %-34s %10s %16s %14s %14s %8s %5s  %s%n",
+      int appWidth = "APP".length();
+      int labelWidth = "LABEL".length();
+      for (AppMetricStats r : rows) {
+        if (r.app() != null) {
+          appWidth = Math.max(appWidth, r.app().length());
+        }
+        if (r.label() != null) {
+          labelWidth = Math.max(labelWidth, r.label().length());
+        }
+      }
+      String headFmt = "%-" + appWidth + "s  %-" + labelWidth + "s  %10s  %16s  %14s  %14s  %8s  %5s  %s%n";
+      String rowFmt = "%-" + appWidth + "s  %-" + labelWidth + "s  %10d  %16d  %14d  %14d  %8d  %5s  %s%n";
+      System.out.printf(headFmt,
           "APP", "LABEL", "COUNT", "TOTAL(us)", "MEAN(us)", "MAX(us)", "WINDOW", "PLAN", "HASH");
       for (AppMetricStats r : rows) {
-        System.out.printf("%-24s %-34s %10d %16d %14d %14d %8d %5s  %s%n",
+        System.out.printf(rowFmt,
             r.app(), r.label(), r.count(), r.totalMicros(), r.meanMicros(), r.maxMicros(),
             r.windowMinutes(), r.planCapable() ? "yes" : "no", r.key());
       }
