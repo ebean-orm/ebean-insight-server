@@ -213,10 +213,14 @@ final class Interactive {
         switchMeasure(chosen);
         continue;
       }
+      if (isCaptureCommand(line)) {
+        captureCommand(line.trim().substring(1));
+        continue;
+      }
       Integer idx = parseIndex(line, rows.size());
       if (idx == null) {
         System.out.println("Enter a number 1-" + rows.size()
-            + ", a measure (t/m/x/n), or 'q' to quit.");
+            + ", capture rows (e.g. 'c 1 3 5'), a measure (t/m/x/n), or 'q' to quit.");
         continue;
       }
       if (!rowMenu(rows.get(idx - 1))) {
@@ -230,7 +234,9 @@ final class Interactive {
   }
 
   private String prompt() {
-    return "Select " + AnsiColor.hot("1-" + rows.size(), "") + "   by " + measureKeys()
+    return "Select " + AnsiColor.hot("1-" + rows.size(), "")
+        + "   " + AnsiColor.hot("c", "apture") + " N…"
+        + "   by " + measureKeys()
         + "   " + AnsiColor.hot("q", "uit") + " > ";
   }
 
@@ -267,6 +273,83 @@ final class Interactive {
     } catch (RuntimeException e) {
       System.out.println("Reload failed: " + e.getMessage());
     }
+  }
+
+  /** True for a top-level multi-capture command: 'c', 'c 1 3 5' or 'c 1,3,5'. */
+  private static boolean isCaptureCommand(String line) {
+    String l = line.trim().toLowerCase(Locale.ROOT);
+    return l.equals("c") || l.startsWith("c ") || l.startsWith("c,");
+  }
+
+  /**
+   * Parse the row indices from the argument part of a capture command (the text
+   * after the leading 'c'). Accepts space- or comma-separated 1-based row
+   * numbers. Returns the distinct in-range indices in input order, an empty list
+   * when no numbers were given, or null when any token is not a valid row.
+   */
+  static List<Integer> parseCaptureIndices(String args, int size) {
+    List<Integer> out = new ArrayList<>();
+    String trimmed = args.trim();
+    if (trimmed.isEmpty()) {
+      return out;
+    }
+    for (String tok : trimmed.split("[\\s,]+")) {
+      if (tok.isEmpty()) {
+        continue;
+      }
+      Integer n = parseIndex(tok, size);
+      if (n == null) {
+        return null;
+      }
+      if (!out.contains(n)) {
+        out.add(n);
+      }
+    }
+    return out;
+  }
+
+  private void captureCommand(String args) {
+    List<Integer> indices = parseCaptureIndices(args, rows.size());
+    if (indices == null) {
+      System.out.println("Invalid capture list. Use row numbers, e.g. 'c 1 3 5'.");
+      return;
+    }
+    if (indices.isEmpty()) {
+      System.out.println("Specify row numbers to capture, e.g. 'c 1 3 5'.");
+      return;
+    }
+    captureRows(indices);
+  }
+
+  /** Request a plan capture for each of the selected rows and print a per-row summary. */
+  private void captureRows(List<Integer> indices) {
+    System.out.println();
+    int requested = 0;
+    int skipped = 0;
+    int failed = 0;
+    int idxWidth = Math.max(1, Integer.toString(rows.size()).length());
+    for (int i : indices) {
+      Row row = rows.get(i - 1);
+      String status;
+      if (mode == Mode.TOP && !row.planCapable()) {
+        status = "skipped (not plan-capable)";
+        skipped++;
+      } else {
+        try {
+          insight.plans.requestPlanCapture(row.app(), row.hash(), env);
+          status = "requested";
+          requested++;
+        } catch (HttpException e) {
+          status = "failed HTTP " + e.statusCode();
+          failed++;
+        }
+      }
+      System.out.println("  " + pad(Integer.toString(i), idxWidth, true)
+          + "  " + pad(status, 26, false) + "  " + row.label());
+    }
+    System.out.println();
+    System.out.println(requested + " requested, " + skipped + " skipped, " + failed + " failed"
+        + "  (env " + (env == null ? "*" : env) + "). Check 'insight pending' / 'insight plans' shortly.");
   }
 
   /** Returns false when the user asked to quit the whole session. */

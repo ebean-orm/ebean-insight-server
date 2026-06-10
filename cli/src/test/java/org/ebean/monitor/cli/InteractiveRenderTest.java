@@ -55,6 +55,22 @@ class InteractiveRenderTest {
     assertThat(out).contains("never");
   }
 
+  @Test
+  void parseCaptureIndices_spacesCommasAndDistinct() {
+    assertThat(Interactive.parseCaptureIndices(" 1 7 8", 10)).containsExactly(1, 7, 8);
+    assertThat(Interactive.parseCaptureIndices("1,7,8", 10)).containsExactly(1, 7, 8);
+    assertThat(Interactive.parseCaptureIndices(" 3, 3  1 ", 10)).containsExactly(3, 1);
+  }
+
+  @Test
+  void parseCaptureIndices_emptyAndInvalid() {
+    assertThat(Interactive.parseCaptureIndices("", 10)).isEmpty();
+    assertThat(Interactive.parseCaptureIndices("   ", 10)).isEmpty();
+    assertThat(Interactive.parseCaptureIndices("1 99", 10)).isNull();   // out of range
+    assertThat(Interactive.parseCaptureIndices("1 x", 10)).isNull();    // not a number
+    assertThat(Interactive.parseCaptureIndices("0", 10)).isNull();      // below range
+  }
+
   private static String headerLine(String[] lines) {
     for (String l : lines) {
       if (l.contains("LABEL")) {
