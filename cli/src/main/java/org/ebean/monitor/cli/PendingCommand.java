@@ -52,9 +52,20 @@ final class PendingCommand implements Callable<Integer> {
         System.out.println("No pending captures queued.");
         return 0;
       }
-      System.out.printf("%-24s  %-16s  %s%n", "APP", "ENV", "HASH");
+      int appWidth = "APP".length();
+      int envWidth = "ENV".length();
       for (PendingPlan p : pending) {
-        System.out.printf("%-24s  %-16s  %s%n", p.app(), p.env(), p.hash());
+        if (p.app() != null) {
+          appWidth = Math.max(appWidth, p.app().length());
+        }
+        if (p.env() != null) {
+          envWidth = Math.max(envWidth, p.env().length());
+        }
+      }
+      String fmt = "%-" + appWidth + "s  %-" + envWidth + "s  %s%n";
+      System.out.printf(fmt, "APP", "ENV", "HASH");
+      for (PendingPlan p : pending) {
+        System.out.printf(fmt, p.app(), p.env(), p.hash());
       }
       System.out.printf("%n%d pending capture(s) queued.%n", pending.size());
       return 0;
