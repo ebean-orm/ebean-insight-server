@@ -20,6 +20,8 @@ import org.ebean.monitor.v1.model.AppMetric;
 import org.ebean.monitor.v1.model.AppMetricStats;
 import org.ebean.monitor.v1.model.AppSummary;
 import org.ebean.monitor.v1.model.Env;
+import org.ebean.monitor.v1.model.MetricTimeBucket;
+import org.ebean.monitor.v1.model.MetricTimeseries;
 import org.ebean.monitor.v1.model.MissingPlanMetric;
 import org.ebean.monitor.v1.model.PendingResponse;
 import org.ebean.monitor.v1.model.PendingPlan;
@@ -240,6 +242,91 @@ public final class V1QueryService {
       .maxMicros(max)
       .windowMinutes(minutes)
       .build();
+  }
+
+  /**
+   * Per-bucket time-series for a single metric (raw additive components per
+   * bucket — count, total, max). Mean is derived client-side. Bucket resolution
+   * follows {@link #timedTableFor(long)} so long windows stay cheap.
+   */
+  public MetricTimeseries getMetricTimeseries(String appName, String hash,
+                                              @Nullable Long sinceMinutes,
+                                              @Nullable Long sinceHours,
+                                              @Nullable String env) {
+    final TimeWindow window = TimeWindow.of(sinceMinutes, sinceHours, DEFAULT_TOP_WINDOW_MINUTES);
+    final long minutes = window.minutes();
+    final String table = timedTableFor(minutes);
+    final long bucketMinutes = bucketMinutesFor(table);
+    final DApp app = findApp(appName);
+    if (app == null || hash == null || hash.isBlank()) {
+      return emptyTimeseries(appName, hash, minutes, bucketMinutes);
+    }
+    final DAppMetric metric = new QDAppMetric()
+      .app.eq(app)
+      .key.eq(hash.trim())
+      .findOne();
+    if (metric == null) {
+      return emptyTimeseries(appName, hash, minutes, bucketMinutes);
+    }
+    final Integer envId = resolveEnvId(env);
+    if (envFilterMisses(env, envId)) {
+      return emptyTimeseries(app.getName(), hash, minutes, bucketMinutes);
+    }
+    final SqlQuery query = DB.sqlQuery(("""
+        select
+          t.event_time              as event_time,
+          coalesce(sum(t.count), 0) as count,
+          coalesce(sum(t.total), 0) as total,
+          coalesce(max(t.max), 0)   as max
+        from %s t
+        where t.metric_id = :metricId
+          and t.event_time > :from
+        """
+      + (envId == null ? "" : "  and t.env_id = :envId\n")
+      + """
+        group by t.event_time
+        order by t.event_time asc
+        """).formatted(table))
+      .setParameter("metricId", metric.getId())
+      .setParameter("from", window.from());
+    if (envId != null) {
+      query.setParameter("envId", envId);
+    }
+    final List<MetricTimeBucket> buckets = query
+      .mapTo((rs, _) -> new MetricTimeBucket(
+        toInstant(rs.getTimestamp("event_time")),
+        rs.getLong("count"),
+        rs.getLong("total"),
+        rs.getLong("max")))
+      .findList();
+    return MetricTimeseries.builder()
+      .app(app.getName())
+      .hash(metric.getKey())
+      .label(metric.getName())
+      .windowMinutes(minutes)
+      .bucketMinutes(bucketMinutes)
+      .buckets(buckets)
+      .build();
+  }
+
+  private static MetricTimeseries emptyTimeseries(@Nullable String app, @Nullable String hash,
+                                                  long minutes, long bucketMinutes) {
+    return MetricTimeseries.builder()
+      .app(app)
+      .hash(hash)
+      .windowMinutes(minutes)
+      .bucketMinutes(bucketMinutes)
+      .buckets(List.of())
+      .build();
+  }
+
+  static long bucketMinutesFor(String table) {
+    return switch (table) {
+      case "ebean_insight.timed_m1" -> 1L;
+      case "ebean_insight.timed_m10" -> 10L;
+      case "ebean_insight.timed_m60" -> 60L;
+      default -> 1440L;
+    };
   }
 
   public List<AppMetricStats> topAppMetrics(String appName, @Nullable String orderBy,

@@ -5,6 +5,7 @@ import java.util.List;
 import org.ebean.monitor.v1.MetricsApi;
 import org.ebean.monitor.v1.model.AppMetric;
 import org.ebean.monitor.v1.model.AppMetricStats;
+import org.ebean.monitor.v1.model.MetricTimeseries;
 import org.ebean.monitor.v1.model.MissingPlanMetric;
 
 @Controller
@@ -34,6 +35,11 @@ public final class V1MetricsController implements MetricsApi {
   @Override
   public List<AppMetricStats> getMetricStatsByHash(String app, String hash, Long sinceMinutes, Long sinceHours, String env) {
     return service.getMetricStatsByHash(app, hash, sinceMinutes, sinceHours, env);
+  }
+
+  @Override
+  public MetricTimeseries getMetricTimeseries(String app, String hash, Long sinceMinutes, Long sinceHours, String env) {
+    return service.getMetricTimeseries(app, hash, sinceMinutes, sinceHours, env);
   }
 
   @Override

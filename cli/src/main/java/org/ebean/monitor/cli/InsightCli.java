@@ -21,6 +21,8 @@ import picocli.CommandLine.Command;
         CaptureCommand.class,
         TopCommand.class,
         MetricsCommand.class,
+        MetricCommand.class,
+        TrendCommand.class,
         MissingPlansCommand.class,
         AppsCommand.class,
         EnvsCommand.class,

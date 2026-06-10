@@ -27,6 +27,7 @@ import picocli.CommandLine.Option;
         "  insight missing-plans                       # all apps, ranked by total time",
         "  insight missing-plans --app myapp --by mean",
         "  insight missing-plans --app myapp --older-than-hours 24",
+        "  insight missing-plans --app myapp --by mean -i   # interactive drill-down",
         "  # then capture one:  insight capture myapp --env test <hash>",
         "  # or capture every listed metric in one go (capped by -n):",
         "  insight missing-plans --app myapp --env test -n 10 --capture --yes"
@@ -74,6 +75,10 @@ final class MissingPlansCommand implements Callable<Integer> {
       description = "Environment to target with --capture (falls back to the persisted 'env' config).")
   @Nullable String env;
 
+  @Option(names = {"-i", "--interactive"},
+      description = "Drill down interactively: pick a row, then view sql/plan/capture/trend.")
+  boolean interactive;
+
   @Override
   public Integer call() {
     if (sinceMinutes != null && sinceHours != null) {
@@ -103,6 +108,9 @@ final class MissingPlansCommand implements Callable<Integer> {
       if (rows.isEmpty()) {
         System.out.println("No missing plans found.");
         return 0;
+      }
+      if (interactive) {
+        return Interactive.missingPlansLoop(insight, rows, by, env);
       }
       int appWidth = "APP".length();
       int labelWidth = "LABEL".length();

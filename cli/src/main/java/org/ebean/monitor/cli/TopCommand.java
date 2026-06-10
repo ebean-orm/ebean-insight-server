@@ -27,6 +27,8 @@ import picocli.CommandLine.Option;
         "  insight top --by count                   # highest call volume",
         "  insight top --app myapp --env test       # scope to one app / one env",
         "  insight top --plan-capable               # only plan-capable queries",
+        "  insight top --chart                      # horizontal Pareto bar chart",
+        "  insight top --by mean -i                 # interactive drill-down (sql/plan/capture)",
         "  insight top -o json | jq .",
         "  # the HASH column feeds straight into:  insight capture <app> --env <env> <hash>"
     })
@@ -62,6 +64,13 @@ final class TopCommand implements Callable<Integer> {
       description = "Filter to plan-capable metrics. Omit for no filter; use --plan-capable=false for the inverse.")
   @Nullable Boolean planCapable;
 
+  @Option(names = {"-c", "--chart"}, description = "Render a horizontal Pareto bar chart instead of the table.")
+  boolean chart;
+
+  @Option(names = {"-i", "--interactive"},
+      description = "Drill down interactively: pick a row, then view sql/plan/capture/trend.")
+  boolean interactive;
+
   @Override
   public Integer call() {
     if (sinceMinutes != null && sinceHours != null) {
@@ -84,6 +93,13 @@ final class TopCommand implements Callable<Integer> {
       }
       if (rows.isEmpty()) {
         System.out.println("No metrics found.");
+        return 0;
+      }
+      if (interactive) {
+        return Interactive.topLoop(insight, rows, by, env);
+      }
+      if (chart) {
+        Charts.printPareto(rows, by);
         return 0;
       }
       int appWidth = "APP".length();

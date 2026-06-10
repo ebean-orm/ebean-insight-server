@@ -13,6 +13,10 @@ public class GenerateDbMigration {
     DbMigration dbMigration = DbMigration.create();
     dbMigration.setPlatform(Platform.POSTGRES);
     dbMigration.setIncludeIndex(true);
+    // Don't (re)generate the built-in partition helper script - the committed
+    // I__partition_help.sql is hand-tuned (UNLOGGED, 1-min cadence) and must not
+    // be clobbered on regeneration.
+    dbMigration.setIncludeBuiltInPartitioning(false);
 
     // generate the migration ddl and xml
     dbMigration.generateMigration();

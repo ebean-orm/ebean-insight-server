@@ -15,6 +15,8 @@ import org.ebean.monitor.v1.model.AppMetric;
 import org.ebean.monitor.v1.model.AppMetricStats;
 import org.ebean.monitor.v1.model.AppSummary;
 import org.ebean.monitor.v1.model.Env;
+import org.ebean.monitor.v1.model.MetricTimeBucket;
+import org.ebean.monitor.v1.model.MetricTimeseries;
 import org.ebean.monitor.v1.model.MissingPlanMetric;
 import org.ebean.monitor.v1.model.PendingResponse;
 import org.ebean.monitor.v1.model.PendingPlan;
@@ -109,6 +111,24 @@ class V1ControllerTest {
 
     final List<AppMetricStats> statsNoEnv = metricsApi.getMetricStatsByHash(APP, ORM_HASH, null, null, "no-such-env");
     assertThat(statsNoEnv).isEmpty();
+
+    final MetricTimeseries ts = metricsApi.getMetricTimeseries(APP, ORM_HASH, null, null, null);
+    assertThat(ts.app()).isEqualTo(APP);
+    assertThat(ts.hash()).isEqualTo(ORM_HASH);
+    assertThat(ts.bucketMinutes()).isEqualTo(1L);
+    assertThat(ts.buckets()).isNotEmpty();
+    assertThat(ts.buckets()).allSatisfy(b -> assertThat(b.count()).isPositive());
+    final long tsCalls = ts.buckets().stream().mapToLong(MetricTimeBucket::count).sum();
+    assertThat(tsCalls).isEqualTo(stats.getFirst().count());
+
+    final MetricTimeseries tsEnv = metricsApi.getMetricTimeseries(APP, ORM_HASH, null, null, ENV);
+    assertThat(tsEnv.buckets()).isNotEmpty();
+
+    final MetricTimeseries tsNoEnv = metricsApi.getMetricTimeseries(APP, ORM_HASH, null, null, "no-such-env");
+    assertThat(tsNoEnv.buckets()).isEmpty();
+
+    final MetricTimeseries tsNoHash = metricsApi.getMetricTimeseries(APP, "no-such-hash", null, null, null);
+    assertThat(tsNoHash.buckets()).isEmpty();
 
     final List<AppMetricStats> top = metricsApi.topAppMetrics(APP, "total", null, null, 10, null, null);
     assertThat(top).extracting(AppMetricStats::app).containsOnly(APP);

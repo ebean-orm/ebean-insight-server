@@ -167,8 +167,10 @@ per-command forward.
 | `insight apps [--active-within-minutes N \| --active-within-hours N]` | List known applications. |
 | `insight envs` | List known environments. |
 | `insight metrics --app X [--label] [--plan-capable]` | List an app's metrics (ID, NAME, HASH, LOC); full SQL with `-o json`. |
-| `insight top [--app] [--env] [--by total\|mean\|max\|count] [--since-minutes N \| --since-hours N] [--plan-capable] [-n N]` | Rank metrics by cost over a window. Omit `--app` to span all apps. |
-| `insight missing-plans [--app] [--by total\|mean\|max\|count] [--since-minutes N \| --since-hours N] [--older-than-minutes N \| --older-than-hours N] [--capture [--yes] [--env]] [-n N]` | Plan-capable metrics with no recent plan, ranked by cost. `--capture` requests a plan for every listed row (capped by `-n`). |
+| `insight metric [<app>] [<hash>] [--app] [--hash]` | Show one metric (name, location, full SQL) by its hash. |
+| `insight top [--app] [--env] [--by total\|mean\|max\|count] [--since-minutes N \| --since-hours N] [--plan-capable] [-n N] [--chart] [-i]` | Rank metrics by cost over a window. Omit `--app` to span all apps. `--chart` renders a horizontal Pareto bar chart; `-i` drives an interactive drill-down. |
+| `insight trend [<app>] [<hash>] [--app] [--hash] [--env] [--by total\|mean\|max\|count] [--since-minutes N \| --since-hours N]` | Per-bucket trend column charts for one metric (tall top chart = `--by` measure, lower chart = calls). |
+| `insight missing-plans [--app] [--by total\|mean\|max\|count] [--since-minutes N \| --since-hours N] [--older-than-minutes N \| --older-than-hours N] [--capture [--yes] [--env]] [-n N] [-i]` | Plan-capable metrics with no recent plan, ranked by cost. `--capture` requests a plan for every listed row (capped by `-n`); `-i` drives an interactive drill-down. |
 | `insight plans [--app] [--env] [--label] [--hash] [--since-minutes N] [--since-hours N] [-n/--limit N]` | List recently captured query plans (tabular). |
 | `insight pending [--app] [--env]` | List in-flight plan captures — requested but not yet collected (durable; shows AGE, ages out after ~15 min). |
 | `insight plan <planId> [--raw]` | Show one captured plan. `--raw` prints only the EXPLAIN plan text. |
@@ -182,9 +184,9 @@ Every command supports `-h`/`--help`, and the root supports `-V`/`--version`.
 
 ## Output format
 
-The data commands (`apps`, `envs`, `top`, `metrics`, `missing-plans`, `plans`,
-`plan`, `pending`, `capture`) accept `-o`/`--output` with `text` (default) or
-`json`:
+The data commands (`apps`, `envs`, `top`, `metric`, `metrics`, `trend`,
+`missing-plans`, `plans`, `plan`, `pending`, `capture`) accept `-o`/`--output`
+with `text` (default) or `json`:
 
 ```bash
 insight envs -o json
@@ -194,6 +196,14 @@ insight plans -n 5 --output json | jq '.[].label'
 JSON is emitted compact (one line, pipe to `jq` to pretty-print) and an empty
 result is rendered as `[]`. For `plan`, `-o json` takes precedence over `--raw`.
 Set `insight config set output json` to make JSON the default for every command.
+
+### Colour
+
+Chart glyphs (the `top --chart` / interactive bars and the `trend` column charts)
+are tinted to stand out from labels and numbers. Colour is only emitted to an
+interactive terminal — piped output, redirected files and `-o json` stay plain.
+Set `NO_COLOR=1` to disable, or `INSIGHT_COLOR=always` to force colour on (e.g.
+when piping into a pager that interprets ANSI).
 
 ## Common use cases
 
@@ -225,7 +235,35 @@ insight top --by max                         # worst single execution
 insight top --by count                       # highest call volume
 insight top --app myapp --env test           # scope to one app / one env
 insight top --plan-capable                   # only queries that can have a plan captured
+insight top --chart                          # horizontal Pareto bar chart (cum% for total/count)
+insight top --by mean -i                     # interactive drill-down (sql/plan/capture/trend)
 ```
+
+The `--chart` view renders dependency-free Unicode bars scaled to the largest
+row; for additive measures (`total`, `count`) it also annotates a running
+cumulative percentage so you can see the Pareto "vital few". `-i` prints a
+numbered, bar-annotated list and then waits for you to pick a row and an action
+— a guided drill-down without a full-screen TUI. It reads line-by-line from
+stdin, so a session can be scripted via a pipe. With `-o json` or on a
+non-interactive stream it falls back to plain output.
+
+### 2b. Drill into one metric
+
+```bash
+insight metric myapp <hash>                  # name, location and full SQL for one hash
+insight metric myapp <hash> -o json
+insight trend myapp <hash> --since-hours 6   # top chart: mean time, lower: call volume
+insight trend myapp <hash> --by total        # top chart: total time per bucket
+insight trend myapp <hash> --by max          # top chart: max (slowest) per bucket
+insight trend myapp <hash> -o json | jq '.buckets'
+```
+
+`trend` plots how a metric moves over time using stacked column charts: the tall
+top chart plots the `--by` measure (`total`, `mean` (default), or `max` — derived
+client-side from the raw per-bucket components count/total/max the server
+returns), and the short lower chart plots call volume. `--by count` plots calls
+as the headline chart on its own. The bucket resolution is chosen automatically
+from the window (1m / 10m / 60m / 1d) and the chart is capped at ~60 columns wide.
 
 ### 3. Find expensive queries lacking a recent plan
 
@@ -234,6 +272,7 @@ insight missing-plans --by total                       # all apps, ranked by tot
 insight missing-plans --by mean --since-hours 6        # rank by mean, wider window
 insight missing-plans --app myapp                      # scope to one app
 insight missing-plans --app myapp --older-than-hours 24 # "recent" = captured within 24h
+insight missing-plans --by mean -i                     # interactive drill-down
 ```
 
 ### 4. Capture a query plan

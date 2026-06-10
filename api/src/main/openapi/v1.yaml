@@ -177,6 +177,32 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
+  /v1/apps/{app}/metrics/by-hash/{hash}/timeseries:
+    get:
+      tags: [metrics]
+      operationId: getMetricTimeseries
+      summary: Per-bucket time-series for a metric
+      description: |
+        Returns the raw additive components (count, total, max) per time bucket
+        for a single metric, over the requested window. The bucket resolution is
+        chosen automatically from the window (1m / 10m / 60m / 1d), so callers
+        derive mean client-side (total / count) and render the trend.
+      parameters:
+        - $ref: '#/components/parameters/AppPath'
+        - $ref: '#/components/parameters/HashPath'
+        - $ref: '#/components/parameters/SinceMinutes'
+        - $ref: '#/components/parameters/SinceHours'
+        - $ref: '#/components/parameters/EnvQuery'
+      responses:
+        '200':
+          description: Ordered buckets (oldest first; empty list when no match)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricTimeseries'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
   /v1/apps/{app}/metrics/top:
     get:
       tags: [metrics]
@@ -691,6 +717,48 @@ components:
         windowMinutes:
           type: integer
           format: int64
+
+    MetricTimeBucket:
+      type: object
+      required: [eventTime, count, total, max]
+      properties:
+        eventTime:
+          type: string
+          format: date-time
+          description: Bucket start time.
+        count:
+          type: integer
+          format: int64
+        total:
+          type: integer
+          format: int64
+          description: Total execution micros in the bucket (additive).
+        max:
+          type: integer
+          format: int64
+          description: Max single-execution micros in the bucket.
+
+    MetricTimeseries:
+      type: object
+      required: [app, hash, windowMinutes, bucketMinutes, buckets]
+      properties:
+        app:
+          type: string
+        hash:
+          type: string
+        label:
+          type: string
+        windowMinutes:
+          type: integer
+          format: int64
+        bucketMinutes:
+          type: integer
+          format: int64
+          description: Resolution chosen for the window (1, 10, 60 or 1440).
+        buckets:
+          type: array
+          items:
+            $ref: '#/components/schemas/MetricTimeBucket'
 
     MissingPlanMetric:
       type: object

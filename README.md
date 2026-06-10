@@ -85,6 +85,13 @@ curl -X POST -H "Insight-Key: $KEY" \
   "http://localhost:8090/v1/apps/myapp/plans/by-hash/$HASH/request?env=prod"
 ```
 
+Time-series for one hash (mean is derived client-side from the additive
+`count`/`total`; bucket resolution is chosen automatically from the window):
+```shell
+curl -H "Insight-Key: $KEY" \
+  "http://localhost:8090/v1/apps/myapp/metrics/by-hash/$HASH/timeseries?sinceHours=6"
+```
+
 Fetch a specific plan (full SQL + plan + bind values) by id:
 ```shell
 curl -H "Insight-Key: $KEY" http://localhost:8090/v1/plans/12345

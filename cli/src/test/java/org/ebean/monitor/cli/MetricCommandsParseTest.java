@@ -11,7 +11,66 @@ class MetricCommandsParseTest {
   @Test
   void rootCommand_registersNewSubcommands() {
     var spec = new CommandLine(new InsightCli()).getCommandSpec();
-    assertThat(spec.subcommands()).containsKeys("top", "metrics", "missing-plans");
+    assertThat(spec.subcommands()).containsKeys("top", "metrics", "metric", "missing-plans");
+  }
+
+  @Test
+  void top_parsesChartAndInteractive() {
+    var cmd = CommandLine.populateCommand(new TopCommand(), "--chart");
+    assertThat(cmd.chart).isTrue();
+    assertThat(cmd.interactive).isFalse();
+    var cmd2 = CommandLine.populateCommand(new TopCommand(), "-i");
+    assertThat(cmd2.interactive).isTrue();
+  }
+
+  @Test
+  void missingPlans_parsesInteractive() {
+    var cmd = CommandLine.populateCommand(new MissingPlansCommand(), "-i");
+    assertThat(cmd.interactive).isTrue();
+  }
+
+  @Test
+  void metric_parsesPositionalAndFlagForms() {
+    var pos = CommandLine.populateCommand(new MetricCommand(), "myapp", "abc123");
+    assertThat(pos.appArg).isEqualTo("myapp");
+    assertThat(pos.hashArg).isEqualTo("abc123");
+    var flags = CommandLine.populateCommand(new MetricCommand(), "--app", "myapp", "--hash", "abc123");
+    assertThat(flags.appOpt).isEqualTo("myapp");
+    assertThat(flags.hashOpt).isEqualTo("abc123");
+  }
+
+  @Test
+  void metric_noHash_fails() {
+    var cmd = CommandLine.populateCommand(new MetricCommand(), "myapp");
+    assertThatThrownBy(cmd::call)
+        .isInstanceOf(CliException.class)
+        .hasMessageContaining("hash");
+  }
+
+  @Test
+  void trend_parsesPositionalAndFlagForms() {
+    var pos = CommandLine.populateCommand(new TrendCommand(), "myapp", "abc123", "--since-hours", "6", "--env", "test");
+    assertThat(pos.appArg).isEqualTo("myapp");
+    assertThat(pos.hashArg).isEqualTo("abc123");
+    assertThat(pos.sinceHours).isEqualTo(6L);
+    assertThat(pos.env).isEqualTo("test");
+    var flags = CommandLine.populateCommand(new TrendCommand(), "--app", "myapp", "--hash", "abc123");
+    assertThat(flags.appOpt).isEqualTo("myapp");
+    assertThat(flags.hashOpt).isEqualTo("abc123");
+  }
+
+  @Test
+  void trend_rejectsBothWindowOptions() {
+    var cmd = CommandLine.populateCommand(new TrendCommand(), "myapp", "h", "--since-minutes", "5", "--since-hours", "1");
+    assertThatThrownBy(cmd::call)
+        .isInstanceOf(CliException.class)
+        .hasMessageContaining("only one of --since-minutes / --since-hours");
+  }
+
+  @Test
+  void rootCommand_registersTrend() {
+    var spec = new CommandLine(new InsightCli()).getCommandSpec();
+    assertThat(spec.subcommands()).containsKey("trend");
   }
 
   @Test
