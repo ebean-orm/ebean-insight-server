@@ -75,6 +75,13 @@ metrics:
 plans:
   store:
     enabled: ${metrics.store.enabled}
+  ## Plan-shape change events: durable FIRST/CHANGED records emitted at ingest.
+  ## change.enabled defaults to plans.store.enabled. change.firstObserved emits a
+  ## FIRST event the first time a query's shape is seen (the "review new plans"
+  ## queue) - set false to record only subsequent CHANGED events.
+  change:
+    enabled: ${plans.store.enabled}
+    firstObserved: true
 
 ##
 ## Auto plan capture: when an SQL/orm query metric exceeds its threshold,

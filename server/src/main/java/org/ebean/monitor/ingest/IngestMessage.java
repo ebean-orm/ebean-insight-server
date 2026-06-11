@@ -1,6 +1,7 @@
 package org.ebean.monitor.ingest;
 
 import io.ebean.Database;
+import io.avaje.config.Config;
 import org.ebean.monitor.api.MetricRequest;
 
 import jakarta.inject.Singleton;
@@ -10,8 +11,12 @@ import org.ebean.monitor.domain.DAppMetric;
 import org.ebean.monitor.domain.DCaptureRequest;
 import org.ebean.monitor.domain.DEnv;
 import org.ebean.monitor.domain.DQueryPlan;
+import org.ebean.monitor.domain.DQueryPlanChange;
+import org.ebean.monitor.domain.DQueryPlanChange.ChangeType;
 import org.ebean.monitor.domain.query.QDAppMetric;
 import org.ebean.monitor.domain.query.QDCaptureRequest;
+import org.ebean.monitor.domain.query.QDQueryPlan;
+import org.ebean.monitor.domain.query.QDQueryPlanChange;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,6 +24,7 @@ import org.slf4j.LoggerFactory;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -34,11 +40,16 @@ public class IngestMessage {
   private final Database database;
   private final ProcessHeader lookup;
   private final ProcessMetrics lookupMetrics;
+  private final boolean changeEnabled;
+  private final boolean firstObserved;
 
   IngestMessage(Database database, ProcessHeader lookup, ProcessMetrics lookupMetrics) {
     this.database = database;
     this.lookup = lookup;
     this.lookupMetrics = lookupMetrics;
+    final boolean storePlans = Config.getBool("plans.store.enabled", Config.getBool("metrics.store.enabled", true));
+    this.changeEnabled = Config.getBool("plans.change.enabled", storePlans);
+    this.firstObserved = Config.getBool("plans.change.firstObserved", true);
   }
 
   /**
@@ -66,6 +77,7 @@ public class IngestMessage {
         .setPlan(plan.plan)
         .setSql(plan.sql)
         .setHash(plan.hash)
+        .setQueryTimeMicros(plan.queryTimeMicros)
         .setCaptureCount(plan.captureCount)
         .setCaptureMicros(plan.captureMicros)
         .setLabel(plan.label)
@@ -83,7 +95,91 @@ public class IngestMessage {
 
     database.saveAll(newPlans);
     log.info("Obtained {} new query plans", newPlans.size());
+    if (changeEnabled) {
+      detectChanges(header.app(), header.env(), newPlans);
+    }
     markCollected(header.app(), header.env(), queryPlans.plans);
+  }
+
+  /**
+   * Detect plan-shape events for the freshly-saved plans and persist them.
+   *
+   * <p>For each new plan with a non-null shape (processed oldest-first) the most
+   * recent prior plan in the same {@code (app, env, hash)} series with a non-null
+   * shape and matching algorithm is found. No prior → FIRST (when enabled); a
+   * differing prior shape → CHANGED; an identical prior shape → nothing. The
+   * {@code toPlan} unique constraint makes this idempotent across retries.
+   */
+  private void detectChanges(DApp app, DEnv env, List<DQueryPlan> newPlans) {
+    final List<DQueryPlan> ordered = new ArrayList<>(newPlans);
+    ordered.sort(Comparator.comparing(DQueryPlan::whenCaptured,
+      Comparator.nullsLast(Comparator.naturalOrder())));
+
+    final List<DQueryPlanChange> events = new ArrayList<>();
+    for (DQueryPlan plan : ordered) {
+      final String shapeHash = plan.planShapeHash();
+      final Integer algo = plan.planShapeAlgo();
+      if (shapeHash == null || algo == null || plan.whenCaptured() == null) {
+        continue;
+      }
+      if (changeEventExists(plan)) {
+        continue;
+      }
+      final DQueryPlan prior = findPriorShaped(app, env, plan.hash(), algo, plan);
+      final DQueryPlanChange event;
+      if (prior == null) {
+        if (!firstObserved) {
+          continue;
+        }
+        event = new DQueryPlanChange(app, env, plan.hash(), plan)
+          .setChangeType(ChangeType.FIRST);
+      } else if (!shapeHash.equals(prior.planShapeHash())) {
+        event = new DQueryPlanChange(app, env, plan.hash(), plan)
+          .setChangeType(ChangeType.CHANGED)
+          .setFromPlan(prior)
+          .setFromShapeHash(prior.planShapeHash())
+          .setFromQueryTimeMicros(prior.queryTimeMicros());
+      } else {
+        continue;
+      }
+      event
+        .setLabel(plan.label())
+        .setToShapeHash(shapeHash)
+        .setAlgo(algo)
+        .setToQueryTimeMicros(plan.queryTimeMicros())
+        .setWhenCaptured(plan.whenCaptured())
+        .setDetectedAt(Instant.now());
+      events.add(event);
+    }
+    if (!events.isEmpty()) {
+      database.saveAll(events);
+      log.info("Detected {} query plan shape events", events.size());
+    }
+  }
+
+  private boolean changeEventExists(DQueryPlan toPlan) {
+    return new QDQueryPlanChange()
+      .toPlan.eq(toPlan)
+      .exists();
+  }
+
+  /**
+   * The most recent prior plan (by whenCaptured, then id) for this series with a
+   * non-null shape and matching algorithm, excluding the plan itself.
+   */
+  @Nullable
+  private DQueryPlan findPriorShaped(DApp app, DEnv env, String hash, int algo, DQueryPlan current) {
+    return new QDQueryPlan()
+      .app.eq(app)
+      .env.eq(env)
+      .hash.eq(hash)
+      .planShapeAlgo.eq(algo)
+      .planShapeHash.isNotNull()
+      .whenCaptured.lt(current.whenCaptured())
+      .id.ne(current.getId())
+      .orderBy().whenCaptured.desc().id.desc()
+      .setMaxRows(1)
+      .findOne();
   }
 
   /**
