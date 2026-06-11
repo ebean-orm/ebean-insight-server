@@ -2,8 +2,10 @@ package org.ebean.monitor.mcp.protocol;
 
 import io.avaje.jsonb.JsonType;
 import io.avaje.jsonb.Jsonb;
+import org.ebean.monitor.mcp.resources.PlanResources;
 import org.ebean.monitor.mcp.tools.InsightTools;
 import org.ebean.monitor.mcp.tools.TestApis;
+import org.ebean.monitor.v1.PlansApi;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -20,7 +22,8 @@ class McpJsonRpcTest {
   private final TestApis apis = new TestApis();
   private final InsightTools tools =
       new InsightTools(apis.apps, apis.envs, apis.metrics, apis.plans, jsonb);
-  private final McpJsonRpc rpc = new McpJsonRpc(new McpServer(), tools, jsonb);
+  private final PlanResources resources = new PlanResources(apis.plans);
+  private final McpJsonRpc rpc = new McpJsonRpc(new McpServer(), tools, resources, jsonb);
 
   private Map<String, Object> handleToMap(String body) {
     Optional<String> response = rpc.handle(body);
@@ -154,5 +157,80 @@ class McpJsonRpcTest {
         """);
     Map<String, Object> error = (Map<String, Object>) resp.get("error");
     assertThat(error.get("code")).isEqualTo((long) McpJsonRpc.INVALID_PARAMS);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void resourcesList_returnsPlanResources() {
+    Map<String, Object> resp = handleToMap("""
+        {"jsonrpc":"2.0","id":14,"method":"resources/list"}
+        """);
+    Map<String, Object> result = (Map<String, Object>) resp.get("result");
+    List<Map<String, Object>> list = (List<Map<String, Object>>) result.get("resources");
+    assertThat(list).extracting(r -> r.get("uri")).contains("insight://plan/15");
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void resourcesTemplatesList_returnsTemplate() {
+    Map<String, Object> resp = handleToMap("""
+        {"jsonrpc":"2.0","id":15,"method":"resources/templates/list"}
+        """);
+    Map<String, Object> result = (Map<String, Object>) resp.get("result");
+    List<Map<String, Object>> list = (List<Map<String, Object>>) result.get("resourceTemplates");
+    assertThat(list.get(0).get("uriTemplate")).isEqualTo("insight://plan/{id}");
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void resourcesRead_returnsMarkdownContents() {
+    Map<String, Object> resp = handleToMap("""
+        {"jsonrpc":"2.0","id":16,"method":"resources/read",
+         "params":{"uri":"insight://plan/15"}}
+        """);
+    Map<String, Object> result = (Map<String, Object>) resp.get("result");
+    List<Map<String, Object>> contents = (List<Map<String, Object>>) result.get("contents");
+    assertThat((String) contents.get(0).get("text")).contains("# Query plan 15");
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void resourcesRead_badUri_returnsInvalidParams() {
+    Map<String, Object> resp = handleToMap("""
+        {"jsonrpc":"2.0","id":17,"method":"resources/read",
+         "params":{"uri":"file:///nope"}}
+        """);
+    Map<String, Object> error = (Map<String, Object>) resp.get("error");
+    assertThat(error.get("code")).isEqualTo((long) McpJsonRpc.INVALID_PARAMS);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void resourcesRead_missingUri_returnsInvalidParams() {
+    Map<String, Object> resp = handleToMap("""
+        {"jsonrpc":"2.0","id":18,"method":"resources/read","params":{}}
+        """);
+    Map<String, Object> error = (Map<String, Object>) resp.get("error");
+    assertThat(error.get("code")).isEqualTo((long) McpJsonRpc.INVALID_PARAMS);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void upstreamFailure_returnsInternalError_notPropagated() {
+    // PlansApi that throws (e.g. upstream unreachable) — resources/list calls it.
+    PlansApi throwingPlans = TestApis.throwingPlans();
+    InsightTools failingTools =
+        new InsightTools(apis.apps, apis.envs, apis.metrics, throwingPlans, jsonb);
+    PlanResources failingResources = new PlanResources(throwingPlans);
+    McpJsonRpc failingRpc = new McpJsonRpc(new McpServer(), failingTools, failingResources, jsonb);
+
+    Optional<String> response = failingRpc.handle("""
+        {"jsonrpc":"2.0","id":20,"method":"resources/list"}
+        """);
+    assertThat(response).isPresent();
+    Map<String, Object> resp = mapType.fromJson(response.get());
+    Map<String, Object> error = (Map<String, Object>) resp.get("error");
+    assertThat(error.get("code")).isEqualTo((long) McpJsonRpc.INTERNAL_ERROR);
+    assertThat((String) error.get("message")).contains("boom");
   }
 }

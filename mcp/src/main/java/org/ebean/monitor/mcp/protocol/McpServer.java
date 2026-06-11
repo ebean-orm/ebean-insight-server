@@ -36,8 +36,8 @@ public class McpServer {
    * Build the {@code initialize} result: the negotiated protocol version, the
    * server capabilities, and server identity.
    * <p>
-   * Advertises the {@code tools} capability (resources are added in a later
-   * phase) — the server advertises only what it actually serves.
+   * Advertises the {@code tools} and {@code resources} capabilities (neither
+   * {@code subscribe} nor {@code listChanged} — captures are read on demand).
    */
   Map<String, Object> initializeResult(Map<String, Object> params) {
     Map<String, Object> result = new LinkedHashMap<>();
@@ -50,6 +50,7 @@ public class McpServer {
   private Map<String, Object> capabilities() {
     Map<String, Object> caps = new LinkedHashMap<>();
     caps.put("tools", new LinkedHashMap<>());
+    caps.put("resources", new LinkedHashMap<>());
     return caps;
   }
 

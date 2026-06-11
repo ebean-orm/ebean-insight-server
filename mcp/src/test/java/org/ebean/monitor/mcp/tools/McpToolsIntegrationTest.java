@@ -124,4 +124,25 @@ class McpToolsIntegrationTest {
     assertThat(apis.args("requestPlanCapture")).containsExactly("central-access", "abc123", "test");
     assertThat(textOf(result)).contains("\"pending\":1");
   }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void resourcesRead_fullStack_returnsPlanMarkdown() {
+    String body = """
+        {"jsonrpc":"2.0","id":1,"method":"resources/read",
+         "params":{"uri":"insight://plan/15"}}
+        """;
+    HttpResponse<String> res = httpClient.request()
+        .path("mcp")
+        .header("Authorization", BEARER)
+        .header("Content-Type", "application/json")
+        .body(body)
+        .POST()
+        .asString();
+
+    Map<String, Object> result = resultOf(res);
+    List<Map<String, Object>> contents = (List<Map<String, Object>>) result.get("contents");
+    assertThat((String) contents.get(0).get("text")).contains("# Query plan 15");
+    assertThat(apis.args("getPlan")).containsExactly(15L);
+  }
 }

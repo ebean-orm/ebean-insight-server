@@ -5,39 +5,54 @@ import org.ebean.monitor.v1.EnvsApi;
 import org.ebean.monitor.v1.MetricsApi;
 import org.ebean.monitor.v1.PlansApi;
 import org.ebean.monitor.v1.model.App;
-import org.ebean.monitor.v1.model.AppMetric;
-import org.ebean.monitor.v1.model.AppMetricStats;
-import org.ebean.monitor.v1.model.AppSummary;
 import org.ebean.monitor.v1.model.Env;
-import org.ebean.monitor.v1.model.MetricTimeseries;
-import org.ebean.monitor.v1.model.MissingPlanMetric;
-import org.ebean.monitor.v1.model.PendingPlan;
 import org.ebean.monitor.v1.model.PendingResponse;
 import org.ebean.monitor.v1.model.QueryPlan;
 import org.ebean.monitor.v1.model.QueryPlanSummary;
 
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
- * Hand-written stub implementations of the {@code /v1} API interfaces for unit
- * tests — they record the arguments of each call and return canned data, so
- * tools can be exercised without a running ebean-insight server.
+ * Test doubles for the {@code /v1} API interfaces, implemented as dynamic
+ * proxies so they remain valid as the generated API interfaces gain methods
+ * (the OpenAPI contract evolves independently). Each proxy:
+ * <ul>
+ *   <li>records {@code method name -> last call arguments} (see {@link #args}),</li>
+ *   <li>returns canned data for the handful of methods the tests assert on,</li>
+ *   <li>returns a safe default otherwise — an empty {@code List} for list
+ *       returns, else {@code null}.</li>
+ * </ul>
  */
 public final class TestApis {
 
   /** Records {@code method name -> last call arguments}. */
   public final Map<String, Object[]> calls = new HashMap<>();
 
-  public final Apps apps = new Apps();
-  public final Envs envs = new Envs();
-  public final Metrics metrics = new Metrics();
-  public final Plans plans = new Plans();
+  /** Canned return values keyed by method name. */
+  private final Map<String, Object> canned = new HashMap<>();
 
-  private void record(String method, Object... args) {
-    calls.put(method, args);
+  public final AppsApi apps;
+  public final EnvsApi envs;
+  public final MetricsApi metrics;
+  public final PlansApi plans;
+
+  public TestApis() {
+    canned.put("listApps", List.of(new App(1L, "central-access"), new App(2L, "central-notifications")));
+    canned.put("listEnvs", List.of(new Env("test"), new Env("dev")));
+    canned.put("listPlans", List.of(sampleSummary(15L)));
+    canned.put("getPlan", samplePlan(15L));
+    canned.put("requestPlanCapture", new PendingResponse(1, "central-access", "test", "orm.X.find"));
+
+    apps = proxy(AppsApi.class, new Recorder(calls, canned));
+    envs = proxy(EnvsApi.class, new Recorder(calls, canned));
+    metrics = proxy(MetricsApi.class, new Recorder(calls, canned));
+    plans = proxy(PlansApi.class, new Recorder(calls, canned));
   }
 
   public Object[] args(String method) {
@@ -54,132 +69,57 @@ public final class TestApis {
         "select 1", "[]", "Seq Scan", "shape", "h", 1);
   }
 
-  public final class Apps implements AppsApi {
-    @Override
-    public List<App> listApps(Long activeWithinMinutes, Long activeWithinHours) {
-      record("listApps", activeWithinMinutes, activeWithinHours);
-      return List.of(new App(1L, "central-access"));
-    }
-
-    @Override
-    public AppSummary getApp(String app) {
-      record("getApp", app);
-      return null;
-    }
+  static QueryPlanSummary sampleSummary(long id) {
+    return new QueryPlanSummary(id, 1L, "test", "hash" + id, "orm.X.find",
+        100L, 1L, Instant.parse("2026-06-01T00:00:00Z"), "shape", false);
   }
 
-  public final class Envs implements EnvsApi {
-    @Override
-    public List<Env> listEnvs() {
-      record("listEnvs");
-      return List.of(new Env("test"), new Env("dev"));
-    }
+  /**
+   * A {@link PlansApi} whose every {@code /v1} method throws — simulates the
+   * upstream insight server being unreachable. Used to verify error handling.
+   */
+  public static PlansApi throwingPlans() {
+    return proxy(PlansApi.class, (proxy, method, args) -> {
+      Object handled = objectMethod(proxy, method, args);
+      if (handled != NOT_OBJECT_METHOD) {
+        return handled;
+      }
+      throw new RuntimeException("boom");
+    });
   }
 
-  public final class Metrics implements MetricsApi {
-    public List<AppMetric> appMetrics = List.of();
-    public List<AppMetricStats> stats = List.of();
-    public List<MissingPlanMetric> missing = List.of();
-
-    @Override
-    public List<AppMetric> listAppMetrics(String app, String label, Boolean planCapable, Integer limit) {
-      record("listAppMetrics", app, label, planCapable, limit);
-      return appMetrics;
-    }
-
-    @Override
-    public List<AppMetric> listMetricsByLabel(String app, String label) {
-      record("listMetricsByLabel", app, label);
-      return List.of();
-    }
-
-    @Override
-    public List<AppMetric> getMetricByHash(String app, String hash) {
-      record("getMetricByHash", app, hash);
-      return List.of();
-    }
-
-    @Override
-    public List<AppMetricStats> getMetricStatsByHash(String app, String hash, Long sinceMinutes, Long sinceHours, String env) {
-      record("getMetricStatsByHash", app, hash, sinceMinutes, sinceHours, env);
-      return List.of();
-    }
-
-    @Override
-    public MetricTimeseries getMetricTimeseries(String app, String hash, Long sinceMinutes, Long sinceHours, String env) {
-      record("getMetricTimeseries", app, hash, sinceMinutes, sinceHours, env);
-      return null;
-    }
-
-    @Override
-    public List<AppMetricStats> topAppMetrics(String app, String orderBy, Long sinceMinutes, Long sinceHours, Integer limit, Boolean planCapable, String env) {
-      record("topAppMetrics", app, orderBy, sinceMinutes, sinceHours, limit, planCapable, env);
-      return stats;
-    }
-
-    @Override
-    public List<MissingPlanMetric> listMissingPlans(String app, String orderBy, Long sinceMinutes, Long sinceHours, Long olderThanMinutes, Long olderThanHours, Integer limit) {
-      record("listMissingPlans", app, orderBy, sinceMinutes, sinceHours, olderThanMinutes, olderThanHours, limit);
-      return missing;
-    }
-
-    @Override
-    public List<AppMetricStats> topMetrics(String orderBy, Long sinceMinutes, Long sinceHours, Integer limit, Boolean planCapable, String env) {
-      record("topMetrics", orderBy, sinceMinutes, sinceHours, limit, planCapable, env);
-      return stats;
-    }
-
-    @Override
-    public List<MissingPlanMetric> topMissingPlans(String orderBy, Long sinceMinutes, Long sinceHours, Long olderThanMinutes, Long olderThanHours, Integer limit) {
-      record("topMissingPlans", orderBy, sinceMinutes, sinceHours, olderThanMinutes, olderThanHours, limit);
-      return missing;
-    }
+  private static <T> T proxy(Class<T> api, InvocationHandler handler) {
+    return api.cast(Proxy.newProxyInstance(api.getClassLoader(), new Class<?>[]{api}, handler));
   }
 
-  public final class Plans implements PlansApi {
-    public List<QueryPlanSummary> planSummaries = List.of();
-    public QueryPlan plan = samplePlan(15L);
+  /** Sentinel distinguishing "this was an Object method" from a null return. */
+  private static final Object NOT_OBJECT_METHOD = new Object();
+
+  /** Handle equals/hashCode/toString on a proxy; return sentinel otherwise. */
+  private static Object objectMethod(Object proxy, Method method, Object[] args) {
+    return switch (method.getName()) {
+      case "toString" -> "TestApiProxy(" + method.getDeclaringClass().getSimpleName() + ")";
+      case "hashCode" -> System.identityHashCode(proxy);
+      case "equals" -> proxy == args[0];
+      default -> NOT_OBJECT_METHOD;
+    };
+  }
+
+  /** Records the call and returns canned data or a type-appropriate default. */
+  private record Recorder(Map<String, Object[]> calls, Map<String, Object> canned)
+      implements InvocationHandler {
 
     @Override
-    public List<QueryPlanSummary> listAppPlans(String app, String env, String label, String hash, Long sinceMinutes, Long sinceHours, Integer limit) {
-      record("listAppPlans", app, env, label, hash, sinceMinutes, sinceHours, limit);
-      return planSummaries;
-    }
-
-    @Override
-    public List<QueryPlanSummary> listPlansByHash(String app, String hash, String env, Integer limit) {
-      record("listPlansByHash", app, hash, env, limit);
-      return planSummaries;
-    }
-
-    @Override
-    public List<QueryPlanSummary> listPlansByLabel(String app, String label, String env, Integer limit) {
-      record("listPlansByLabel", app, label, env, limit);
-      return planSummaries;
-    }
-
-    @Override
-    public PendingResponse requestPlanCapture(String app, String hash, String env) {
-      record("requestPlanCapture", app, hash, env);
-      return new PendingResponse(1, app, env, "orm.X.find");
-    }
-
-    @Override
-    public QueryPlan getPlan(Long planId) {
-      record("getPlan", planId);
-      return plan;
-    }
-
-    @Override
-    public List<QueryPlanSummary> listPlans(String app, String env, String label, String hash, Long sinceMinutes, Long sinceHours, Integer limit) {
-      record("listPlans", app, env, label, hash, sinceMinutes, sinceHours, limit);
-      return planSummaries;
-    }
-
-    @Override
-    public List<PendingPlan> listPendingPlans(String app, String env) {
-      record("listPendingPlans", app, env);
-      return List.of();
+    public Object invoke(Object proxy, Method method, Object[] args) {
+      Object handled = objectMethod(proxy, method, args);
+      if (handled != NOT_OBJECT_METHOD) {
+        return handled;
+      }
+      calls.put(method.getName(), args == null ? new Object[0] : args);
+      if (canned.containsKey(method.getName())) {
+        return canned.get(method.getName());
+      }
+      return List.class.isAssignableFrom(method.getReturnType()) ? List.of() : null;
     }
   }
 }

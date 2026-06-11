@@ -3,6 +3,8 @@ package org.ebean.monitor.mcp.protocol;
 import io.avaje.jsonb.JsonType;
 import io.avaje.jsonb.Jsonb;
 import jakarta.inject.Singleton;
+import org.ebean.monitor.mcp.resources.PlanResources;
+import org.ebean.monitor.mcp.resources.UnknownResourceException;
 import org.ebean.monitor.mcp.tools.InsightTools;
 import org.ebean.monitor.mcp.tools.UnknownToolException;
 
@@ -30,15 +32,18 @@ public class McpJsonRpc {
   static final int INVALID_REQUEST = -32600;
   static final int METHOD_NOT_FOUND = -32601;
   static final int INVALID_PARAMS = -32602;
+  static final int INTERNAL_ERROR = -32603;
 
   private final McpServer server;
   private final InsightTools tools;
+  private final PlanResources resources;
   private final JsonType<Map<String, Object>> mapType;
 
   @SuppressWarnings({"unchecked", "rawtypes"})
-  public McpJsonRpc(McpServer server, InsightTools tools, Jsonb jsonb) {
+  public McpJsonRpc(McpServer server, InsightTools tools, PlanResources resources, Jsonb jsonb) {
     this.server = server;
     this.tools = tools;
+    this.resources = resources;
     this.mapType = (JsonType) jsonb.type(Map.class);
   }
 
@@ -68,7 +73,14 @@ public class McpJsonRpc {
       return Optional.of(error(id, INVALID_REQUEST, "Invalid Request"));
     }
 
-    return Optional.of(dispatch(id, method, asMap(request.get("params"))));
+    try {
+      return Optional.of(dispatch(id, method, asMap(request.get("params"))));
+    } catch (RuntimeException e) {
+      // Any unexpected failure (e.g. the upstream insight server is unreachable)
+      // is reported as a JSON-RPC internal error rather than a transport 500.
+      String message = e.getMessage() == null ? e.toString() : e.getMessage();
+      return Optional.of(error(id, INTERNAL_ERROR, message));
+    }
   }
 
   private String dispatch(Object id, String method, Map<String, Object> params) {
@@ -77,8 +89,34 @@ public class McpJsonRpc {
       case "ping" -> result(id, new LinkedHashMap<>());
       case "tools/list" -> result(id, toolsList());
       case "tools/call" -> toolsCall(id, params);
+      case "resources/list" -> result(id, resourcesList());
+      case "resources/templates/list" -> result(id, resourceTemplatesList());
+      case "resources/read" -> resourcesRead(id, params);
       default -> error(id, METHOD_NOT_FOUND, "Method not found: " + method);
     };
+  }
+
+  private Map<String, Object> resourcesList() {
+    Map<String, Object> result = new LinkedHashMap<>();
+    result.put("resources", resources.list());
+    return result;
+  }
+
+  private Map<String, Object> resourceTemplatesList() {
+    Map<String, Object> result = new LinkedHashMap<>();
+    result.put("resourceTemplates", resources.templates());
+    return result;
+  }
+
+  private String resourcesRead(Object id, Map<String, Object> params) {
+    if (params == null || !(params.get("uri") instanceof String uri)) {
+      return error(id, INVALID_PARAMS, "Missing resource uri");
+    }
+    try {
+      return result(id, resources.read(uri));
+    } catch (UnknownResourceException e) {
+      return error(id, INVALID_PARAMS, e.getMessage());
+    }
   }
 
   private Map<String, Object> toolsList() {
