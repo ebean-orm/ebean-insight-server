@@ -1,0 +1,145 @@
+package org.ebean.monitor.mcp.tools;
+
+import io.avaje.jsonb.JsonType;
+import io.avaje.jsonb.Jsonb;
+import org.junit.jupiter.api.Test;
+
+import java.util.List;
+import java.util.Map;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+class InsightToolsTest {
+
+  private final Jsonb jsonb = Jsonb.builder().build();
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  private final JsonType<Map<String, Object>> mapType = (JsonType) jsonb.type(Map.class);
+
+  private final TestApis apis = new TestApis();
+  private final InsightTools tools =
+      new InsightTools(apis.apps, apis.envs, apis.metrics, apis.plans, jsonb);
+
+  @SuppressWarnings("unchecked")
+  private String textOf(Map<String, Object> result) {
+    List<Map<String, Object>> content = (List<Map<String, Object>>) result.get("content");
+    return (String) content.get(0).get("text");
+  }
+
+  @Test
+  void definitions_listAllSevenTools() {
+    List<String> names = tools.definitions().stream().map(d -> (String) d.get("name")).toList();
+    assertThat(names).containsExactly(
+        "apps", "envs", "metrics", "top", "plans", "plan", "missing-plans");
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void definitions_metricsRequiresApp_appsHasNoRequired() {
+    Map<String, Object> metrics = byName("metrics");
+    Map<String, Object> schema = (Map<String, Object>) metrics.get("inputSchema");
+    assertThat(schema.get("type")).isEqualTo("object");
+    assertThat((List<String>) schema.get("required")).containsExactly("app");
+
+    Map<String, Object> apps = byName("apps");
+    Map<String, Object> appsSchema = (Map<String, Object>) apps.get("inputSchema");
+    assertThat(appsSchema).doesNotContainKey("required");
+  }
+
+  private Map<String, Object> byName(String name) {
+    return tools.definitions().stream()
+        .filter(d -> name.equals(d.get("name"))).findFirst().orElseThrow();
+  }
+
+  @Test
+  void apps_passesActiveWindowArgs_andReturnsJson() {
+    Map<String, Object> result = tools.call("apps", Map.of("activeWithinMinutes", 30));
+    assertThat(result.get("isError")).isEqualTo(false);
+    assertThat(textOf(result)).contains("central-access");
+    assertThat(apis.args("listApps")).containsExactly(30L, null);
+  }
+
+  @Test
+  void envs_returnsJsonArray() {
+    Map<String, Object> result = tools.call("envs", null);
+    assertThat(apis.called("listEnvs")).isTrue();
+    assertThat(textOf(result)).contains("test").contains("dev");
+  }
+
+  @Test
+  void metrics_passesAllArgs() {
+    tools.call("metrics", Map.of("app", "central-access", "label", "orm.X", "planCapable", true, "limit", 50));
+    assertThat(apis.args("listAppMetrics")).containsExactly("central-access", "orm.X", true, 50);
+  }
+
+  @Test
+  void metrics_missingApp_isError() {
+    Map<String, Object> result = tools.call("metrics", Map.of());
+    assertThat(result.get("isError")).isEqualTo(true);
+    assertThat(textOf(result)).contains("app");
+    assertThat(apis.called("listAppMetrics")).isFalse();
+  }
+
+  @Test
+  void top_withApp_callsTopAppMetrics() {
+    tools.call("top", Map.of("app", "central-access", "orderBy", "mean", "limit", 10));
+    assertThat(apis.called("topAppMetrics")).isTrue();
+    assertThat(apis.called("topMetrics")).isFalse();
+    Object[] a = apis.args("topAppMetrics");
+    assertThat(a[0]).isEqualTo("central-access");
+    assertThat(a[1]).isEqualTo("mean");
+    assertThat(a[4]).isEqualTo(10);
+  }
+
+  @Test
+  void top_withoutApp_callsTopMetricsAcrossAllApps() {
+    tools.call("top", Map.of("orderBy", "total"));
+    assertThat(apis.called("topMetrics")).isTrue();
+    assertThat(apis.called("topAppMetrics")).isFalse();
+  }
+
+  @Test
+  void plans_passesFilters() {
+    tools.call("plans", Map.of("app", "central-access", "env", "test", "limit", 5));
+    Object[] a = apis.args("listPlans");
+    assertThat(a[0]).isEqualTo("central-access");
+    assertThat(a[1]).isEqualTo("test");
+    assertThat(a[6]).isEqualTo(5);
+  }
+
+  @Test
+  void plan_passesIdAsLong() {
+    Map<String, Object> result = tools.call("plan", Map.of("id", 15));
+    assertThat(result.get("isError")).isEqualTo(false);
+    assertThat(apis.args("getPlan")).containsExactly(15L);
+    assertThat(textOf(result)).contains("\"id\":15");
+  }
+
+  @Test
+  void plan_missingId_isError() {
+    Map<String, Object> result = tools.call("plan", Map.of());
+    assertThat(result.get("isError")).isEqualTo(true);
+    assertThat(apis.called("getPlan")).isFalse();
+  }
+
+  @Test
+  void missingPlans_withApp_callsListMissingPlans() {
+    tools.call("missing-plans", Map.of("app", "central-access"));
+    assertThat(apis.called("listMissingPlans")).isTrue();
+    assertThat(apis.called("topMissingPlans")).isFalse();
+  }
+
+  @Test
+  void missingPlans_withoutApp_callsTopMissingPlans() {
+    tools.call("missing-plans", Map.of("limit", 20));
+    assertThat(apis.called("topMissingPlans")).isTrue();
+    assertThat(apis.called("listMissingPlans")).isFalse();
+  }
+
+  @Test
+  void unknownTool_throws() {
+    assertThatThrownBy(() -> tools.call("nope", Map.of()))
+        .isInstanceOf(UnknownToolException.class)
+        .hasMessageContaining("nope");
+  }
+}

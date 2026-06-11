@@ -1,0 +1,8 @@
+## Test configuration for @InjectTest.
+## Enables inbound bearer auth so the wired server enforces it end-to-end.
+mcp:
+  tokens: "test:test-secret"
+
+## avaje-jex-test starts the server on an ephemeral port; this is ignored there
+## but keeps config consistent if run standalone.
+server.port: 0

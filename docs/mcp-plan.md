@@ -32,7 +32,7 @@ This document is the agreed plan; it does not yet describe shipped code.
 | Concern | Choice |
 |---|---|
 | HTTP server | **avaje-jex** (native-friendly, matches the existing server module) |
-| MCP SDK | **`io.modelcontextprotocol.sdk:mcp`** (official Java SDK), with a custom Streamable HTTP transport adapter for Jex |
+| MCP protocol | **Hand-rolled JSON-RPC 2.0** over avaje-jex + avaje-jsonb (Map-based dynamic JSON, reflection-free). The official `io.modelcontextprotocol.sdk:mcp` was evaluated and rejected for this module: SDK 2.0 pulls in Jackson + Reactor, a poor fit for a lean native-image avaje server, and our protocol surface (initialize, ping, tools, resources) is small. |
 | JSON | **avaje-jsonb** (matches rest of stack) |
 | Config | **avaje-config** (yaml + env override) |
 | Build | Native image via GraalVM, Linux x86_64, mirroring `server/`'s native profile |
@@ -223,8 +223,8 @@ mcp/
 | **−1b** | `cli` | Remove the dead `Insight-Key` plumbing (`--insight-key` / `INSIGHT_KEY` / `insight-key` config key / request interceptor). CLI `/v1` auth stays as the existing OAuth2 JWT flow; the shared-secret api-key is left for the MCP server (no CLI `--api-key` yet). | **DONE** — CLI no longer carries dead Insight-Key auth; 96 cli tests pass. |
 | **0** | new `mcp/` module | Module skeleton, parent pom, native + jib wiring | **DONE** — Jex server boots; uses Jex's built-in health (`/health/liveness` + `/health/readiness` → ok). JVM + GraalVM native both verified (native build ~27s, boots in ~2ms). |
 | **1** | `mcp/` | Bearer auth filter (inbound `MCP_TOKEN` list) + `/health` + token store | **DONE** — `TokenStore` (`mcp.tokens` = `name:value,…`, rotation, constant-time), `BearerAuthFilter` (permit `/health`, 401 otherwise, binds `security.principal`), `McpAuthConfiguration` `@Factory`. 19 tests incl. real-HTTP integration (401 vs 200 vs permit). JVM + native verified. |
-| **2** | `mcp/` | MCP SDK + Jex Streamable HTTP transport | `initialize` JSON-RPC handshake works |
-| **3** | `mcp/` | Read-only tools (`apps`, `envs`, `metrics`, `top`, `plans`, `plan`, `missing-plans`) | Claude can browse insight data |
+| **2** | `mcp/` | MCP SDK + Jex Streamable HTTP transport | **DONE** — *hand-rolled* JSON-RPC over Jex + avaje-jsonb (SDK 2.0 drags in Jackson+Reactor; protocol surface is small). `McpController` (`@Controller @Post /mcp`), `McpJsonRpc` (initialize/ping/notify/errors, Map-based dynamic JSON = native-safe), `McpServer` (version negotiation). `@InjectTest` + auto-wired `HttpClient` tests (handshake 200 / 401 / 202 notification / open health). JVM + native verified — native binary completes the real handshake. |
+| **3** | `mcp/` | Read-only tools (`apps`, `envs`, `metrics`, `top`, `plans`, `plan`, `missing-plans`) | **DONE** — `tools/list` + `tools/call` over `InsightTools` (7 tools wrapping the typed `/v1` clients; per-tool JSON-schema; results as JSON text content; tool errors → `isError`). `InsightApiClients` factory builds the outbound client (Bearer `insight.api.key`). 50 tests — incl. a full `@InjectTest` integration test (`McpToolsIntegrationTest`) that boots the stack and overrides the 4 `/v1` API beans with field-injected test doubles, exercising HTTP→controller→JSON-RPC→tools→doubles. Also verified on the **native binary against live test central-insight** — real apps/envs/top data returned. |
 | **4** | `mcp/` | `capture` tool | Claude can request fresh plans |
 | **5** | `mcp/` | Plans-as-resources | Claude can attach plan markdown as context |
 | **6** | `mcp/` + workflows | Native-image hardening + release wiring (`v*` tag → image + zip) | Same release flow as server/CLI |

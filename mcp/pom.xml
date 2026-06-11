@@ -41,6 +41,12 @@
 
     <dependency>
       <groupId>io.avaje</groupId>
+      <artifactId>avaje-http-api</artifactId>
+      <version>${avaje-http.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.avaje</groupId>
       <artifactId>avaje-simple-logger</artifactId>
       <version>2.0</version>
     </dependency>
@@ -64,6 +70,20 @@
     </dependency>
 
     <!-- Test dependencies -->
+
+    <dependency>
+      <groupId>io.avaje</groupId>
+      <artifactId>avaje-inject-test</artifactId>
+      <version>${avaje-inject.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>io.avaje</groupId>
+      <artifactId>avaje-jex-test</artifactId>
+      <version>${avaje-jex.version}</version>
+      <scope>test</scope>
+    </dependency>
 
     <dependency>
       <groupId>io.avaje</groupId>
@@ -92,6 +112,16 @@
               <groupId>io.avaje</groupId>
               <artifactId>avaje-jsonb-generator</artifactId>
               <version>${avaje-jsonb.version}</version>
+            </path>
+            <path>
+              <groupId>io.avaje</groupId>
+              <artifactId>avaje-http-jex-generator</artifactId>
+              <version>${avaje-http.version}</version>
+            </path>
+            <path>
+              <groupId>io.avaje</groupId>
+              <artifactId>avaje-http-client-generator</artifactId>
+              <version>${avaje-http.version}</version>
             </path>
           </annotationProcessorPaths>
         </configuration>
