@@ -1,4 +1,4 @@
-server.port: 8092
+server.port: ${SERVER_PORT:8092}
 
 app.name: ebean-insight-mcp
 
@@ -7,16 +7,18 @@ app.name: ebean-insight-mcp
 ##
 insight:
   ## Base URL of the ebean-insight server /v1 API.
-  url: "http://localhost:8091"
+  url: ${INSIGHT_URL:http://localhost:8092}
   ## Shared-secret API key sent as `Authorization: Bearer <key>` to the insight
   ## server (matches the server's insight.api.key). Leave unset when the insight
   ## server has auth disabled (e.g. reached via localhost / port-forward).
-  api.key: ""
+  api.key: ${INSIGHT_API_KEY}
 
 ##
-## Inbound MCP client auth (wired in a later phase): bearer token(s) callers
-## must present as `Authorization: Bearer <token>`. Accepts a single token or a
-## comma separated list (old,new) for rotation. Unset leaves the server open.
+## Inbound MCP client auth: bearer token(s) callers must present as
+## `Authorization: Bearer <token>`. Format is a comma separated list of
+## name:value entries (the name is a label for audit logging), e.g.
+## `claude-desktop:abc123,cli-agent:def456`. Unset leaves the server open
+## (protected only by network isolation). /health is always open.
 ##
 mcp:
-  tokens: ""
+  tokens: ${MCP_TOKENS}

@@ -15,6 +15,9 @@
   [`docs/install-server.md`](docs/install-server.md)
 - **CLI** (`insight`) — per-OS binaries for macOS, Linux, Windows:
   [`docs/install-cli.md`](docs/install-cli.md)
+- **MCP server** — expose the `/v1` API to AI agents over the Model Context
+  Protocol: [`docs/install-mcp.md`](docs/install-mcp.md) ·
+  [connecting clients](docs/connect-mcp-clients.md)
 
 For the server's full configuration / mode reference see
 [`docs/deployment-modes.md`](docs/deployment-modes.md). To require OAuth2 JWT
@@ -30,6 +33,7 @@ day-to-day CLI usage see [`cli/README.md`](cli/README.md).
 | `server` | The running service: ingest endpoints, rollups, UI, and `/v1` controllers. |
 | `forwarder` | Library that maintains a stable local endpoint to the server via a supervised `kubectl port-forward`. See [`forwarder/README.md`](forwarder/README.md). |
 | `cli` | `insight` command line tool over the `/v1` API; compiles to a native binary. See [`cli/README.md`](cli/README.md). |
+| `mcp` | Model Context Protocol server exposing the `/v1` API to AI agents; compiles to a native binary. See [`docs/install-mcp.md`](docs/install-mcp.md). |
 
 ## /v1 API (agent / CLI / tooling)
 

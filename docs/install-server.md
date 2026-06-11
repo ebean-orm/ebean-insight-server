@@ -301,5 +301,6 @@ INSIGHT_KEY=change-me
 - **Mode/config reference** — [`deployment-modes.md`](deployment-modes.md)
 - **Authentication (JWT bearer)** — [`auth.md`](auth.md)
 - **CLI install** — [`install-cli.md`](install-cli.md)
+- **MCP server install** — [`install-mcp.md`](install-mcp.md)
 - **/v1 API reference** — [top-level README](../README.md#v1-api-agent--cli--tooling)
 - **Verify with a real OTLP stack** — [`verify/README.md`](../verify/README.md)
