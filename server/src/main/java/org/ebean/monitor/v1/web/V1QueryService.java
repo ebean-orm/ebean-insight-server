@@ -35,8 +35,13 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -704,13 +709,54 @@ public final class V1QueryService {
     if (window.hasFrom()) {
       q.whenCreated.gt(window.from());
     }
-    return q
+    final List<DQueryPlan> plans = q
       .orderBy().whenCreated.desc()
       .setMaxRows(limit)
-      .findList()
-      .stream()
-      .map(V1QueryService::toQueryPlanSummary)
-      .toList();
+      .findList();
+
+    final Set<Long> changedIds = computeShapeChanges(plans);
+    final List<QueryPlanSummary> result = new ArrayList<>(plans.size());
+    for (DQueryPlan p : plans) {
+      result.add(toQueryPlanSummary(p, changedIds.contains((long) p.getId())));
+    }
+    return result;
+  }
+
+  /**
+   * Determine which plans are shape "change points" within their (env, hash) series.
+   *
+   * <p>A change point is a capture whose non-null planShapeHash differs from the most
+   * recent earlier non-null planShapeHash in the same series. The earliest captured
+   * shape is a baseline (not a change), and placeholder rows with a null shape are
+   * neither a baseline nor a change point (they are skipped, carrying the baseline
+   * forward).
+   */
+  static Set<Long> computeShapeChanges(List<DQueryPlan> plans) {
+    final Map<String, List<DQueryPlan>> series = new LinkedHashMap<>();
+    for (DQueryPlan p : plans) {
+      final String key = p.env().getName() + '\u0000' + p.hash();
+      series.computeIfAbsent(key, k -> new ArrayList<>()).add(p);
+    }
+    final Comparator<DQueryPlan> asc = Comparator
+      .comparing(DQueryPlan::whenCaptured, Comparator.nullsLast(Comparator.naturalOrder()))
+      .thenComparingInt(DQueryPlan::getId);
+
+    final Set<Long> changed = new HashSet<>();
+    for (List<DQueryPlan> group : series.values()) {
+      group.sort(asc);
+      String last = null;
+      for (DQueryPlan p : group) {
+        final String shape = p.planShapeHash();
+        if (shape == null) {
+          continue;
+        }
+        if (last != null && !shape.equals(last)) {
+          changed.add((long) p.getId());
+        }
+        last = shape;
+      }
+    }
+    return changed;
   }
 
   @Nullable
@@ -841,6 +887,10 @@ public final class V1QueryService {
   }
 
   static QueryPlanSummary toQueryPlanSummary(DQueryPlan p) {
+    return toQueryPlanSummary(p, false);
+  }
+
+  static QueryPlanSummary toQueryPlanSummary(DQueryPlan p, boolean shapeChanged) {
     return QueryPlanSummary.builder()
       .id((long) p.getId())
       .appMetricId(p.metric() == null ? 0L : (long) p.metric().getId())
@@ -850,6 +900,8 @@ public final class V1QueryService {
       .queryTimeMicros(p.queryTimeMicros())
       .captureCount(p.captureCount())
       .whenCaptured(p.whenCaptured())
+      .planShapeHash(p.planShapeHash())
+      .shapeChanged(shapeChanged)
       .build();
   }
 
@@ -867,6 +919,9 @@ public final class V1QueryService {
       .sql(p.sql())
       .bind(p.bind())
       .plan(p.plan())
+      .planShape(p.planShape())
+      .planShapeHash(p.planShapeHash())
+      .planShapeAlgo(p.planShapeAlgo())
       .build();
   }
 }

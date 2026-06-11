@@ -830,6 +830,10 @@ components:
         whenCaptured:
           type: string
           format: date-time
+        planShapeHash:
+          type: string
+        shapeChanged:
+          type: boolean
 
     QueryPlan:
       type: object
@@ -865,6 +869,13 @@ components:
           type: string
         plan:
           type: string
+        planShape:
+          type: string
+        planShapeHash:
+          type: string
+        planShapeAlgo:
+          type: integer
+          format: int32
 
     PendingResponse:
       type: object
