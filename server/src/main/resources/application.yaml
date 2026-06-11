@@ -37,6 +37,13 @@ insight:
   ## from `auth.enabled`: the JWT filter permits /api/ingest, so this is what
   ## authenticates the ingest path.
   ingest.key: ""
+  ## Read-side API shared secret: when auth.enabled=true, /v1 requests may present
+  ## a matching `Authorization: Bearer <key>` as an alternative to a Cognito JWT
+  ## (used by the CLI and the MCP server). Unset (default) means /v1 is JWT-only
+  ## when auth is enabled. Accepts a single key or a comma separated list (old,new)
+  ## for rotation. Separate from `ingest.key` (metric ingestion) — different
+  ## credential, different blast radius.
+  api.key: ""
 
 ##
 ## Forwarder: forward incoming metrics to an OTLP/HTTP endpoint (e.g. Grafana Alloy).

@@ -10,10 +10,12 @@ import io.avaje.oauth2.core.jwt.JwtVerifier;
 import io.avaje.oauth2.core.jwt.JwtVerifyException;
 import io.avaje.oauth2.core.jwt.SignedJwt;
 import io.avaje.oauth2.jex.jwtfilter.JwtAuthFilter;
+import org.ebean.monitor.web.ApiKeyValidator;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Proxy;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -34,7 +36,11 @@ class AuthConfigurationTest {
   }
 
   private JwtAuthFilter filter() {
-    return new AuthConfiguration().jwtAuthFilter(new FakeVerifier());
+    return filter(new ApiKeyValidator(List.of()));
+  }
+
+  private JwtAuthFilter filter(ApiKeyValidator apiKeyValidator) {
+    return new AuthConfiguration().jwtAuthFilter(new FakeVerifier(), apiKeyValidator);
   }
 
   @Test
@@ -81,6 +87,41 @@ class AuthConfigurationTest {
     assertThatThrownBy(() -> filter().filter(context("Bearer nope", "/v1/apps"), chain))
       .isInstanceOf(HttpResponseException.class)
       .satisfies(e -> assertThat(((HttpResponseException) e).status()).isEqualTo(401));
+  }
+
+  @Test
+  void apiKey_acceptedAsBearer_onV1_skipsJwt() {
+    FakeChain chain = new FakeChain();
+    // FakeVerifier would reject "api-secret"; acceptance proves the api-key path won.
+    filter(new ApiKeyValidator(List.of("api-secret")))
+      .filter(context("Bearer api-secret", "/v1/apps"), chain);
+    assertThat(chain.proceeded).isTrue();
+  }
+
+  @Test
+  void apiKey_enabled_validJwtStillWorks() {
+    FakeChain chain = new FakeChain();
+    filter(new ApiKeyValidator(List.of("api-secret")))
+      .filter(context("Bearer " + VALID_TOKEN, "/v1/apps"), chain);
+    assertThat(chain.proceeded).isTrue();
+  }
+
+  @Test
+  void apiKey_enabled_wrongTokenAndInvalidJwt_throws401() {
+    FakeChain chain = new FakeChain();
+    assertThatThrownBy(() -> filter(new ApiKeyValidator(List.of("api-secret")))
+      .filter(context("Bearer nope", "/v1/apps"), chain))
+      .isInstanceOf(HttpResponseException.class)
+      .satisfies(e -> assertThat(((HttpResponseException) e).status()).isEqualTo(401));
+    assertThat(chain.proceeded).isFalse();
+  }
+
+  @Test
+  void apiKey_enabled_permittedPathStillOpenWithoutToken() {
+    FakeChain chain = new FakeChain();
+    filter(new ApiKeyValidator(List.of("api-secret")))
+      .filter(context(null, "/health/liveness"), chain);
+    assertThat(chain.proceeded).isTrue();
   }
 
   @Test

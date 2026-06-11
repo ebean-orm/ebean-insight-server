@@ -7,6 +7,7 @@ import io.avaje.inject.RequiresProperty;
 import io.avaje.jex.spi.JexPlugin;
 import io.avaje.oauth2.core.jwt.JwtVerifier;
 import io.avaje.oauth2.jex.jwtfilter.JwtAuthFilter;
+import org.ebean.monitor.web.ApiKeyValidator;
 
 /**
  * Wires JWT bearer authentication for the server.
@@ -21,6 +22,11 @@ import io.avaje.oauth2.jex.jwtfilter.JwtAuthFilter;
  *   <li>{@code /health} — Kubernetes liveness/readiness probes</li>
  *   <li>{@code /api/ingest} — app forwarders authenticated via the Insight-Key header</li>
  * </ul>
+ * As an alternative to a JWT, a request may present a shared-secret API key as
+ * {@code Authorization: Bearer <key>} when {@code insight.api.key} is configured
+ * (see {@link ApiKeyValidator}); this is wired via the filter's bearerAuthoriser
+ * hook and is what the CLI and MCP server use.
+ * <p>
  * Note this locks the browser UI until a UI login flow exists.
  */
 @Factory
@@ -41,13 +47,19 @@ class AuthConfiguration {
 
   /**
    * The Jex auth filter permitting health probes and Insight-Key ingestion.
+   * <p>
+   * When {@code insight.api.key} is configured the {@link ApiKeyValidator} is
+   * supplied as the bearerAuthoriser, so a matching {@code Authorization: Bearer}
+   * API key authenticates the request and JWT verification is skipped. When no
+   * API key is configured the hook is left unset and behaviour is JWT-only.
    */
   @Bean
-  JwtAuthFilter jwtAuthFilter(JwtVerifier jwtVerifier) {
+  JwtAuthFilter jwtAuthFilter(JwtVerifier jwtVerifier, ApiKeyValidator apiKeyValidator) {
     return JwtAuthFilter.builder()
       .permit("/health")
       .permit("/api/ingest")
       .verifier(jwtVerifier)
+      .bearerAuthoriser(apiKeyValidator.enabled() ? apiKeyValidator::principalFor : null)
       .build();
   }
 
