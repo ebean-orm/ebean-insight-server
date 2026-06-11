@@ -134,5 +134,10 @@ then use `http://localhost:8092/mcp` as the URL.
   reach `INSIGHT_URL`. Check the URL and network path.
 - **Empty `plans` / `resources/list`** — no captures yet; use the `capture`
   tool (or the CLI) to request one, then retry.
+- **`GET /mcp` returns 405 / client logs "no SSE stream"** — expected. The
+  server has no server-initiated messages, so it does not offer the optional
+  Streamable-HTTP `GET` SSE stream and returns `405 Method Not Allowed` (with
+  `Allow: POST`), the spec's "no stream offered here" signal. Compliant clients
+  treat this as benign and operate over `POST /mcp`; it is not an error.
 
 See [`install-mcp.md`](install-mcp.md) for server configuration.

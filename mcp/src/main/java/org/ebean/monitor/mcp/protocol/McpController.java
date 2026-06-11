@@ -1,6 +1,7 @@
 package org.ebean.monitor.mcp.protocol;
 
 import io.avaje.http.api.Controller;
+import io.avaje.http.api.Get;
 import io.avaje.http.api.Path;
 import io.avaje.http.api.Post;
 import io.avaje.jex.http.Context;
@@ -19,6 +20,14 @@ import java.util.Optional;
  * The dynamic JSON-RPC body is handled via {@link Context} (mirroring the
  * server's ingest controller) rather than typed parameters, so no typed client
  * is generated — callers use the protocol directly.
+ * <p>
+ * The Streamable-HTTP transport also lets a client open a {@code GET /mcp}
+ * SSE stream for server-initiated messages. This server has none (every
+ * response is returned inline on the {@code POST}), so per the MCP spec the
+ * {@code GET} returns {@code 405 Method Not Allowed} with an {@code Allow}
+ * header — the documented way to signal "no SSE stream offered here". Compliant
+ * clients treat 405 as benign and proceed over POST; returning 404 instead made
+ * clients surface a spurious "Failed to open SSE stream" error.
  */
 @Controller
 @Path("/mcp")
@@ -39,5 +48,11 @@ public class McpController {
     }
     ctx.status(200).contentType("application/json");
     ctx.write(response.get());
+  }
+
+  @Get
+  void noSseStream(Context ctx) {
+    ctx.header("Allow", "POST");
+    ctx.writeEmpty(405);
   }
 }

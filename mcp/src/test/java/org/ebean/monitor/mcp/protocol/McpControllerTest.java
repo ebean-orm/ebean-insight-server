@@ -83,6 +83,26 @@ class McpControllerTest {
   }
 
   @Test
+  void getMcp_withToken_returns405WithAllowHeader() {
+    HttpResponse<String> res = httpClient.request()
+        .path("mcp")
+        .header("Authorization", BEARER)
+        .header("Accept", "text/event-stream")
+        .GET().asString();
+    assertThat(res.statusCode()).isEqualTo(405);
+    assertThat(res.headers().firstValue("Allow")).contains("POST");
+  }
+
+  @Test
+  void getMcp_withoutToken_401() {
+    HttpResponse<String> res = httpClient.request()
+        .path("mcp")
+        .header("Accept", "text/event-stream")
+        .GET().asString();
+    assertThat(res.statusCode()).isEqualTo(401);
+  }
+
+  @Test
   @SuppressWarnings("unchecked")
   void toolsList_withToken_returnsCatalog() {
     HttpResponse<String> res = postMcp("""
