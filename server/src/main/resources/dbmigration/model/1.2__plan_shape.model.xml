@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<migration xmlns="http://ebean-orm.github.io/xml/ns/dbmigration">
+    <changeSet type="apply">
+        <addColumn tableName="ebean_insight.query_plan">
+            <column name="plan_shape" type="varchar"/>
+            <column name="plan_shape_hash" type="varchar"/>
+            <column name="plan_shape_algo" type="integer"/>
+        </addColumn>
+    </changeSet>
+</migration>

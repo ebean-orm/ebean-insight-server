@@ -51,6 +51,13 @@ public class DQueryPlan extends BaseDomain {
   @Column
   private String plan;
 
+  @Column
+  private String planShape;
+  @Column
+  private String planShapeHash;
+  @Column
+  private Integer planShapeAlgo;
+
   public DQueryPlan(DApp app, DEnv env, DAppMetric metric) {
     this.app = app;
     this.env = env;
@@ -147,6 +154,33 @@ public class DQueryPlan extends BaseDomain {
 
   public DQueryPlan setPlan(String plan) {
     this.plan = plan;
+    return this;
+  }
+
+  public String planShape() {
+    return planShape;
+  }
+
+  public DQueryPlan setPlanShape(String planShape) {
+    this.planShape = planShape;
+    return this;
+  }
+
+  public String planShapeHash() {
+    return planShapeHash;
+  }
+
+  public DQueryPlan setPlanShapeHash(String planShapeHash) {
+    this.planShapeHash = planShapeHash;
+    return this;
+  }
+
+  public Integer planShapeAlgo() {
+    return planShapeAlgo;
+  }
+
+  public DQueryPlan setPlanShapeAlgo(Integer planShapeAlgo) {
+    this.planShapeAlgo = planShapeAlgo;
     return this;
   }
 }

@@ -1,0 +1,25 @@
+QUERY PLAN
+Limit  (cost=97.45..97.45 rows=1 width=1146) (actual time=0.906..0.917 rows=84 loops=1)
+  Output: t0.id, t0.gid, t0.name, t0.polygon
+  Buffers: shared hit=129
+  ->  Sort  (cost=97.45..97.45 rows=1 width=1146) (actual time=0.905..0.910 rows=84 loops=1)
+        Output: t0.id, t0.gid, t0.name, t0.polygon
+        Sort Key: t0.name DESC
+        Sort Method: quicksort  Memory: 46kB
+        Buffers: shared hit=129
+        ->  Nested Loop  (cost=0.83..97.44 rows=1 width=1146) (actual time=0.083..0.771 rows=84 loops=1)
+              Output: t0.id, t0.gid, t0.name, t0.polygon
+              Buffers: shared hit=129
+              ->  Index Scan using idx_organisation_common_id on central.organisation t1  (cost=0.41..5.45 rows=1 width=8) (actual time=0.044..0.052 rows=1 loops=1)
+                    Output: t1.id, t1.version, t1.created, t1.last_modified, t1.common_identifier, t1.name, t1.address_street, t1.address_suburb, t1.address_city, t1.address_postcode, t1.address_country, t1.phone, t1.mobile, t1.fax, t1.active, t1.ruc_customer_number, t1.locale, t1.timezone, t1.address_region, t1.third_parties, t1.logbook_registration_number, t1.gid, t1.industry_code, t1.us_dot_number, t1.hos_cycle, t1.origin, t1.external_id, t1.external_last_modified
+                    Index Cond: ((t1.common_identifier)::text = 'MarksMegaTrucks1556594009333'::text)
+                    Buffers: shared hit=5
+              ->  Index Scan using uk_geofence on central.geofence t0  (cost=0.41..90.85 rows=38 width=1154) (actual time=0.035..0.684 rows=84 loops=1)
+                    Output: t0.id, t0.common_identifier, t0.name, t0.version, t0.created, t0.last_modified, t0.active, t0.organisation_id, t0.polygon, t0.entry_notification, t0.exit_notification, t0.speed_limit, t0.virtual_speed_notification, t0.contains_public_road, t0.public_override_reason, t0.public_override_category, t0.gid, t0.safety_time_limit, t0.created_by, t0.expiry_date, t0.origin, t0.external_id, t0.external_last_modified
+                    Index Cond: (t0.organisation_id = t1.id)
+                    Buffers: shared hit=124
+Query Identifier: -7962288118334330560
+Planning:
+  Buffers: shared hit=16
+Planning Time: 0.342 ms
+Execution Time: 0.947 ms

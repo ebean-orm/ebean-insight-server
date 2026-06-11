@@ -1,0 +1,24 @@
+QUERY PLAN
+Limit  (cost=5.50..5.51 rows=1 width=464) (actual time=0.051..0.052 rows=0 loops=1)
+  Output: t0.id, t0.sequence_number, t0.event_timestamp, t0.longitude, t0.latitude, t0.course_over_ground, t0.speed_gps_kph, t0.gps_accuracy, t0.fix_type, t0.odometer_total, t0.distance_from_road_segment, t0.distance_from_public_road_segment, t0.cell_signal_strength, t0.offroad, t0.near_city, t0.address_number, t0.additional_data, t0.created, t0.ebox_id, t0.ebox_event_type_id, t0.machine_id, t0.ebox_status_id, t0.road_segment_id, t0.location_level1_id, t0.location_level2_id, t0.location_level3_id, t0.location_level4_id, t0.location_level5_id
+  Buffers: shared hit=3
+  ->  Sort  (cost=5.50..5.51 rows=2 width=464) (actual time=0.050..0.051 rows=0 loops=1)
+        Output: t0.id, t0.sequence_number, t0.event_timestamp, t0.longitude, t0.latitude, t0.course_over_ground, t0.speed_gps_kph, t0.gps_accuracy, t0.fix_type, t0.odometer_total, t0.distance_from_road_segment, t0.distance_from_public_road_segment, t0.cell_signal_strength, t0.offroad, t0.near_city, t0.address_number, t0.additional_data, t0.created, t0.ebox_id, t0.ebox_event_type_id, t0.machine_id, t0.ebox_status_id, t0.road_segment_id, t0.location_level1_id, t0.location_level2_id, t0.location_level3_id, t0.location_level4_id, t0.location_level5_id
+        Sort Key: t0.event_timestamp DESC
+        Sort Method: quicksort  Memory: 25kB
+        Buffers: shared hit=3
+        ->  Append  (cost=0.00..5.50 rows=2 width=464) (actual time=0.047..0.047 rows=0 loops=1)
+              Buffers: shared hit=3
+              ->  Seq Scan on central.ebox_event t0_1  (cost=0.00..0.00 rows=1 width=750) (actual time=0.007..0.007 rows=0 loops=1)
+                    Output: t0_1.id, t0_1.sequence_number, t0_1.event_timestamp, t0_1.longitude, t0_1.latitude, t0_1.course_over_ground, t0_1.speed_gps_kph, t0_1.gps_accuracy, t0_1.fix_type, t0_1.odometer_total, t0_1.distance_from_road_segment, t0_1.distance_from_public_road_segment, t0_1.cell_signal_strength, t0_1.offroad, t0_1.near_city, t0_1.address_number, t0_1.additional_data, t0_1.created, t0_1.ebox_id, t0_1.ebox_event_type_id, t0_1.machine_id, t0_1.ebox_status_id, t0_1.road_segment_id, t0_1.location_level1_id, t0_1.location_level2_id, t0_1.location_level3_id, t0_1.location_level4_id, t0_1.location_level5_id
+                    Filter: (((t0_1.gps_accuracy < 25) OR (t0_1.gps_accuracy IS NULL)) AND (t0_1.event_timestamp > '2026-06-10 01:33:31.945014'::timestamp without time zone) AND (t0_1.event_timestamp <= '2026-06-10 05:33:31.945014'::timestamp without time zone) AND (t0_1.machine_id = '2543562'::bigint))
+              ->  Index Scan Backward using idx_machine_event_timestamp_type_202606 on central.ebox_event_202606 t0_2  (cost=0.42..5.46 rows=1 width=177) (actual time=0.039..0.039 rows=0 loops=1)
+                    Output: t0_2.id, t0_2.sequence_number, t0_2.event_timestamp, t0_2.longitude, t0_2.latitude, t0_2.course_over_ground, t0_2.speed_gps_kph, t0_2.gps_accuracy, t0_2.fix_type, t0_2.odometer_total, t0_2.distance_from_road_segment, t0_2.distance_from_public_road_segment, t0_2.cell_signal_strength, t0_2.offroad, t0_2.near_city, t0_2.address_number, t0_2.additional_data, t0_2.created, t0_2.ebox_id, t0_2.ebox_event_type_id, t0_2.machine_id, t0_2.ebox_status_id, t0_2.road_segment_id, t0_2.location_level1_id, t0_2.location_level2_id, t0_2.location_level3_id, t0_2.location_level4_id, t0_2.location_level5_id
+                    Index Cond: ((t0_2.machine_id = '2543562'::bigint) AND (t0_2.event_timestamp > '2026-06-10 01:33:31.945014'::timestamp without time zone) AND (t0_2.event_timestamp <= '2026-06-10 05:33:31.945014'::timestamp without time zone))
+                    Filter: ((t0_2.gps_accuracy < 25) OR (t0_2.gps_accuracy IS NULL))
+                    Buffers: shared hit=3
+Query Identifier: 7764337545393276916
+Planning:
+  Buffers: shared hit=17
+Planning Time: 115.169 ms
+Execution Time: 0.095 ms

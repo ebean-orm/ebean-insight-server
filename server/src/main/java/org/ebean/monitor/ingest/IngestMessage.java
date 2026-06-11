@@ -71,6 +71,13 @@ public class IngestMessage {
         .setLabel(plan.label)
         .setWhenCaptured(parseWhenCaptured(plan.whenCaptured));
 
+      final var shape = PlanShape.fingerprint(plan.plan);
+      if (shape != null) {
+        newPlan.setPlanShape(shape.skeleton())
+          .setPlanShapeHash(shape.hash())
+          .setPlanShapeAlgo(PlanShape.ALGO);
+      }
+
       newPlans.add(newPlan);
     }
 

@@ -8,6 +8,7 @@ import jakarta.inject.Singleton;
 import org.ebean.monitor.Application;
 import org.ebean.monitor.cleanup.CleanupPartitions;
 import org.ebean.monitor.domain.DJob;
+import org.ebean.monitor.ingest.PlanShapeBackfill;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,6 +21,12 @@ public class OnStart {
 
   private final CleanupPartitions cleanupPartitions = new CleanupPartitions();
 
+  private final PlanShapeBackfill planShapeBackfill;
+
+  OnStart(PlanShapeBackfill planShapeBackfill) {
+    this.planShapeBackfill = planShapeBackfill;
+  }
+
   @PostConstruct
   public void start() {
     if (Application.isForwardOnly()) {
@@ -28,11 +35,20 @@ public class OnStart {
     }
     periodicDbPartitionExtend();
     initData();
+    backfillPlanShapes();
   }
 
   private void initData() {
     GlobalMetrics.init();
     DJob.find.initRollup();
+  }
+
+  /**
+   * Backfill plan-shape fingerprints for plans captured before fingerprinting was
+   * added (or with an older algorithm version). Runs once, off the startup thread.
+   */
+  private void backfillPlanShapes() {
+    DB.backgroundExecutor().execute(planShapeBackfill::run);
   }
 
   /**
