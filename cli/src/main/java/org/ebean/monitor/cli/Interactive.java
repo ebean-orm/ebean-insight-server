@@ -11,6 +11,8 @@ import java.util.Locale;
 import io.avaje.http.client.HttpException;
 import org.ebean.monitor.v1.model.AppMetric;
 import org.ebean.monitor.v1.model.AppMetricStats;
+import org.ebean.monitor.v1.model.MetricTimeBucket;
+import org.ebean.monitor.v1.model.MetricTimeseries;
 import org.ebean.monitor.v1.model.MissingPlanMetric;
 import org.ebean.monitor.v1.model.QueryPlan;
 import org.ebean.monitor.v1.model.QueryPlanSummary;
@@ -376,7 +378,11 @@ final class Interactive {
         case "s" -> showSql(row);
         case "p" -> showPlan(row);
         case "c" -> capture(row);
-        case "t" -> showTrend(row);
+        case "t" -> {
+          if (!showTrend(row)) {
+            return false;
+          }
+        }
         default -> System.out.println("Unknown action. Use s/p/c/t/b/q.");
       }
     }
@@ -430,25 +436,192 @@ final class Interactive {
     }
   }
 
-  private void showTrend(Row row) {
-    System.out.println();
-    try {
-      var ts = insight.metrics.getMetricTimeseries(row.app(), row.hash(),
-          TrendCommand.DEFAULT_TREND_WINDOW_MINUTES, null, env);
-      if (!ts.buckets().isEmpty()) {
-        TrendCommand.printTrend(ts, measure);
-        return;
+  /**
+   * Show the trend for a row, then loop letting the user re-render it by a
+   * different headline measure (total/mean/max/count) or change the window
+   * (1h/6h/1d/7d/30d). Switching measure is a pure re-render of the cached
+   * buckets; switching window re-queries the server. Pressing {@code p} renders
+   * the captured-plan history (table + a timeline overlay aligned to the current
+   * trend window). Returns false when the user chose to quit the session.
+   */
+  private boolean showTrend(Row row) {
+    long windowMin = TrendCommand.DEFAULT_TREND_WINDOW_MINUTES;
+    TrendCommand.Measure tMeasure = measure;
+    MetricTimeseries ts = fetchTrend(row, windowMin);
+    if (ts == null) {
+      return true;
+    }
+    while (true) {
+      System.out.println();
+      if (ts.buckets().isEmpty()) {
+        System.out.println("Trend — " + row.label() + " [" + row.app() + "]");
+        System.out.println("  No time-series data in the last " + windowLabel(windowMin)
+            + (env == null ? "" : " (env " + env + ")") + ".");
+      } else {
+        TrendCommand.printTrend(ts, tMeasure);
       }
-      System.out.println("Trend — " + row.label() + " [" + row.app() + "]");
-      System.out.println("  No time-series data for this metric in the last " + ts.windowMinutes() + "m"
-          + (env == null ? "" : " (env " + env + ")") + ".");
+      System.out.print(trendPrompt(tMeasure, windowMin));
+      System.out.flush();
+      String line = readLine();
+      if (line == null) {
+        System.out.println();
+        return false;
+      }
+      String cmd = line.trim().toLowerCase(Locale.ROOT);
+      if (cmd.isEmpty() || cmd.equals("b")) {
+        return true;
+      }
+      if (cmd.equals("q")) {
+        return false;
+      }
+      long w = parseWindowMinutes(cmd);
+      if (w > 0) {
+        if (w != windowMin) {
+          MetricTimeseries refetched = fetchTrend(row, w);
+          if (refetched != null) {
+            ts = refetched;
+            windowMin = w;
+          }
+        }
+        continue;
+      }
+      if (cmd.equals("p") || cmd.equals("plans")) {
+        showPlanTimeline(row, ts);
+        continue;
+      }
+      By chosen = parseBy(cmd);
+      if (chosen != null) {
+        tMeasure = TrendCommand.Measure.of(chosen.name());
+      } else {
+        System.out.println("Use a measure (t/m/x/n), a window (1h/6h/1d/7d/30d), 'p' for plans, 'b' back, or 'q' quit.");
+      }
+    }
+  }
+
+  private MetricTimeseries fetchTrend(Row row, long windowMin) {
+    try {
+      return insight.metrics.getMetricTimeseries(row.app(), row.hash(), windowMin, null, env);
     } catch (HttpException e) {
       if (e.statusCode() == 404) {
         System.out.println("This server build does not serve the per-hash time-series endpoint yet.");
       } else {
         System.out.println("Failed to load trend: HTTP " + e.statusCode());
       }
+      return null;
     }
+  }
+
+  /** Window presets selectable in the trend loop; returns minutes, or -1 if not a window token. */
+  static long parseWindowMinutes(String cmd) {
+    return switch (cmd) {
+      case "1h" -> 60L;
+      case "6h" -> 360L;
+      case "1d" -> 1440L;
+      case "7d" -> 10080L;
+      case "30d" -> 43200L;
+      default -> -1L;
+    };
+  }
+
+  /** Short human label for a window in minutes (e.g. 180 -> "3h", 1440 -> "1d"). */
+  static String windowLabel(long minutes) {
+    if (minutes % 1440 == 0) {
+      return (minutes / 1440) + "d";
+    }
+    if (minutes % 60 == 0) {
+      return (minutes / 60) + "h";
+    }
+    return minutes + "m";
+  }
+
+  /** Trend sub-prompt: re-render by measure, change window, list plans, or leave. */
+  private String trendPrompt(TrendCommand.Measure m, long windowMin) {
+    return "trend  by " + AnsiColor.hot("t", "otal") + " " + AnsiColor.hot("m", "ean")
+        + " ma" + AnsiColor.hot("x", "") + " cou" + AnsiColor.hot("n", "t")
+        + "   window 1h 6h 1d 7d 30d   " + AnsiColor.hot("p", "lans")
+        + "  " + AnsiColor.hot("b", "ack") + "  " + AnsiColor.hot("q", "uit")
+        + "\n(now: " + m.name() + " / " + windowLabel(windowMin) + ") > ";
+  }
+
+  /**
+   * Render captured-plan history for the row: a timeline overlay aligned to the
+   * current trend window's bucket axis, then a recent-captures table. Uses only
+   * existing endpoints (no plan-change detection yet).
+   */
+  private void showPlanTimeline(Row row, MetricTimeseries ts) {
+    List<QueryPlanSummary> plans;
+    try {
+      plans = insight.plans.listPlansByHash(row.app(), row.hash(), env, 50);
+    } catch (HttpException e) {
+      System.out.println("Failed to load plans: HTTP " + e.statusCode());
+      return;
+    }
+    if (plans.isEmpty()) {
+      System.out.println("No captured plans for this hash"
+          + (env == null ? "" : " (env " + env + ")") + ". Use 'b' then 'c' to request a capture.");
+      return;
+    }
+    printPlanOverlay(ts, plans);
+    printPlanTable(plans);
+  }
+
+  /** A sparse marker row, aligned column-for-column with the trend chart, marking buckets that contain a plan capture. */
+  private void printPlanOverlay(MetricTimeseries ts, List<QueryPlanSummary> plans) {
+    List<MetricTimeBucket> buckets = ts.buckets();
+    if (buckets.isEmpty()) {
+      return;
+    }
+    int n = buckets.size();
+    int width = Math.min(n, TrendCommand.TARGET_WIDTH);
+    long bucketMs = ts.bucketMinutes() * 60_000L;
+    long windowStart = buckets.get(0).eventTime().toEpochMilli();
+    long windowEnd = buckets.get(n - 1).eventTime().toEpochMilli() + bucketMs;
+    char[] marks = new char[width];
+    java.util.Arrays.fill(marks, ' ');
+    int inWindow = 0;
+    for (QueryPlanSummary p : plans) {
+      if (p.whenCaptured() == null) {
+        continue;
+      }
+      long t = p.whenCaptured().toEpochMilli();
+      if (t < windowStart || t >= windowEnd || bucketMs <= 0) {
+        continue;
+      }
+      int i = (int) ((t - windowStart) / bucketMs);
+      i = Math.max(0, Math.min(n - 1, i));
+      int col = (int) ((long) i * width / n);
+      col = Math.max(0, Math.min(width - 1, col));
+      marks[col] = '\u25B2';
+      inWindow++;
+    }
+    System.out.println();
+    System.out.println("  plan captures   " + inWindow + " in window (of " + plans.size() + " recent)");
+    System.out.println("  " + AnsiColor.chart(new String(marks)));
+  }
+
+  /** Recent captures, newest first, as a compact table. */
+  private void printPlanTable(List<QueryPlanSummary> plans) {
+    List<QueryPlanSummary> sorted = new ArrayList<>(plans);
+    sorted.sort(java.util.Comparator
+        .comparing(QueryPlanSummary::whenCaptured, java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder()))
+        .reversed());
+    System.out.println();
+    System.out.printf("  %-4s %-8s %-16s %12s %8s%n", "#", "ID", "CAPTURED", "QUERY(us)", "COUNT");
+    int i = 1;
+    for (QueryPlanSummary p : sorted) {
+      System.out.printf("  %-4d %-8d %-16s %,12d %,8d%n",
+          i, p.id(), fmtCaptured(p.whenCaptured()), p.queryTimeMicros(), p.captureCount());
+      if (++i > 20) {
+        break;
+      }
+    }
+  }
+
+  private static final java.time.format.DateTimeFormatter CAPTURED_FMT =
+      java.time.format.DateTimeFormatter.ofPattern("MM-dd HH:mm").withZone(java.time.ZoneId.systemDefault());
+
+  private static String fmtCaptured(java.time.Instant when) {
+    return when == null ? "-" : CAPTURED_FMT.format(when);
   }
 
   private void printList(String title, List<Row> rows) {

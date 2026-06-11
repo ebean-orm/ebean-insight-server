@@ -71,6 +71,27 @@ class InteractiveRenderTest {
     assertThat(Interactive.parseCaptureIndices("0", 10)).isNull();      // below range
   }
 
+  @Test
+  void parseWindowMinutes_presets() {
+    assertThat(Interactive.parseWindowMinutes("1h")).isEqualTo(60L);
+    assertThat(Interactive.parseWindowMinutes("6h")).isEqualTo(360L);
+    assertThat(Interactive.parseWindowMinutes("1d")).isEqualTo(1440L);
+    assertThat(Interactive.parseWindowMinutes("7d")).isEqualTo(10080L);
+    assertThat(Interactive.parseWindowMinutes("30d")).isEqualTo(43200L);
+    assertThat(Interactive.parseWindowMinutes("t")).isEqualTo(-1L);     // a measure, not a window
+    assertThat(Interactive.parseWindowMinutes("2h")).isEqualTo(-1L);    // unsupported preset
+  }
+
+  @Test
+  void windowLabel_humanShortForm() {
+    assertThat(Interactive.windowLabel(60L)).isEqualTo("1h");
+    assertThat(Interactive.windowLabel(180L)).isEqualTo("3h");
+    assertThat(Interactive.windowLabel(1440L)).isEqualTo("1d");
+    assertThat(Interactive.windowLabel(10080L)).isEqualTo("7d");
+    assertThat(Interactive.windowLabel(43200L)).isEqualTo("30d");
+    assertThat(Interactive.windowLabel(45L)).isEqualTo("45m");
+  }
+
   private static String headerLine(String[] lines) {
     for (String l : lines) {
       if (l.contains("LABEL")) {
