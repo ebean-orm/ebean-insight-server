@@ -16,6 +16,10 @@ final class AnsiColor {
   private static final String KEY = "\u001b[1;33m";
   /** Bold magenta — a plan-shape change point that warrants attention. */
   private static final String CHANGE = "\u001b[1;35m";
+  /** Green — an added line in a unified diff. */
+  private static final String ADDED = "\u001b[32m";
+  /** Red — a removed line in a unified diff. */
+  private static final String REMOVED = "\u001b[31m";
   private static final String RESET = "\u001b[0m";
 
   private static final boolean ENABLED = computeEnabled();
@@ -51,6 +55,16 @@ final class AnsiColor {
   /** Colour a plan-shape change-point glyph/marker when colour is enabled. */
   static String change(String s) {
     return paint(ENABLED, CHANGE, s);
+  }
+
+  /** Colour an added (+) unified-diff line when colour is enabled. */
+  static String added(String s) {
+    return paint(ENABLED, ADDED, s);
+  }
+
+  /** Colour a removed (-) unified-diff line when colour is enabled. */
+  static String removed(String s) {
+    return paint(ENABLED, REMOVED, s);
   }
 
   /** Render a bracketed hotkey option with the key letter accented, e.g. {@code hot("q","uit")} → {@code [q]uit}. */

@@ -17,6 +17,8 @@ import picocli.CommandLine.Command;
     subcommands = {
         PlansCommand.class,
         PlanCommand.class,
+        ChangesCommand.class,
+        ChangeCommand.class,
         PendingCommand.class,
         CaptureCommand.class,
         TopCommand.class,
@@ -50,6 +52,7 @@ import picocli.CommandLine.Command;
         "  insight pending --app <app>                 # captures awaiting collection",
         "  insight plans --app <app> --env <env>       # recently captured plans",
         "  insight plan <id>                           # SQL + binds + EXPLAIN",
+        "  insight changes --type CHANGED              # query plans whose shape changed",
         "",
         "  Connect without kube access via a direct URL:  --url http://host:8091",
         "  JSON for scripting:  add -o json  (or persist: insight config set output json)"

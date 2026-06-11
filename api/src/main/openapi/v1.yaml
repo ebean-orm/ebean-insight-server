@@ -443,6 +443,72 @@ paths:
                 items:
                   $ref: '#/components/schemas/PendingPlan'
 
+  /v1/plan-changes:
+    get:
+      tags: [plans]
+      operationId: listPlanChanges
+      summary: Recent query-plan shape changes (cross-app)
+      description: |
+        Durable history of detected query-plan shape events, newest first
+        (ordered by detection time). Each event is either the FIRST shape
+        observed for an `(app, env, hash)` series, or a CHANGED shape relative
+        to the most recent prior capture.
+
+        Filter by app, env, hash, and changeType. The window (`sinceMinutes` /
+        `sinceHours`) applies to the detection time.
+      parameters:
+        - name: app
+          in: query
+          schema:
+            type: string
+        - $ref: '#/components/parameters/EnvQuery'
+        - name: hash
+          in: query
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ChangeTypeQuery'
+        - $ref: '#/components/parameters/SinceMinutes'
+        - $ref: '#/components/parameters/SinceHours'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Plan change events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PlanChange'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /v1/plan-changes/{id}:
+    get:
+      tags: [plans]
+      operationId: getPlanChange
+      summary: One plan-change event with full from/to plans
+      description: |
+        Returns a single detected plan-change event together with the full
+        captured `fromPlan` (null for FIRST events) and `toPlan` — including
+        SQL, bind values, EXPLAIN output and normalized plan shape — so the
+        before/after plans can be diffed.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Plan change detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanChangeDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /v1/metrics/top:
     get:
       tags: [metrics]
@@ -608,6 +674,13 @@ components:
         format: int64
         minimum: 1
       description: Activity window in hours. Mutually exclusive with `activeWithinMinutes`.
+    ChangeTypeQuery:
+      name: changeType
+      in: query
+      schema:
+        type: string
+        enum: [FIRST, CHANGED]
+      description: Filter plan-change events by type. Unknown values yield 400.
 
   responses:
     BadRequest:
@@ -915,3 +988,74 @@ components:
           type: string
           format: date-time
           description: When the capture was requested (UTC). Used to show how long it has been in-flight.
+
+    PlanChange:
+      type: object
+      description: A detected query-plan shape event (FIRST or CHANGED), newest first by detection time.
+      required: [id, appName, envName, hash, changeType, toPlanId, toShapeHash, algo, toQueryTimeMicros, whenCaptured, detectedAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        appName:
+          type: string
+          description: Application the change was detected for.
+        envName:
+          type: string
+          description: Environment the change was detected in.
+        hash:
+          type: string
+          description: Stable metric hash (query plan key).
+        label:
+          type: string
+          description: Human-readable metric label (e.g. "orm.OrderDao.findOrders").
+        changeType:
+          type: string
+          enum: [FIRST, CHANGED]
+          description: FIRST = first shape observed for the series; CHANGED = shape differs from the prior capture.
+        fromPlanId:
+          type: integer
+          format: int64
+          description: Plan id of the prior capture (null for FIRST events).
+        toPlanId:
+          type: integer
+          format: int64
+          description: Plan id of the capture whose shape triggered this event.
+        fromShapeHash:
+          type: string
+          description: Prior plan shape hash (null for FIRST events).
+        toShapeHash:
+          type: string
+          description: New plan shape hash.
+        algo:
+          type: integer
+          format: int32
+          description: Shape-normalization algorithm version used for the comparison.
+        fromQueryTimeMicros:
+          type: integer
+          format: int64
+          description: Query time (micros) of the prior capture (null for FIRST events).
+        toQueryTimeMicros:
+          type: integer
+          format: int64
+          description: Query time (micros) of the triggering capture.
+        whenCaptured:
+          type: string
+          format: date-time
+          description: When the triggering plan was captured (UTC).
+        detectedAt:
+          type: string
+          format: date-time
+          description: When the change was detected at ingest (UTC). Primary sort key.
+
+    PlanChangeDetail:
+      type: object
+      description: A plan-change event with the full captured from/to plans for diffing.
+      required: [change, toPlan]
+      properties:
+        change:
+          $ref: '#/components/schemas/PlanChange'
+        fromPlan:
+          $ref: '#/components/schemas/QueryPlan'
+        toPlan:
+          $ref: '#/components/schemas/QueryPlan'

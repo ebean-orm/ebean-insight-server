@@ -10,11 +10,13 @@ import org.ebean.monitor.domain.DAppMetric;
 import org.ebean.monitor.domain.DCaptureRequest;
 import org.ebean.monitor.domain.DEnv;
 import org.ebean.monitor.domain.DQueryPlan;
+import org.ebean.monitor.domain.DQueryPlanChange;
 import org.ebean.monitor.domain.query.QDApp;
 import org.ebean.monitor.domain.query.QDAppMetric;
 import org.ebean.monitor.domain.query.QDCaptureRequest;
 import org.ebean.monitor.domain.query.QDEnv;
 import org.ebean.monitor.domain.query.QDQueryPlan;
+import org.ebean.monitor.domain.query.QDQueryPlanChange;
 import org.ebean.monitor.v1.model.App;
 import org.ebean.monitor.v1.model.AppMetric;
 import org.ebean.monitor.v1.model.AppMetricStats;
@@ -25,6 +27,8 @@ import org.ebean.monitor.v1.model.MetricTimeseries;
 import org.ebean.monitor.v1.model.MissingPlanMetric;
 import org.ebean.monitor.v1.model.PendingResponse;
 import org.ebean.monitor.v1.model.PendingPlan;
+import org.ebean.monitor.v1.model.PlanChange;
+import org.ebean.monitor.v1.model.PlanChangeDetail;
 import org.ebean.monitor.v1.model.QueryPlan;
 import org.ebean.monitor.v1.model.QueryPlanSummary;
 import org.ebean.monitor.web.MessageService;
@@ -680,6 +684,73 @@ public final class V1QueryService {
   }
 
   // ---------------------------------------------------------------------------
+  // Plan change events
+  // ---------------------------------------------------------------------------
+
+  public List<PlanChange> listPlanChanges(@Nullable String app, @Nullable String env,
+                                          @Nullable String hash, @Nullable String changeType,
+                                          @Nullable Long sinceMinutes, @Nullable Long sinceHours,
+                                          @Nullable Integer limit) {
+    final DQueryPlanChange.ChangeType type = parseChangeType(changeType);
+    final TimeWindow window = TimeWindow.of(sinceMinutes, sinceHours, 0L);
+    final DApp resolved;
+    if (app != null && !app.isBlank()) {
+      resolved = findApp(app);
+      if (resolved == null) {
+        return List.of();
+      }
+    } else {
+      resolved = null;
+    }
+    final QDQueryPlanChange q = new QDQueryPlanChange()
+      .app.fetch()
+      .env.fetch();
+    if (resolved != null) {
+      q.app.eq(resolved);
+    }
+    q.env.name.eqIfNotBlank(env);
+    q.hash.eqIfNotBlank(hash);
+    if (type != null) {
+      q.changeType.eq(type);
+    }
+    if (window.hasFrom()) {
+      q.detectedAt.gt(window.from());
+    }
+    return q
+      .orderBy().detectedAt.desc().id.desc()
+      .setMaxRows(clampLimit(limit))
+      .findStream()
+      .map(V1QueryService::toPlanChange)
+      .toList();
+  }
+
+  public PlanChangeDetail getPlanChange(long id) {
+    final DQueryPlanChange c = new QDQueryPlanChange()
+      .id.eq((int) id)
+      .app.fetch()
+      .env.fetch()
+      .findOne();
+    if (c == null) {
+      throw new NotFoundException("No plan change with id " + id);
+    }
+    return PlanChangeDetail.builder()
+      .change(toPlanChange(c))
+      .fromPlan(c.fromPlan() == null ? null : toQueryPlan(c.fromPlan()))
+      .toPlan(toQueryPlan(c.toPlan()))
+      .build();
+  }
+
+  private static DQueryPlanChange.@Nullable ChangeType parseChangeType(@Nullable String value) {
+    if (value == null || value.isBlank()) {
+      return null;
+    }
+    try {
+      return DQueryPlanChange.ChangeType.valueOf(value.trim().toUpperCase(Locale.ROOT));
+    } catch (IllegalArgumentException e) {
+      throw new BadRequestException("Invalid changeType '" + value + "'; expected FIRST or CHANGED");
+    }
+  }
+  // ---------------------------------------------------------------------------
   // Envs
   // ---------------------------------------------------------------------------
 
@@ -922,6 +993,26 @@ public final class V1QueryService {
       .planShape(p.planShape())
       .planShapeHash(p.planShapeHash())
       .planShapeAlgo(p.planShapeAlgo())
+      .build();
+  }
+
+  static PlanChange toPlanChange(DQueryPlanChange c) {
+    return PlanChange.builder()
+      .id((long) c.getId())
+      .appName(c.app().getName())
+      .envName(c.env().getName())
+      .hash(c.hash())
+      .label(c.label())
+      .changeType(c.changeType().name())
+      .fromPlanId(c.fromPlan() == null ? null : (long) c.fromPlan().getId())
+      .toPlanId((long) c.toPlan().getId())
+      .fromShapeHash(c.fromShapeHash())
+      .toShapeHash(c.toShapeHash())
+      .algo(c.algo())
+      .fromQueryTimeMicros(c.fromQueryTimeMicros())
+      .toQueryTimeMicros(c.toQueryTimeMicros())
+      .whenCaptured(c.whenCaptured())
+      .detectedAt(c.detectedAt())
       .build();
   }
 }

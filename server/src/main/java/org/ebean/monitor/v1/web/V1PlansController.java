@@ -5,6 +5,8 @@ import java.util.List;
 import org.ebean.monitor.v1.PlansApi;
 import org.ebean.monitor.v1.model.PendingResponse;
 import org.ebean.monitor.v1.model.PendingPlan;
+import org.ebean.monitor.v1.model.PlanChange;
+import org.ebean.monitor.v1.model.PlanChangeDetail;
 import org.ebean.monitor.v1.model.QueryPlan;
 import org.ebean.monitor.v1.model.QueryPlanSummary;
 
@@ -50,5 +52,15 @@ public final class V1PlansController implements PlansApi {
   @Override
   public List<PendingPlan> listPendingPlans(String app, String env) {
     return service.listPendingPlans(app, env);
+  }
+
+  @Override
+  public List<PlanChange> listPlanChanges(String app, String env, String hash, String changeType, Long sinceMinutes, Long sinceHours, Integer limit) {
+    return service.listPlanChanges(app, env, hash, changeType, sinceMinutes, sinceHours, limit);
+  }
+
+  @Override
+  public PlanChangeDetail getPlanChange(Long id) {
+    return service.getPlanChange(id);
   }
 }
