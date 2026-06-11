@@ -39,6 +39,7 @@
     <module>server</module>
     <module>forwarder</module>
     <module>cli</module>
+    <module>mcp</module>
   </modules>
 
 </project>

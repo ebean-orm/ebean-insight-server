@@ -1,0 +1,22 @@
+server.port: 8092
+
+app.name: ebean-insight-mcp
+
+##
+## The ebean-insight-server /v1 API the MCP server reads from.
+##
+insight:
+  ## Base URL of the ebean-insight server /v1 API.
+  url: "http://localhost:8091"
+  ## Shared-secret API key sent as `Authorization: Bearer <key>` to the insight
+  ## server (matches the server's insight.api.key). Leave unset when the insight
+  ## server has auth disabled (e.g. reached via localhost / port-forward).
+  api.key: ""
+
+##
+## Inbound MCP client auth (wired in a later phase): bearer token(s) callers
+## must present as `Authorization: Bearer <token>`. Accepts a single token or a
+## comma separated list (old,new) for rotation. Unset leaves the server open.
+##
+mcp:
+  tokens: ""
