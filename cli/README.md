@@ -35,7 +35,6 @@ Connection options (shared by every subcommand):
 | `--context` | – | `kubectl` context to use. |
 | `--ready-timeout` | `20` | Seconds to wait for the forward to become ready. |
 | `--no-shared` | `false` | Ignore any running `insight forward` daemon; start a private forward. |
-| `--insight-key` | `$INSIGHT_KEY` | API key sent as the `Insight-Key` header. Falls back to the `INSIGHT_KEY` env var. Not needed via port-forward. |
 
 `--namespace` and `--service` are deployment-specific and have **no built-in
 defaults** — supply them on the command line, or persist them once with
@@ -51,14 +50,14 @@ turn overrides the built-in default. Manage it with `insight config`:
 ```bash
 insight config set namespace dev-core
 insight config set service ebean-insight
-insight config list                 # insight-key is masked
+insight config list
 insight config get namespace
 insight config unset service
 insight config path                 # prints the file location
 ```
 
 Persistable keys: `url`, `namespace`, `service`, `target-port`, `local-port`,
-`context`, `ready-timeout`, `insight-key`, `output`, `auth-domain`,
+`context`, `ready-timeout`, `output`, `auth-domain`,
 `auth-user-pool-id`, `auth-client-id`, `auth-scope`, `auth-redirect-port`.
 
 Resolution precedence for every option: **explicit flag → config file →
@@ -73,25 +72,22 @@ insight envs -o text               # flag still overrides to plain text
 
 ## Authentication
 
-Three independent mechanisms, depending on how the server is configured and how
+Two independent mechanisms, depending on how the server is configured and how
 you reach it:
 
 - **Port-forward (default)** — auth *is* your Kubernetes access: the tunnel only
   works because your `kubectl`/EKS credentials and RBAC let you forward to the
-  Service. No `Insight-Key` is required.
-- **Static `--url`** (e.g. an ingress) — the `/v1` API expects an `Insight-Key`
-  header. Provide it with `--insight-key <key>` or the `INSIGHT_KEY` env var:
-
-  ```bash
-  export INSIGHT_KEY=...               # or pass --insight-key each call
-  insight plans --url https://insight.example.com
-  ```
-
+  Service. No token is required.
 - **OAuth2 bearer token (`insight login`)** — when the server has JWT
   enforcement enabled (`insight.auth.enabled=true`, see
   [docs/auth.md](../docs/auth.md)), authenticate once via the Cognito Hosted UI
-  and the CLI sends `Authorization: Bearer <token>` on every request (alongside
-  any `Insight-Key`). This works over **both** port-forward and `--url`.
+  and the CLI sends `Authorization: Bearer <token>` on every request. This works
+  over **both** port-forward and `--url`.
+
+> The server can also accept a long-lived shared-secret API key as
+> `Authorization: Bearer <key>` on `/v1` (config `insight.api.key`). That path
+> is intended for non-interactive clients such as the MCP server; the CLI does
+> not provide a flag for it — interactive users authenticate via `insight login`.
 
 ### OAuth2 login
 

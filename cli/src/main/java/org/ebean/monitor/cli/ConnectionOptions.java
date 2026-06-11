@@ -46,11 +46,6 @@ final class ConnectionOptions {
       description = "Ignore any running `insight forward` daemon and start a private port-forward.")
   boolean noShared;
 
-  @Option(names = "--insight-key", defaultValue = "${env:INSIGHT_KEY}",
-      description = "API key sent as the Insight-Key header (falls back to the INSIGHT_KEY env var). "
-          + "Not needed when reaching the server via port-forward.")
-  @Nullable String insightKey;
-
   private boolean resolved;
 
   /** Fill any option not set on the command line from {@code ~/.insight/config.properties}. */
@@ -71,9 +66,6 @@ final class ConnectionOptions {
     }
     if (isBlank(context)) {
       context = props.getProperty("context");
-    }
-    if (isBlank(insightKey)) {
-      insightKey = props.getProperty("insight-key");
     }
     if (targetPort == null) {
       targetPort = parseInt(props.getProperty("target-port"), 8091, "target-port");
@@ -139,10 +131,6 @@ final class ConnectionOptions {
 
   @Nullable String context() {
     return context;
-  }
-
-  @Nullable String insightKey() {
-    return insightKey;
   }
 
   boolean noShared() {

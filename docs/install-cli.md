@@ -197,9 +197,13 @@ This requires the RBAC verbs documented in
 ### Via a static URL (Ingress, port-forward you manage yourself)
 
 ```bash
-export INSIGHT_KEY=<your-server-api-key>
 insight envs --url https://insight.example.com
 ```
+
+If the server has JWT auth enabled (`insight.auth.enabled=true`), authenticate
+first with `insight login` (OAuth2 / Cognito) — the CLI then sends
+`Authorization: Bearer <token>` on every request. See the
+[Authentication](../cli/README.md#authentication) section of the CLI README.
 
 For both modes, see [`cli/README.md`](../cli/README.md) for the full command
 reference, daemon mode (`insight forward`), JSON output, and config

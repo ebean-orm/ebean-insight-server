@@ -16,7 +16,7 @@ import picocli.CommandLine.Model.CommandSpec;
     description = "Manage persisted CLI settings (~/.insight/config.properties).",
     footerHeading = "%nKeys:%n",
     footer = {
-        "  url, namespace, service, target-port, local-port, context, ready-timeout, insight-key, output",
+        "  url, namespace, service, target-port, local-port, context, ready-timeout, output",
         "  auth-domain, auth-user-pool-id, auth-client-id, auth-scope, auth-redirect-port",
         "",
         "Examples:",
@@ -43,14 +43,7 @@ final class ConfigCommand implements Runnable {
   }
 
   private static String render(String key, String value) {
-    return key + " = " + ("insight-key".equals(key) ? mask(value) : value);
-  }
-
-  private static String mask(String value) {
-    if (value.length() <= 4) {
-      return "****";
-    }
-    return "****" + value.substring(value.length() - 4);
+    return key + " = " + value;
   }
 
   @Command(name = "set", mixinStandardHelpOptions = true, description = "Set a config value.")

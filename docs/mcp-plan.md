@@ -49,11 +49,12 @@ The MCP server needs to authenticate against the existing insight server's
 | `/v1/*`, `/` | JWT Bearer (Cognito) when `insight.auth.enabled=true` | All-or-nothing, no shared-secret option |
 | `/health` | open | k8s probes |
 
-**Problem:**
-- The CLI's `--insight-key` flag sends `Insight-Key`, but the server only
-  validates that on `/api/ingest`. On `/v1` it's silently ignored — so in
-  any auth-enabled deployment the CLI cannot authenticate. (Latent gap.)
-- The MCP server needs the same kind of programmatic shared-secret access.
+**Problem (motivation):**
+- The CLI's `--insight-key` flag sent the `Insight-Key` header, but the server
+  only validated that on `/api/ingest`. On `/v1` it was silently ignored — so
+  in an auth-enabled deployment it never authenticated. (Resolved in Phase −1b
+  by removing the dead flag; the CLI uses the OAuth2 JWT flow for `/v1`.)
+- The MCP server needs programmatic shared-secret access to `/v1`.
 - Reusing the **ingest key** for `/v1` would conflate two very different
   blast radii: ingest keys are distributed to every reporting app instance;
   read-side keys go to operators / agents.
@@ -69,7 +70,7 @@ validator + filter), independent of JWT.
 | Config | `insight.ingest.key` | `insight.api.key` |
 | Multi-key (rotation) | Yes (comma-separated) | Yes (comma-separated) |
 | Header | `Insight-Key` | `Authorization: Bearer <token>` |
-| Used by | App forwarders pushing metrics in | CLI, MCP server (and any future programmatic reader) |
+| Used by | App forwarders pushing metrics in | MCP server (and any future programmatic reader) |
 | Path | `/api/ingest` | `/v1/*` |
 
 **Filter ordering (when both `insight.auth.enabled=true` and `insight.api.key` set):**
@@ -119,20 +120,25 @@ JwtAuthFilter behaves exactly as today. The change is strictly additive.
 
 > **Why bearer-only (not "any header")?** An earlier iteration passed the whole
 > framework `Context` so the secret could come from any header. We dropped that:
-> both real consumers (CLI, MCP server) send the secret as `Authorization:
-> Bearer`, the bearer-token hook is framework-agnostic (one shared core type vs
-> duplicated per-variant), and it keeps auth on a single credential channel.
+> the real consumers send the secret as `Authorization: Bearer`, the bearer-token
+> hook is framework-agnostic (one shared core type vs duplicated per-variant),
+> and it keeps auth on a single credential channel.
 
-**CLI follow-up after server change:**
-- CLI today sends `Insight-Key`. Switch programmatic auth on `/v1` calls to
-  `Authorization: Bearer <api-key>` so it's covered by the new filter.
-- Keep `--insight-key` flag working but treat it as the api-key for `/v1`.
-  Possibly rename to `--api-key` (or keep `--insight-key` as alias for
-  back-compat). To decide.
+**CLI follow-up (done — decided to *remove*, not repurpose):**
+- The CLI's `--insight-key` only ever set the `Insight-Key` header, which `/v1`
+  never validated (only `/api/ingest` does, and the CLI never calls ingest) —
+  so it was dead on `/v1`.
+- **Removed** `--insight-key` / `INSIGHT_KEY` / the `insight-key` config key and
+  the `Insight-Key` request interceptor from the CLI entirely. The CLI's `/v1`
+  auth when enabled is the existing OAuth2 JWT flow (`insight login` →
+  `Authorization: Bearer <jwt>`).
+- The shared-secret API key (`Authorization: Bearer <key>` against
+  `insight.api.key`) is **not** wired into the CLI for now — it is intended for
+  the MCP server. A CLI `--api-key` flag can be added later if wanted.
 
 **Phasing:** ship the server change *before* MCP Phase 0 lands so the MCP
 server has something to authenticate against. Worth a separate PR — it's
-useful on its own (closes the latent CLI auth gap).
+useful on its own.
 
 ## Confirmed decisions
 
@@ -214,7 +220,7 @@ mcp/
 |---|---|---|---|
 | **−2** | upstream `avaje-oauth2` (`JwtAuthFilter`) | Add a `BearerAuthoriser` (`String authorise(String token)`) in `avaje-oauth2-core` + a `bearerAuthoriser(...)` builder hook on both filter variants, consulted before JWT for `Authorization: Bearer` requests (skips JWT when it returns a non-null principal). Also make permit-paths checked first. Tag a release. | Hook available; permit-first; no behaviour change when hook unset. **DONE — implemented + tested (jex 10, helidon 8, core 16).** |
 | **−1** | `ebean-insight-server` (server module) | Add `insight.api.key` config + `ApiKeyValidator` + wire into `JwtAuthFilter` via the new `bearerAuthoriser(...)` hook (see [Prerequisite](#prerequisite--split-v1-api-auth-on-the-insight-server) above). Independent PR. | `/v1` accepts `Authorization: Bearer <api-key>` |
-| **−1b** | `cli` | Switch `/v1` calls to send `Authorization: Bearer <api-key>` (still configured via existing `--insight-key` / `INSIGHT_KEY`). | CLI works against auth-enabled deployments |
+| **−1b** | `cli` | Remove the dead `Insight-Key` plumbing (`--insight-key` / `INSIGHT_KEY` / `insight-key` config key / request interceptor). CLI `/v1` auth stays as the existing OAuth2 JWT flow; the shared-secret api-key is left for the MCP server (no CLI `--api-key` yet). | **DONE** — CLI no longer carries dead Insight-Key auth; 96 cli tests pass. |
 | **0** | new `mcp/` module | Module skeleton, parent pom, native + jib wiring | Empty Jex server runs, image publishes |
 | **1** | `mcp/` | Bearer auth filter (inbound `MCP_TOKEN` list) + `/health` + token store | 401/200 verified end-to-end |
 | **2** | `mcp/` | MCP SDK + Jex Streamable HTTP transport | `initialize` JSON-RPC handshake works |
