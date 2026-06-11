@@ -60,5 +60,11 @@ final class PlanCommand implements Callable<Integer> {
     System.out.println();
     System.out.println("plan:");
     System.out.println(p.plan());
+    if (p.planShape() != null) {
+      System.out.println();
+      System.out.println("shape (algo " + p.planShapeAlgo() + ", hash "
+          + Interactive.shortShape(p.planShapeHash()) + "):");
+      System.out.println(p.planShape());
+    }
   }
 }

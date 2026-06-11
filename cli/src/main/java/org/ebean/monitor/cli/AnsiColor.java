@@ -14,6 +14,8 @@ final class AnsiColor {
   private static final String CHART = "\u001b[36m";
   /** Bold yellow — actionable hotkey letters in interactive prompts. */
   private static final String KEY = "\u001b[1;33m";
+  /** Bold magenta — a plan-shape change point that warrants attention. */
+  private static final String CHANGE = "\u001b[1;35m";
   private static final String RESET = "\u001b[0m";
 
   private static final boolean ENABLED = computeEnabled();
@@ -44,6 +46,11 @@ final class AnsiColor {
   /** Colour an actionable hotkey letter (e.g. the {@code q} in {@code [q]uit}) when enabled. */
   static String key(String s) {
     return paint(ENABLED, KEY, s);
+  }
+
+  /** Colour a plan-shape change-point glyph/marker when colour is enabled. */
+  static String change(String s) {
+    return paint(ENABLED, CHANGE, s);
   }
 
   /** Render a bracketed hotkey option with the key letter accented, e.g. {@code hot("q","uit")} → {@code [q]uit}. */

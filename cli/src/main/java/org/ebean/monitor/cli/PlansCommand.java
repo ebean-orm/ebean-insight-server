@@ -87,15 +87,16 @@ final class PlansCommand implements Callable<Integer> {
     int idxWidth = Math.max(1, Integer.toString(plans.size()).length());
     String idxHead = indexed ? "%-" + idxWidth + "s  " : "%s";
     String idxRow = indexed ? "%-" + idxWidth + "d  " : "%s";
-    String headFmt = idxHead + "%-8s  %-12s  %-32s  %-" + labelWidth + "s  %12s  %8s  %s%n";
-    String rowFmt = idxRow + "%-8d  %-12s  %-32s  %-" + labelWidth + "s  %12d  %8d  %s%n";
+    String headFmt = idxHead + "%-8s  %-12s  %-32s  %-" + labelWidth + "s  %12s  %8s  %-19s  %-8s%n";
+    String rowFmt = idxRow + "%-8d  %-12s  %-32s  %-" + labelWidth + "s  %12d  %8d  %-19s  %-8s%n";
     System.out.printf(headFmt,
-        indexed ? "#" : "", "ID", "ENV", "HASH", "LABEL", "TIME(us)", "COUNT", "CAPTURED");
+        indexed ? "#" : "", "ID", "ENV", "HASH", "LABEL", "TIME(us)", "COUNT", "CAPTURED", "SHAPE");
     int i = 1;
     for (QueryPlanSummary p : plans) {
       System.out.printf(rowFmt,
           indexed ? i++ : "", p.id(), p.envName(), p.hash(), p.label(),
-          p.queryTimeMicros(), p.captureCount(), p.whenCaptured());
+          p.queryTimeMicros(), p.captureCount(), p.whenCaptured(),
+          Interactive.shortShape(p.planShapeHash()));
     }
   }
 

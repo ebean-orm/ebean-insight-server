@@ -1,7 +1,11 @@
 package org.ebean.monitor.cli;
 
+import java.time.Instant;
 import java.util.List;
 
+import org.ebean.monitor.v1.model.MetricTimeBucket;
+import org.ebean.monitor.v1.model.MetricTimeseries;
+import org.ebean.monitor.v1.model.QueryPlanSummary;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -99,5 +103,117 @@ class InteractiveRenderTest {
       }
     }
     throw new AssertionError("no header line containing LABEL");
+  }
+
+  // --- plan-shape rendering ---------------------------------------------------
+
+  private static QueryPlanSummary planSummary(long id, Instant when, String shapeHash, Boolean changed) {
+    return QueryPlanSummary.builder()
+        .id(id).appMetricId(1L).envName("test").hash(HASH).label("orm.A.find")
+        .queryTimeMicros(1234L).captureCount(2L).whenCaptured(when)
+        .planShapeHash(shapeHash).shapeChanged(changed)
+        .build();
+  }
+
+  private static MetricTimeseries timeseries(Instant start, int buckets) {
+    List<MetricTimeBucket> list = new java.util.ArrayList<>();
+    for (int i = 0; i < buckets; i++) {
+      list.add(MetricTimeBucket.builder()
+          .eventTime(start.plusSeconds(i * 60L)).count(1L).total(10L).max(5L).build());
+    }
+    return MetricTimeseries.builder().bucketMinutes(1L).buckets(list).build();
+  }
+
+  @Test
+  void renderPlanTable_showsShapeAndChangeColumns() {
+    var i = Interactive.forRender(Interactive.Mode.TOP, false);
+    var base = Instant.parse("2026-06-01T00:00:00Z");
+    var plans = List.of(
+        planSummary(2, base.plusSeconds(120), "deadbeefcafebabe", true),
+        planSummary(1, base.plusSeconds(60), "abcdef0123456789", false));
+
+    String out = i.renderPlanTable(plans);
+    assertThat(out).contains("SHAPE").contains("\u0394");
+    assertThat(out).contains("deadbeef");   // 8-char short shape, newest first
+    assertThat(out).contains("abcdef01");
+    assertThat(out).contains("\u25C6");      // change-point glyph for id=2
+  }
+
+  @Test
+  void renderPlanTable_nullShape_rendersEmDash() {
+    var i = Interactive.forRender(Interactive.Mode.TOP, false);
+    var base = Instant.parse("2026-06-01T00:00:00Z");
+    var plans = List.of(planSummary(1, base, null, null));
+
+    String out = i.renderPlanTable(plans);
+    assertThat(out).contains("\u2014");      // em-dash placeholder
+    assertThat(out).doesNotContain("\u25C6"); // no change glyph
+  }
+
+  @Test
+  void renderPlanOverlay_headerCountsShapesAndChanges() {
+    var i = Interactive.forRender(Interactive.Mode.TOP, false);
+    var start = Instant.parse("2026-06-01T00:00:00Z");
+    var ts = timeseries(start, 10);
+    var plans = List.of(
+        planSummary(3, start.plusSeconds(180), "B", true),
+        planSummary(2, start.plusSeconds(120), "A", false),
+        planSummary(1, start.plusSeconds(60), "A", false));
+
+    String out = i.renderPlanOverlay(ts, plans);
+    assertThat(out).contains("3 in window");
+    assertThat(out).contains("2 shapes");
+    assertThat(out).contains("1 change");
+    assertThat(out).contains("\u25C6"); // change glyph in overlay
+    assertThat(out).contains("\u25B2"); // normal capture glyph
+  }
+
+  @Test
+  void renderPlanOverlay_singleShapeNoChanges_grammar() {
+    var i = Interactive.forRender(Interactive.Mode.TOP, false);
+    var start = Instant.parse("2026-06-01T00:00:00Z");
+    var ts = timeseries(start, 10);
+    var plans = List.of(planSummary(1, start.plusSeconds(60), "A", false));
+
+    String out = i.renderPlanOverlay(ts, plans);
+    assertThat(out).contains("1 shape,");
+    assertThat(out).contains("0 changes");
+  }
+
+  @Test
+  void renderPlanTable_oldServerNullFields_isNullSafe() {
+    var i = Interactive.forRender(Interactive.Mode.TOP, false);
+    var base = Instant.parse("2026-06-01T00:00:00Z");
+    // old server: planShapeHash + shapeChanged null
+    var plans = List.of(planSummary(1, base, null, null));
+    String table = i.renderPlanTable(plans);
+    assertThat(table).contains("\u2014");
+
+    var start = Instant.parse("2026-06-01T00:00:00Z");
+    String overlay = i.renderPlanOverlay(timeseries(start, 5),
+        List.of(planSummary(1, start.plusSeconds(60), null, null)));
+    assertThat(overlay).contains("0 shapes");
+    assertThat(overlay).contains("0 changes");
+    assertThat(overlay).doesNotContain("\u25C6");
+  }
+
+  @Test
+  void distinctShapesAndChanges_helpers() {
+    var base = Instant.parse("2026-06-01T00:00:00Z");
+    var plans = List.of(
+        planSummary(1, base, "A", false),
+        planSummary(2, base, "B", true),
+        planSummary(3, base, "A", true),
+        planSummary(4, base, null, null));
+    assertThat(Interactive.distinctShapes(plans)).isEqualTo(2);
+    assertThat(Interactive.shapeChanges(plans)).isEqualTo(2);
+  }
+
+  @Test
+  void shortShape_truncatesAndPlaceholders() {
+    assertThat(Interactive.shortShape("deadbeefcafebabe")).isEqualTo("deadbeef");
+    assertThat(Interactive.shortShape("abc")).isEqualTo("abc");
+    assertThat(Interactive.shortShape(null)).isEqualTo("\u2014");
+    assertThat(Interactive.shortShape("")).isEqualTo("\u2014");
   }
 }

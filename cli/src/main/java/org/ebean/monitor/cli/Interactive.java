@@ -561,15 +561,37 @@ final class Interactive {
           + (env == null ? "" : " (env " + env + ")") + ". Use 'b' then 'c' to request a capture.");
       return;
     }
-    printPlanOverlay(ts, plans);
-    printPlanTable(plans);
+    System.out.print(renderPlanOverlay(ts, plans));
+    System.out.print(renderPlanTable(plans));
+  }
+
+  /** Distinct non-null plan-shape hashes across the supplied captures. */
+  static int distinctShapes(List<QueryPlanSummary> plans) {
+    java.util.Set<String> shapes = new java.util.HashSet<>();
+    for (QueryPlanSummary p : plans) {
+      if (p.planShapeHash() != null) {
+        shapes.add(p.planShapeHash());
+      }
+    }
+    return shapes.size();
+  }
+
+  /** Count of captures flagged as a plan-shape change point. */
+  static int shapeChanges(List<QueryPlanSummary> plans) {
+    int k = 0;
+    for (QueryPlanSummary p : plans) {
+      if (Boolean.TRUE.equals(p.shapeChanged())) {
+        k++;
+      }
+    }
+    return k;
   }
 
   /** A sparse marker row, aligned column-for-column with the trend chart, marking buckets that contain a plan capture. */
-  private void printPlanOverlay(MetricTimeseries ts, List<QueryPlanSummary> plans) {
+  String renderPlanOverlay(MetricTimeseries ts, List<QueryPlanSummary> plans) {
     List<MetricTimeBucket> buckets = ts.buckets();
     if (buckets.isEmpty()) {
-      return;
+      return "";
     }
     int n = buckets.size();
     int width = Math.min(n, TrendCommand.TARGET_WIDTH);
@@ -577,6 +599,7 @@ final class Interactive {
     long windowStart = buckets.get(0).eventTime().toEpochMilli();
     long windowEnd = buckets.get(n - 1).eventTime().toEpochMilli() + bucketMs;
     char[] marks = new char[width];
+    boolean[] isChange = new boolean[width];
     java.util.Arrays.fill(marks, ' ');
     int inWindow = 0;
     for (QueryPlanSummary p : plans) {
@@ -591,30 +614,62 @@ final class Interactive {
       i = Math.max(0, Math.min(n - 1, i));
       int col = (int) ((long) i * width / n);
       col = Math.max(0, Math.min(width - 1, col));
-      marks[col] = '\u25B2';
+      boolean change = Boolean.TRUE.equals(p.shapeChanged());
+      // a change point always wins the column glyph
+      if (change || marks[col] == ' ') {
+        marks[col] = change ? '\u25C6' : '\u25B2';
+        isChange[col] = change;
+      }
       inWindow++;
     }
-    System.out.println();
-    System.out.println("  plan captures   " + inWindow + " in window (of " + plans.size() + " recent)");
-    System.out.println("  " + AnsiColor.chart(new String(marks)));
+    int distinct = distinctShapes(plans);
+    int changes = shapeChanges(plans);
+    StringBuilder sb = new StringBuilder();
+    sb.append('\n');
+    sb.append("  plan captures   ").append(inWindow).append(" in window (of ")
+        .append(plans.size()).append(" recent), ")
+        .append(distinct).append(distinct == 1 ? " shape, " : " shapes, ")
+        .append(changes).append(changes == 1 ? " change" : " changes").append('\n');
+    // colour change-point glyphs individually, plain chart colour for the rest
+    sb.append("  ");
+    for (int c = 0; c < width; c++) {
+      String ch = String.valueOf(marks[c]);
+      sb.append(isChange[c] ? AnsiColor.change(ch) : AnsiColor.chart(ch));
+    }
+    sb.append('\n');
+    return sb.toString();
   }
 
   /** Recent captures, newest first, as a compact table. */
-  private void printPlanTable(List<QueryPlanSummary> plans) {
+  String renderPlanTable(List<QueryPlanSummary> plans) {
     List<QueryPlanSummary> sorted = new ArrayList<>(plans);
     sorted.sort(java.util.Comparator
         .comparing(QueryPlanSummary::whenCaptured, java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder()))
         .reversed());
-    System.out.println();
-    System.out.printf("  %-4s %-8s %-16s %12s %8s%n", "#", "ID", "CAPTURED", "QUERY(us)", "COUNT");
+    StringBuilder sb = new StringBuilder();
+    sb.append('\n');
+    sb.append(String.format("  %-4s %-8s %-16s %12s %8s %-8s %-2s%n",
+        "#", "ID", "CAPTURED", "QUERY(us)", "COUNT", "SHAPE", "\u0394"));
     int i = 1;
     for (QueryPlanSummary p : sorted) {
-      System.out.printf("  %-4d %-8d %-16s %,12d %,8d%n",
-          i, p.id(), fmtCaptured(p.whenCaptured()), p.queryTimeMicros(), p.captureCount());
+      boolean change = Boolean.TRUE.equals(p.shapeChanged());
+      String delta = change ? AnsiColor.change("\u25C6") : " ";
+      sb.append(String.format("  %-4d %-8d %-16s %,12d %,8d %-8s %-2s%n",
+          i, p.id(), fmtCaptured(p.whenCaptured()), p.queryTimeMicros(), p.captureCount(),
+          shortShape(p.planShapeHash()), delta));
       if (++i > 20) {
         break;
       }
     }
+    return sb.toString();
+  }
+
+  /** First 8 hex chars of the shape hash, or an em-dash placeholder when absent. */
+  static String shortShape(String planShapeHash) {
+    if (planShapeHash == null || planShapeHash.isBlank()) {
+      return "\u2014";
+    }
+    return planShapeHash.length() <= 8 ? planShapeHash : planShapeHash.substring(0, 8);
   }
 
   private static final java.time.format.DateTimeFormatter CAPTURED_FMT =
