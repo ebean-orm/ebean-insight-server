@@ -11,7 +11,7 @@ insight:
   ## Shared-secret API key sent as `Authorization: Bearer <key>` to the insight
   ## server (matches the server's insight.api.key). Leave unset when the insight
   ## server has auth disabled (e.g. reached via localhost / port-forward).
-  api.key: ${INSIGHT_API_KEY}
+  api.key: ${INSIGHT_API_KEY:}
 
 ##
 ## Inbound MCP client auth: bearer token(s) callers must present as
@@ -21,4 +21,4 @@ insight:
 ## (protected only by network isolation). /health is always open.
 ##
 mcp:
-  tokens: ${MCP_TOKENS}
+  tokens: ${MCP_TOKENS:}
