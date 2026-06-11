@@ -14,7 +14,8 @@
 - **Server** — Kubernetes, Docker, or standalone native binary:
   [`docs/install-server.md`](docs/install-server.md)
 - **CLI** (`insight`) — per-OS binaries for macOS, Linux, Windows:
-  [`docs/install-cli.md`](docs/install-cli.md)
+  [`docs/install-cli.md`](docs/install-cli.md) · non-interactive recipe for AI
+  agents: [`docs/install-cli-agents.md`](docs/install-cli-agents.md)
 - **MCP server** — expose the `/v1` API to AI agents over the Model Context
   Protocol: [`docs/install-mcp.md`](docs/install-mcp.md) ·
   [connecting clients](docs/connect-mcp-clients.md)

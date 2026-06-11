@@ -7,6 +7,10 @@ environments, browse captured DB query plans, and request fresh plan captures.
 For day-to-day usage (commands, flags, daemon mode, config persistence,
 authentication, JSON output) see [`cli/README.md`](../cli/README.md).
 
+> **Automating this for an AI agent?** See the non-interactive, idempotent
+> install/upgrade recipe in
+> [`install-cli-agents.md`](install-cli-agents.md).
+
 ---
 
 ## Where to get a binary
