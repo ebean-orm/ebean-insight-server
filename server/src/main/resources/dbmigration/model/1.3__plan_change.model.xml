@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<migration xmlns="http://ebean-orm.github.io/xml/ns/dbmigration">
+    <changeSet type="apply">
+        <createTable name="ebean_insight.query_plan_change" pkName="pk_query_plan_change">
+            <column name="id" type="integer" primaryKey="true"/>
+            <column name="app_id" type="integer" notnull="true"/>
+            <column name="env_id" type="integer" notnull="true"/>
+            <column name="hash" type="varchar" notnull="true"/>
+            <column name="label" type="varchar"/>
+            <column name="change_type" type="varchar(20)" notnull="true" checkConstraint="check ( change_type in ('FIRST','CHANGED'))" checkConstraintName="ck_query_plan_change_change_type"/>
+            <column name="from_plan_id" type="integer"/>
+            <column name="to_plan_id" type="integer" notnull="true"/>
+            <column name="from_shape_hash" type="varchar"/>
+            <column name="to_shape_hash" type="varchar" notnull="true"/>
+            <column name="algo" type="integer" notnull="true"/>
+            <column name="from_query_time_micros" type="bigint"/>
+            <column name="to_query_time_micros" type="bigint" notnull="true"/>
+            <column name="when_captured" type="timestamp" notnull="true"/>
+            <column name="detected_at" type="timestamp" notnull="true"/>
+            <column name="notified_at" type="timestamp"/>
+            <column name="version" type="integer" notnull="true"/>
+            <column name="when_created" type="timestamp" notnull="true"/>
+            <column name="when_modified" type="timestamp" notnull="true"/>
+            <uniqueConstraint name="ix_query_plan_change_to" columnNames="to_plan_id" oneToOne="false" nullableColumns=""/>
+        </createTable>
+        <createIndex indexName="ix_query_plan_change_series" tableName="ebean_insight.query_plan_change" columns="app_id,env_id,hash,when_captured"/>
+        <createIndex indexName="ix_query_plan_change_detected" tableName="ebean_insight.query_plan_change" columns="detected_at"/>
+        <createIndex indexName="ix_query_plan_change_notified" tableName="ebean_insight.query_plan_change" columns="notified_at"/>
+    </changeSet>
+</migration>

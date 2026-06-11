@@ -2,4 +2,5 @@
 846020531,      1.0__initial.sql
 1256671819,     1.1__capture_request.sql
 -1362069816,    1.2__plan_shape.sql
+702796780,      1.3__plan_change.sql
 
