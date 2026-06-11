@@ -161,7 +161,7 @@ public final class TestApis {
     @Override
     public PendingResponse requestPlanCapture(String app, String hash, String env) {
       record("requestPlanCapture", app, hash, env);
-      return null;
+      return new PendingResponse(1, app, env, "orm.X.find");
     }
 
     @Override

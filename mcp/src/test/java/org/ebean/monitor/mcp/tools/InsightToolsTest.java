@@ -27,10 +27,10 @@ class InsightToolsTest {
   }
 
   @Test
-  void definitions_listAllSevenTools() {
+  void definitions_listAllTools() {
     List<String> names = tools.definitions().stream().map(d -> (String) d.get("name")).toList();
     assertThat(names).containsExactly(
-        "apps", "envs", "metrics", "top", "plans", "plan", "missing-plans");
+        "apps", "envs", "metrics", "top", "plans", "plan", "missing-plans", "capture");
   }
 
   @Test
@@ -141,5 +141,32 @@ class InsightToolsTest {
     assertThatThrownBy(() -> tools.call("nope", Map.of()))
         .isInstanceOf(UnknownToolException.class)
         .hasMessageContaining("nope");
+  }
+
+  @Test
+  void capture_passesAppHashEnv() {
+    Map<String, Object> result = tools.call("capture",
+        Map.of("app", "central-access", "hash", "abc123", "env", "test"));
+    assertThat(result.get("isError")).isEqualTo(false);
+    assertThat(apis.args("requestPlanCapture")).containsExactly("central-access", "abc123", "test");
+    assertThat(textOf(result)).contains("\"pending\":1");
+  }
+
+  @Test
+  void capture_missingHash_isError() {
+    Map<String, Object> result = tools.call("capture", Map.of("app", "central-access"));
+    assertThat(result.get("isError")).isEqualTo(true);
+    assertThat(apis.called("requestPlanCapture")).isFalse();
+  }
+
+  @Test
+  void capture_requiresAppAndHashInSchema() {
+    Map<String, Object> capture = tools.definitions().stream()
+        .filter(d -> "capture".equals(d.get("name"))).findFirst().orElseThrow();
+    @SuppressWarnings("unchecked")
+    Map<String, Object> schema = (Map<String, Object>) capture.get("inputSchema");
+    @SuppressWarnings("unchecked")
+    List<String> required = (List<String>) schema.get("required");
+    assertThat(required).containsExactlyInAnyOrder("app", "hash");
   }
 }

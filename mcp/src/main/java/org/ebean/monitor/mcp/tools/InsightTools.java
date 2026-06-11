@@ -13,6 +13,7 @@ import org.ebean.monitor.v1.model.AppMetric;
 import org.ebean.monitor.v1.model.AppMetricStats;
 import org.ebean.monitor.v1.model.Env;
 import org.ebean.monitor.v1.model.MissingPlanMetric;
+import org.ebean.monitor.v1.model.PendingResponse;
 import org.ebean.monitor.v1.model.QueryPlan;
 import org.ebean.monitor.v1.model.QueryPlanSummary;
 
@@ -45,6 +46,7 @@ public class InsightTools {
   private final JsonType<List<QueryPlanSummary>> planSummaryList;
   private final JsonType<List<MissingPlanMetric>> missingList;
   private final JsonType<QueryPlan> plan;
+  private final JsonType<PendingResponse> pendingResponse;
 
   private final Map<String, McpTool> tools = new LinkedHashMap<>();
 
@@ -60,6 +62,7 @@ public class InsightTools {
     this.planSummaryList = listType(jsonb, QueryPlanSummary.class);
     this.missingList = listType(jsonb, MissingPlanMetric.class);
     this.plan = jsonb.type(QueryPlan.class);
+    this.pendingResponse = jsonb.type(PendingResponse.class);
     register();
   }
 
@@ -172,6 +175,17 @@ public class InsightTools {
               lng(a, "sinceMinutes"), lng(a, "sinceHours"),
               lng(a, "olderThanMinutes"), lng(a, "olderThanHours"), intg(a, "limit")));
         });
+
+    add("capture", "Request a fresh query-plan capture for a metric. "
+            + "WRITE OPERATION: this asks the target application to EXPLAIN its next execution of "
+            + "the query (identified by hash) and report the plan back. Use 'plans' afterwards to "
+            + "retrieve the captured plan. Find the hash via 'metrics', 'top' or 'missing-plans'.",
+        new Schema()
+            .req("app", "string", "Application name.")
+            .req("hash", "string", "Metric/plan hash to capture (the metric 'key').")
+            .prop("env", "string", "Limit the capture request to one environment."),
+        a -> pendingResponse.toJson(plansApi.requestPlanCapture(
+            reqStr(a, "app"), reqStr(a, "hash"), str(a, "env"))));
   }
 
   private void add(String name, String description, Schema schema, McpTool.Handler handler) {

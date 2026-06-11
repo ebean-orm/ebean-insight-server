@@ -115,4 +115,13 @@ class McpToolsIntegrationTest {
     assertThat(result.get("isError")).isEqualTo(true);
     assertThat(apis.called("listAppMetrics")).isFalse();
   }
+
+  @Test
+  void capture_fullStack_requestsCapture() {
+    Map<String, Object> result = resultOf(
+        toolsCall("capture", "{\"app\":\"central-access\",\"hash\":\"abc123\",\"env\":\"test\"}"));
+    assertThat(result.get("isError")).isEqualTo(false);
+    assertThat(apis.args("requestPlanCapture")).containsExactly("central-access", "abc123", "test");
+    assertThat(textOf(result)).contains("\"pending\":1");
+  }
 }
