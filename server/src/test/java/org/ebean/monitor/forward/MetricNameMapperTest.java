@@ -87,4 +87,24 @@ class MetricNameMapperTest {
     var m = MetricNameMapper.map("flat");
     assertThat(m.name()).isEqualTo("flat");
   }
+
+  @Test
+  void fromV2_tagsBecomeAttrs() {
+    var m = MetricNameMapper.fromV2("ebean.query", "kind:orm,label:Customer.findList,type:Customer");
+    assertThat(m.name()).isEqualTo("ebean.query");
+    assertThat(m.attrs()).containsExactly(
+      "kind", "orm", "label", "Customer.findList", "type", "Customer");
+  }
+
+  @Test
+  void fromV2_valueWithColon() {
+    var m = MetricNameMapper.fromV2("ebean.query", "label:Customer.find:special");
+    assertThat(m.attrs()).containsExactly("label", "Customer.find:special");
+  }
+
+  @Test
+  void fromV2_noTags() {
+    assertThat(MetricNameMapper.fromV2("web.api", null).attrs()).isEmpty();
+    assertThat(MetricNameMapper.fromV2("web.api", "").attrs()).isEmpty();
+  }
 }

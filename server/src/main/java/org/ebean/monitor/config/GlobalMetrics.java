@@ -75,7 +75,7 @@ public class GlobalMetrics {
     int id = 0;
     for (String metricName : GLOBAL_METRIC_NAMES) {
       String key = Md5.hash(metricName);
-      final DAppMetric metric = new DAppMetric(null, key, metricName);
+      final DAppMetric metric = new DAppMetric(null, key, metricName, null, false);
       metric.setId(++id);
       metric.save();
     }
