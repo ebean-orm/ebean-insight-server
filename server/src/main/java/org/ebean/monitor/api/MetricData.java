@@ -32,6 +32,15 @@ public class MetricData {
   public String sql;
 
   /**
+   * Optional canonical tags for v2 payloads, as a sorted delimited
+   * {@code "key:value,key2:value2"} string (e.g. {@code "kind:orm,label:Customer.findList,type:Customer"}).
+   * <p>
+   * Null/absent for legacy v1 payloads. Parsing only at this stage — not yet
+   * stored or used for metric identity.
+   */
+  public String tags;
+
+  /**
    * Timed metrics have attributes of count, mean, max and total.
    */
   public Long count;
