@@ -30,12 +30,6 @@ these permitted path prefixes, which stay open:
 Everything else is protected, including:
 
 - `/v1/*` — the versioned API used by the `insight` CLI and tooling.
-- `/api/*` (except `/api/ingest`) and the browser UI (`/`, `/static/*`).
-
-> ⚠️ **The browser UI is locked when auth is enabled.** There is currently no
-> interactive browser login flow, so a human visiting `/` will receive `401`
-> until one is added. Enable auth only where UI access is not required (or
-> behind a separate authenticating proxy).
 
 A request that is missing a token, or presents an invalid/expired one, on a
 protected path receives **HTTP 401**.
