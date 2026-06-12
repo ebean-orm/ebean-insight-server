@@ -21,11 +21,17 @@ Once connected, the server advertises **tools** and **resources**:
 | `apps` | List applications reporting to ebean-insight. |
 | `envs` | List environments. |
 | `metrics` | List an app's metrics (filter by label / plan-capable). |
+| `metric` | Fetch one metric (per-environment rows) for an app by hash. |
 | `top` | Top metrics by total/mean/max time or call count over a window. |
+| `stats` | Aggregated execution stats for one metric by hash over a window. |
+| `trend` | Time-series of a metric's stats over a window (trend analysis). |
 | `plans` | List recently captured query plans. |
 | `plan` | Fetch one captured plan (SQL + bind + plan text). |
 | `missing-plans` | Plan-capable metrics with no recent plan. |
 | `capture` | **Write:** request a fresh query-plan capture for a metric. |
+| `pending` | List requested captures not yet returned. |
+| `changes` | List recently detected plan-shape changes (FIRST / CHANGED). |
+| `change` | Fetch one plan-change with full from/to plans for diffing. |
 
 Captured plans are also exposed as **resources** (`insight://plan/{id}`) that an
 agent can read directly as markdown.

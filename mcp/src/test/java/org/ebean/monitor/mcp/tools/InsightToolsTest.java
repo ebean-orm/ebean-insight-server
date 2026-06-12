@@ -30,7 +30,8 @@ class InsightToolsTest {
   void definitions_listAllTools() {
     List<String> names = tools.definitions().stream().map(d -> (String) d.get("name")).toList();
     assertThat(names).containsExactly(
-        "apps", "envs", "metrics", "top", "plans", "plan", "missing-plans", "capture");
+        "apps", "envs", "metrics", "top", "plans", "plan", "missing-plans", "capture",
+        "pending", "changes", "change", "trend", "metric", "stats");
   }
 
   @Test
@@ -168,5 +169,71 @@ class InsightToolsTest {
     @SuppressWarnings("unchecked")
     List<String> required = (List<String>) schema.get("required");
     assertThat(required).containsExactlyInAnyOrder("app", "hash");
+  }
+
+  @Test
+  void pending_passesAppEnv() {
+    Map<String, Object> result = tools.call("pending", Map.of("app", "central-access", "env", "test"));
+    assertThat(result.get("isError")).isEqualTo(false);
+    assertThat(apis.args("listPendingPlans")).containsExactly("central-access", "test");
+  }
+
+  @Test
+  void pending_noArgs_passesNulls() {
+    tools.call("pending", Map.of());
+    assertThat(apis.args("listPendingPlans")).containsExactly(null, null);
+  }
+
+  @Test
+  void changes_passesAllFilters() {
+    tools.call("changes", Map.of("app", "central-access", "env", "test", "hash", "h1",
+        "changeType", "CHANGED", "sinceHours", 24, "limit", 10));
+    assertThat(apis.args("listPlanChanges"))
+        .containsExactly("central-access", "test", "h1", "CHANGED", null, 24L, 10);
+  }
+
+  @Test
+  void change_passesId() {
+    Map<String, Object> result = tools.call("change", Map.of("id", 7));
+    assertThat(result.get("isError")).isEqualTo(false);
+    assertThat(apis.args("getPlanChange")).containsExactly(7L);
+    assertThat(textOf(result)).contains("\"changeType\":\"CHANGED\"");
+  }
+
+  @Test
+  void change_missingId_isError() {
+    Map<String, Object> result = tools.call("change", Map.of());
+    assertThat(result.get("isError")).isEqualTo(true);
+    assertThat(apis.called("getPlanChange")).isFalse();
+  }
+
+  @Test
+  void trend_passesAppHashWindowEnv() {
+    Map<String, Object> result = tools.call("trend", Map.of("app", "central-access",
+        "hash", "abc123", "sinceHours", 6, "env", "test"));
+    assertThat(result.get("isError")).isEqualTo(false);
+    assertThat(apis.args("getMetricTimeseries"))
+        .containsExactly("central-access", "abc123", null, 6L, "test");
+  }
+
+  @Test
+  void trend_missingHash_isError() {
+    Map<String, Object> result = tools.call("trend", Map.of("app", "central-access"));
+    assertThat(result.get("isError")).isEqualTo(true);
+    assertThat(apis.called("getMetricTimeseries")).isFalse();
+  }
+
+  @Test
+  void metric_passesAppHash() {
+    tools.call("metric", Map.of("app", "central-access", "hash", "abc123"));
+    assertThat(apis.args("getMetricByHash")).containsExactly("central-access", "abc123");
+  }
+
+  @Test
+  void stats_passesAppHashWindowEnv() {
+    tools.call("stats", Map.of("app", "central-access", "hash", "abc123",
+        "sinceMinutes", 30, "env", "test"));
+    assertThat(apis.args("getMetricStatsByHash"))
+        .containsExactly("central-access", "abc123", 30L, null, "test");
   }
 }

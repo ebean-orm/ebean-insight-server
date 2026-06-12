@@ -156,11 +156,17 @@ useful on its own.
 | `apps` | List known applications | — |
 | `envs` | List known environments | — |
 | `metrics` | List metrics for an app, with filters | `app`, `label?`, `planCapable?` |
+| `metric` | Fetch one metric (per-env rows) by hash | `app`, `hash` |
 | `top` | Top metrics over a recent window | `app?`, `env?`, `by?` (total/mean/max/count), `limit?`, `sinceMinutes?`, `planCapable?` |
+| `stats` | Aggregated stats for one metric by hash over a window | `app`, `hash`, `sinceMinutes?`, `sinceHours?`, `env?` |
+| `trend` | Time-series of a metric's stats over a window | `app`, `hash`, `sinceMinutes?`, `sinceHours?`, `env?` |
 | `plans` | List recently captured plans | `app?`, `env?`, `hash?`, `label?`, `sinceHours?`, `limit?` |
 | `plan` | Fetch a single plan (sql + bind + plan text) | `id` |
 | `missing-plans` | Plan-capable metrics with no recent plan | `app?`, `env?` |
 | `capture` | **Write op:** request a fresh plan capture | `app`, `hash`, `env` |
+| `pending` | List requested captures not yet returned | `app?`, `env?` |
+| `changes` | List detected plan-shape changes (FIRST/CHANGED), newest first | `app?`, `env?`, `hash?`, `changeType?`, `sinceMinutes?`, `sinceHours?`, `limit?` |
+| `change` | Fetch one plan-change with full from/to plans | `id` |
 
 Tool descriptions explicitly call out `capture` as a write operation that
 triggers work in the target application.

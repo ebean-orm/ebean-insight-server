@@ -12,8 +12,12 @@ import org.ebean.monitor.v1.model.App;
 import org.ebean.monitor.v1.model.AppMetric;
 import org.ebean.monitor.v1.model.AppMetricStats;
 import org.ebean.monitor.v1.model.Env;
+import org.ebean.monitor.v1.model.MetricTimeseries;
 import org.ebean.monitor.v1.model.MissingPlanMetric;
+import org.ebean.monitor.v1.model.PendingPlan;
 import org.ebean.monitor.v1.model.PendingResponse;
+import org.ebean.monitor.v1.model.PlanChange;
+import org.ebean.monitor.v1.model.PlanChangeDetail;
 import org.ebean.monitor.v1.model.QueryPlan;
 import org.ebean.monitor.v1.model.QueryPlanSummary;
 
@@ -47,6 +51,10 @@ public class InsightTools {
   private final JsonType<List<MissingPlanMetric>> missingList;
   private final JsonType<QueryPlan> plan;
   private final JsonType<PendingResponse> pendingResponse;
+  private final JsonType<List<PendingPlan>> pendingList;
+  private final JsonType<List<PlanChange>> planChangeList;
+  private final JsonType<PlanChangeDetail> planChangeDetail;
+  private final JsonType<MetricTimeseries> metricTimeseries;
 
   private final Map<String, McpTool> tools = new LinkedHashMap<>();
 
@@ -63,6 +71,10 @@ public class InsightTools {
     this.missingList = listType(jsonb, MissingPlanMetric.class);
     this.plan = jsonb.type(QueryPlan.class);
     this.pendingResponse = jsonb.type(PendingResponse.class);
+    this.pendingList = listType(jsonb, PendingPlan.class);
+    this.planChangeList = listType(jsonb, PlanChange.class);
+    this.planChangeDetail = jsonb.type(PlanChangeDetail.class);
+    this.metricTimeseries = jsonb.type(MetricTimeseries.class);
     register();
   }
 
@@ -186,6 +198,64 @@ public class InsightTools {
             .prop("env", "string", "Limit the capture request to one environment."),
         a -> pendingResponse.toJson(plansApi.requestPlanCapture(
             reqStr(a, "app"), reqStr(a, "hash"), str(a, "env"))));
+
+    add("pending", "List query-plan captures that have been requested but not yet returned. "
+            + "Use after 'capture' to see in-flight requests; once returned they appear in 'plans'.",
+        new Schema()
+            .prop("app", "string", "Filter by application.")
+            .prop("env", "string", "Filter by environment."),
+        a -> pendingList.toJson(plansApi.listPendingPlans(str(a, "app"), str(a, "env"))));
+
+    add("changes", "List recently detected query-plan shape changes (plan-shape change events), "
+            + "newest first. A change is FIRST (first observed shape for a query) or CHANGED "
+            + "(the plan shape differs from the prior capture). Use 'change' for full detail.",
+        new Schema()
+            .prop("app", "string", "Filter by application.")
+            .prop("env", "string", "Filter by environment.")
+            .prop("hash", "string", "Filter by plan hash (one query's change history).")
+            .prop("changeType", "string", "Filter by change type: FIRST or CHANGED.")
+            .prop("sinceMinutes", "integer", "Only changes detected within the last N minutes.")
+            .prop("sinceHours", "integer", "Only changes detected within the last N hours.")
+            .prop("limit", "integer", "Maximum rows."),
+        a -> planChangeList.toJson(plansApi.listPlanChanges(
+            str(a, "app"), str(a, "env"), str(a, "hash"), str(a, "changeType"),
+            lng(a, "sinceMinutes"), lng(a, "sinceHours"), intg(a, "limit"))));
+
+    add("change", "Fetch a single plan-change event by id, including the full from/to query plans "
+            + "(SQL, bind values, plan text, plan shape) for diffing. Find the id via 'changes'.",
+        new Schema().req("id", "integer", "Plan-change id."),
+        a -> planChangeDetail.toJson(plansApi.getPlanChange(reqLong(a, "id"))));
+
+    add("trend", "Time-series of a metric's execution stats (call count, mean/max time) over a "
+            + "recent window, bucketed for trend analysis. Find the hash via 'metrics' or 'top'.",
+        new Schema()
+            .req("app", "string", "Application name.")
+            .req("hash", "string", "Metric/plan hash (the metric 'key').")
+            .prop("sinceMinutes", "integer", "Window size in minutes.")
+            .prop("sinceHours", "integer", "Window size in hours.")
+            .prop("env", "string", "Limit to one environment."),
+        a -> metricTimeseries.toJson(metricsApi.getMetricTimeseries(
+            reqStr(a, "app"), reqStr(a, "hash"),
+            lng(a, "sinceMinutes"), lng(a, "sinceHours"), str(a, "env"))));
+
+    add("metric", "Fetch a single metric (per-environment rows) for an application by hash. "
+            + "Find the hash via 'metrics' or 'top'.",
+        new Schema()
+            .req("app", "string", "Application name.")
+            .req("hash", "string", "Metric/plan hash (the metric 'key')."),
+        a -> metricList.toJson(metricsApi.getMetricByHash(reqStr(a, "app"), reqStr(a, "hash"))));
+
+    add("stats", "Aggregated execution stats (total/mean/max time, count) for one metric by hash "
+            + "over a recent window. Find the hash via 'metrics' or 'top'.",
+        new Schema()
+            .req("app", "string", "Application name.")
+            .req("hash", "string", "Metric/plan hash (the metric 'key').")
+            .prop("sinceMinutes", "integer", "Window size in minutes.")
+            .prop("sinceHours", "integer", "Window size in hours.")
+            .prop("env", "string", "Limit to one environment."),
+        a -> statsList.toJson(metricsApi.getMetricStatsByHash(
+            reqStr(a, "app"), reqStr(a, "hash"),
+            lng(a, "sinceMinutes"), lng(a, "sinceHours"), str(a, "env"))));
   }
 
   private void add(String name, String description, Schema schema, McpTool.Handler handler) {

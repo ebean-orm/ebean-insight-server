@@ -6,7 +6,10 @@ import org.ebean.monitor.v1.MetricsApi;
 import org.ebean.monitor.v1.PlansApi;
 import org.ebean.monitor.v1.model.App;
 import org.ebean.monitor.v1.model.Env;
+import org.ebean.monitor.v1.model.MetricTimeseries;
 import org.ebean.monitor.v1.model.PendingResponse;
+import org.ebean.monitor.v1.model.PlanChange;
+import org.ebean.monitor.v1.model.PlanChangeDetail;
 import org.ebean.monitor.v1.model.QueryPlan;
 import org.ebean.monitor.v1.model.QueryPlanSummary;
 
@@ -48,6 +51,9 @@ public final class TestApis {
     canned.put("listPlans", List.of(sampleSummary(15L)));
     canned.put("getPlan", samplePlan(15L));
     canned.put("requestPlanCapture", new PendingResponse(1, "central-access", "test", "orm.X.find"));
+    canned.put("getPlanChange", samplePlanChangeDetail(7L));
+    canned.put("getMetricTimeseries",
+        new MetricTimeseries("central-access", "hash1", "orm.X.find", 60L, 5L, List.of()));
 
     apps = proxy(AppsApi.class, new Recorder(calls, canned));
     envs = proxy(EnvsApi.class, new Recorder(calls, canned));
@@ -72,6 +78,13 @@ public final class TestApis {
   static QueryPlanSummary sampleSummary(long id) {
     return new QueryPlanSummary(id, 1L, "test", "hash" + id, "orm.X.find",
         100L, 1L, Instant.parse("2026-06-01T00:00:00Z"), "shape", false);
+  }
+
+  static PlanChangeDetail samplePlanChangeDetail(long id) {
+    PlanChange change = new PlanChange(id, "central-access", "test", "hash1", "orm.X.find",
+        "CHANGED", 5L, 8L, "aaaaaaaa", "bbbbbbbb", 1, 100L, 200L,
+        Instant.parse("2026-06-01T00:00:00Z"), Instant.parse("2026-06-01T00:01:00Z"));
+    return new PlanChangeDetail(change, samplePlan(5L), samplePlan(8L));
   }
 
   /**
