@@ -7,7 +7,7 @@ load.properties: /app/config/insight-config.yaml
 
 ##
 ## Self-reporting: when true, the server runs an in-process InsightClient that
-## posts its own ebean + JVM metrics back to itself (visible in the UI; also
+## posts its own ebean + JVM metrics back to itself (queryable via /v1; also
 ## forwarded if the OTLP forwarder is on). Off by default — those batches are
 ## tagged appName=ebean-insight with no business.* resource attributes, so
 ## downstream filters (e.g. Grafana Alloy compliance) drop them.
@@ -21,8 +21,7 @@ ebean.queryPlan.enable: true
 ## JWT access token except the permitted prefixes /health (k8s probes) and
 ## /api/ingest (app forwarders using the Insight-Key header). Off by default —
 ## the server stays fully open until auth is explicitly enabled per environment
-## (and the CLI login flow has shipped). Enabling this locks the browser UI
-## until a UI login flow exists.
+## (the CLI login flow has shipped).
 ##
 insight:
   auth:
@@ -47,7 +46,7 @@ insight:
 
 ##
 ## Forwarder: forward incoming metrics to an OTLP/HTTP endpoint (e.g. Grafana Alloy).
-## Disabled by default. Storage + UI + query-plan back-channel are unaffected.
+## Disabled by default. Storage + query-plan back-channel are unaffected.
 ##
 forward:
   otel:

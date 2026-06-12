@@ -6,7 +6,9 @@ import jakarta.inject.Inject;
 import org.ebean.monitor.api.App;
 import org.ebean.monitor.api.AppMetric;
 import org.ebean.monitor.api.Env;
-import org.ebean.monitor.api.ListResponse;
+import org.ebean.monitor.domain.DApp;
+import org.ebean.monitor.domain.DAppMetric;
+import org.ebean.monitor.domain.DEnv;
 import org.ebean.monitor.domain.DQueryPlan;
 import org.ebean.monitor.domain.query.QDQueryPlan;
 import org.junit.jupiter.api.Test;
@@ -22,9 +24,6 @@ class IngestControllerTest {
 
   @Inject
   HttpClient httpClient;
-
-  @Inject
-  ApiControllerTestAPI apiControllerTestAPI;
 
   @Test
   void ingest() throws InterruptedException {
@@ -42,26 +41,15 @@ class IngestControllerTest {
       // allow queue consumer to process
       Thread.sleep(500);
 
-      final HttpResponse<ListResponse<Env>> envsResponse = getEnvironments();
-      assertThat(envsResponse.statusCode()).isEqualTo(200);
-      var envs = envsResponse.body();
-      assertThat(envs.getList()).isNotEmpty();
-      assertThat(envs.getList())
-        .extracting(Env::getName)
-        .contains("dev1");
+      var envNames = DEnv.find.findAll().stream().map(Env::getName).toList();
+      assertThat(envNames).contains("dev1");
 
-      final HttpResponse<ListResponse<App>> appsResponse = getApps();
-      assertThat(appsResponse.statusCode()).isEqualTo(200);
-      assertThat(appsResponse.body().getList())
-        .extracting(App::getName)
-        .contains("int1");
+      var apps = DApp.find.findAll();
+      assertThat(apps).extracting(App::getName).contains("int1");
+      final App app1 = apps.getFirst();
 
-      final App app1 = appsResponse.body().getList().getFirst();
-
-      final HttpResponse<ListResponse<AppMetric>> appMetricsResponse = getAppMetrics(app1.getId());
-      assertThat(appMetricsResponse.statusCode()).isEqualTo(200);
-      var appMetrics = appMetricsResponse.body();
-      assertThat(appMetrics.getList())
+      var appMetrics = DAppMetric.find.byApp(DApp.find.ref(app1.getId()));
+      assertThat(appMetrics)
         .extracting(AppMetric::getName)
         .contains("OrderDao.findOrdersForPublishing");
 
@@ -99,17 +87,5 @@ class IngestControllerTest {
       .asString();
 
     assertThat(hres.statusCode()).isEqualTo(204);
-  }
-
-  private HttpResponse<ListResponse<Env>> getEnvironments() {
-    return apiControllerTestAPI.getEnvs();
-  }
-
-  private HttpResponse<ListResponse<App>> getApps() {
-    return apiControllerTestAPI.getApps();
-  }
-
-  private HttpResponse<ListResponse<AppMetric>> getAppMetrics(long appId) {
-    return apiControllerTestAPI.getAppMetrics(appId);
   }
 }

@@ -4,32 +4,15 @@ import io.avaje.config.Config;
 import io.avaje.inject.Bean;
 import io.avaje.inject.Factory;
 import io.avaje.inject.RequiresProperty;
-import io.avaje.jex.staticcontent.StaticContent;
 import io.avaje.jsonb.Jsonb;
 import io.avaje.metrics.Metrics;
 import io.ebean.Database;
 import io.ebean.event.ShutdownManager;
 import io.ebean.insight.InsightClient;
 import org.ebean.monitor.Application;
-import jakarta.inject.Named;
 
 @Factory
 class Configuration {
-
-  @Bean @Named
-  StaticContent favIcon() {
-    return StaticContent.ofClassPath("/static/favicon.ico")
-      .route("/favicon.ico")
-      .build();
-  }
-
-  @Bean @Named
-  StaticContent staticContent() {
-    return StaticContent.ofClassPath("/static/")
-      .route("/static/*")
-      .directoryIndex("favicon.ico")
-      .build();
-  }
 
   @Bean
   Jsonb jsonb() {

@@ -106,8 +106,8 @@ Request handling order (the **final, permit-first** ordering):
 2. **`bearerAuthoriser`** — for an `Authorization: Bearer` request, if
    configured and it returns a non-null principal (api-key matched), the
    request is authenticated and JWT verification is skipped.
-3. **JWT verify** — otherwise the standard JWT path runs. Cognito JWTs (future
-   browser UI login) continue to work on `/v1` unchanged.
+3. **JWT verify** — otherwise the standard JWT path runs. Cognito JWTs
+   continue to work on `/v1` unchanged.
 4. Otherwise → 401.
 
 A two-filters-in-chain approach (api-key filter then JWT filter) does not

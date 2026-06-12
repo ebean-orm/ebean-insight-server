@@ -38,7 +38,7 @@ Playbooks — task-oriented guides that drive the API/CLI/MCP to an outcome:
 |--------|---------|
 | `api`  | OpenAPI spec (`v1.yaml`) and generated `/v1` API interfaces + DTOs (record types). |
 | `client` | Generated typed HTTP client (`*HttpClient`) for the `/v1` API. |
-| `server` | The running service: ingest endpoints, rollups, UI, and `/v1` controllers. |
+| `server` | The running service: ingest endpoints, rollups, and `/v1` controllers. |
 | `forwarder` | Library that maintains a stable local endpoint to the server via a supervised `kubectl port-forward`. See [`forwarder/README.md`](forwarder/README.md). |
 | `cli` | `insight` command line tool over the `/v1` API; compiles to a native binary. See [`cli/README.md`](cli/README.md). |
 | `mcp` | Model Context Protocol server exposing the `/v1` API to AI agents; compiles to a native binary. See [`docs/install-mcp.md`](docs/install-mcp.md). |
@@ -151,7 +151,7 @@ insight plan 12345 --raw
 
 | Mode | What it does | Postgres |
 |------|--------------|----------|
-| **Persist** (default) | Stores metrics + query plans in Postgres, runs rollups, serves UI. | required |
+| **Persist** (default) | Stores metrics + query plans in Postgres, runs rollups, serves the `/v1` API. | required |
 | **Forward-only** | Pure smart-proxy — forwards each ingest via OTLP, optionally logs query plans. | not required |
 
 Set both `METRICS_STORE_ENABLED=false` and `PLANS_STORE_ENABLED=false` to
