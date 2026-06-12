@@ -102,9 +102,6 @@ class V1ControllerTest {
 
     assertThat(metricsApi.listAppMetrics("no-such-app", null, null, null)).isEmpty();
 
-    final List<AppMetric> byLabel = metricsApi.listMetricsByLabel(APP, ORM_LABEL);
-    assertThat(byLabel).extracting(AppMetric::name).containsOnly(ORM_LABEL);
-
     final List<AppMetric> byHash = metricsApi.getMetricByHash(APP, ORM_HASH);
     assertThat(byHash).extracting(AppMetric::key).containsOnly(ORM_HASH);
 
@@ -231,18 +228,18 @@ class V1ControllerTest {
     // collected (the any-env one having its env filled in), so they drop out
     assertThat(plansApi.listPendingPlans(null, null)).extracting(PendingPlan::hash).doesNotContain(ORM_HASH);
 
-    final List<QueryPlanSummary> appPlans = plansApi.listAppPlans(APP, null, null, null, null, null, null);
+    final List<QueryPlanSummary> appPlans = plansApi.listPlans(APP, null, null, null, null, null, null);
     assertThat(appPlans).extracting(QueryPlanSummary::hash).contains(ORM_HASH);
 
-    final List<QueryPlanSummary> byHashPlans = plansApi.listPlansByHash(APP, ORM_HASH, null, null);
+    final List<QueryPlanSummary> byHashPlans = plansApi.listPlans(APP, null, null, ORM_HASH, null, null, null);
     assertThat(byHashPlans).extracting(QueryPlanSummary::hash).containsOnly(ORM_HASH);
 
-    final List<QueryPlanSummary> byLabelPlans = plansApi.listPlansByLabel(APP, ORM_LABEL, null, null);
+    final List<QueryPlanSummary> byLabelPlans = plansApi.listPlans(APP, null, ORM_LABEL, null, null, null, null);
     assertThat(byLabelPlans).extracting(QueryPlanSummary::hash).contains(ORM_HASH);
 
-    assertThat(plansApi.listAppPlans(APP, ENV, null, null, null, null, null))
+    assertThat(plansApi.listPlans(APP, ENV, null, null, null, null, null))
       .extracting(QueryPlanSummary::hash).contains(ORM_HASH);
-    assertThat(plansApi.listAppPlans(APP, "no-such-env", null, null, null, null, null))
+    assertThat(plansApi.listPlans(APP, "no-such-env", null, null, null, null, null))
       .isEmpty();
 
     final List<QueryPlanSummary> globalPlans = plansApi.listPlans(null, null, null, ORM_HASH, null, null, null);

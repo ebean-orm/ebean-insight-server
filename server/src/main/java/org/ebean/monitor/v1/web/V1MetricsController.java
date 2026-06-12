@@ -23,11 +23,6 @@ public final class V1MetricsController implements MetricsApi {
   }
 
   @Override
-  public List<AppMetric> listMetricsByLabel(String app, String label) {
-    return service.listMetricsByLabel(app, label);
-  }
-
-  @Override
   public List<AppMetric> getMetricByHash(String app, String hash) {
     return service.getMetricByHash(app, hash);
   }

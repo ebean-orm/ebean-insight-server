@@ -163,21 +163,6 @@ public final class V1QueryService {
       .toList();
   }
 
-  public List<AppMetric> listMetricsByLabel(String appName, String label) {
-    final DApp app = findApp(appName);
-    if (app == null || label == null || label.isBlank()) {
-      return List.of();
-    }
-    return new QDAppMetric()
-      .app.eq(app)
-      .name.eq(label.trim())
-      .orderBy().key.asc()
-      .findList()
-      .stream()
-      .map(V1QueryService::toAppMetric)
-      .toList();
-  }
-
   public List<AppMetric> getMetricByHash(String appName, String hash) {
     final DApp app = findApp(appName);
     if (app == null || hash == null || hash.isBlank()) {
@@ -558,42 +543,6 @@ public final class V1QueryService {
   // ---------------------------------------------------------------------------
   // Plans
   // ---------------------------------------------------------------------------
-
-  public List<QueryPlanSummary> listAppPlans(String appName, @Nullable String env,
-                                             @Nullable String label, @Nullable String hash,
-                                             @Nullable Long sinceMinutes, @Nullable Long sinceHours,
-                                             @Nullable Integer limit) {
-    final TimeWindow window = TimeWindow.of(sinceMinutes, sinceHours, 0L);
-    final DApp app = findApp(appName);
-    if (app == null) {
-      return List.of();
-    }
-    return runPlanSummaryQuery(app, env, label, hash, window, clampLimit(limit));
-  }
-
-  public List<QueryPlanSummary> listPlansByHash(String appName, String hash,
-                                                @Nullable String env, @Nullable Integer limit) {
-    if (hash == null || hash.isBlank()) {
-      return List.of();
-    }
-    final DApp app = findApp(appName);
-    if (app == null) {
-      return List.of();
-    }
-    return runPlanSummaryQuery(app, env, null, hash, TimeWindow.NONE, clampLimit(limit));
-  }
-
-  public List<QueryPlanSummary> listPlansByLabel(String appName, String label,
-                                                 @Nullable String env, @Nullable Integer limit) {
-    if (label == null || label.isBlank()) {
-      return List.of();
-    }
-    final DApp app = findApp(appName);
-    if (app == null) {
-      return List.of();
-    }
-    return runPlanSummaryQuery(app, env, label, null, TimeWindow.NONE, clampLimit(limit));
-  }
 
   public List<QueryPlanSummary> listPlans(@Nullable String app, @Nullable String env,
                                           @Nullable String label, @Nullable String hash,

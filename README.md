@@ -85,7 +85,7 @@ HASH=8a519a4c120289bd505a4a79c27f2895
 curl -H "Insight-Key: $KEY" \
   "http://localhost:8090/v1/apps/myapp/metrics/by-hash/$HASH"
 curl -H "Insight-Key: $KEY" \
-  "http://localhost:8090/v1/apps/myapp/plans/by-hash/$HASH"
+  "http://localhost:8090/v1/plans?app=myapp&hash=$HASH"
 curl -X POST -H "Insight-Key: $KEY" \
   "http://localhost:8090/v1/apps/myapp/plans/by-hash/$HASH/request?env=prod"
 ```

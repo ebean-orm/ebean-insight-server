@@ -6,13 +6,13 @@ info:
     Versioned, agent/CLI-friendly API for ebean-insight-server.
 
     Design rules:
-    - Natural keys in URLs (apps + envs are referenced by name; metrics by
-      `label` or `hash`). The only internal id appearing in a URL is `planId`.
+    - Natural keys in URLs (apps + envs are referenced by name; metrics and
+      plans by `hash`). The only internal id appearing in a URL is `planId`.
     - Mandatory parameters are path parameters; optional parameters are
       query parameters.
     - Resource-oriented; aggregations are sub-resources (e.g.
       `/metrics/top`, `/metrics/missing-plans`).
-    - `by-hash` / `by-label` discriminator segments avoid future collisions.
+    - The `by-hash` discriminator segment avoids future path collisions.
     - Unknown natural keys (app, label, hash) return an empty list (200);
       404 is reserved for the canonical `/v1/plans/{planId}` lookup.
     - Query-parameter names match OpenTelemetry span attribute names where
@@ -112,28 +112,6 @@ paths:
                   $ref: '#/components/schemas/AppMetric'
         '400':
           $ref: '#/components/responses/BadRequest'
-
-  /v1/apps/{app}/metrics/by-label/{label}:
-    get:
-      tags: [metrics]
-      operationId: listMetricsByLabel
-      summary: Metric variants under a label
-      description: |
-        Returns the distinct hash variants for a single query label. A label
-        can resolve to multiple metrics if the underlying SQL has more than
-        one shape.
-      parameters:
-        - $ref: '#/components/parameters/AppPath'
-        - $ref: '#/components/parameters/LabelPath'
-      responses:
-        '200':
-          description: Metrics for the label
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/AppMetric'
 
   /v1/apps/{app}/metrics/by-hash/{hash}:
     get:
@@ -261,77 +239,6 @@ paths:
                   $ref: '#/components/schemas/MissingPlanMetric'
         '400':
           $ref: '#/components/responses/BadRequest'
-
-  /v1/apps/{app}/plans:
-    get:
-      tags: [plans]
-      operationId: listAppPlans
-      summary: Recent captured plans for an application
-      parameters:
-        - $ref: '#/components/parameters/AppPath'
-        - $ref: '#/components/parameters/EnvQuery'
-        - name: label
-          in: query
-          schema:
-            type: string
-        - name: hash
-          in: query
-          schema:
-            type: string
-        - $ref: '#/components/parameters/SinceMinutes'
-        - $ref: '#/components/parameters/SinceHours'
-        - $ref: '#/components/parameters/Limit'
-      responses:
-        '200':
-          description: Plan summaries
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/QueryPlanSummary'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-
-  /v1/apps/{app}/plans/by-hash/{hash}:
-    get:
-      tags: [plans]
-      operationId: listPlansByHash
-      summary: Plans captured for a metric hash
-      parameters:
-        - $ref: '#/components/parameters/AppPath'
-        - $ref: '#/components/parameters/HashPath'
-        - $ref: '#/components/parameters/EnvQuery'
-        - $ref: '#/components/parameters/Limit'
-      responses:
-        '200':
-          description: Plan summaries
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/QueryPlanSummary'
-
-  /v1/apps/{app}/plans/by-label/{label}:
-    get:
-      tags: [plans]
-      operationId: listPlansByLabel
-      summary: Plans captured under a label (across hash variants)
-      parameters:
-        - $ref: '#/components/parameters/AppPath'
-        - $ref: '#/components/parameters/LabelPath'
-        - $ref: '#/components/parameters/EnvQuery'
-        - $ref: '#/components/parameters/Limit'
-      responses:
-        '200':
-          description: Plan summaries
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/QueryPlanSummary'
 
   /v1/apps/{app}/plans/by-hash/{hash}/request:
     post:
@@ -587,13 +494,6 @@ components:
       in: path
       required: true
       description: Application name (natural key — matches OpenTelemetry `service.name`).
-      schema:
-        type: string
-    LabelPath:
-      name: label
-      in: path
-      required: true
-      description: Query label (matches OpenTelemetry `ebean.query_label`).
       schema:
         type: string
     HashPath:
