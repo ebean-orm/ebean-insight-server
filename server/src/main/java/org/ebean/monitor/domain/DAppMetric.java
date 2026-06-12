@@ -13,7 +13,6 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import java.util.Map;
 
 /**
  * The application metric.
@@ -85,13 +84,15 @@ public class DAppMetric extends BaseDomain {
   private Long planThresholdMicros;
 
   /**
-   * Canonical tags for v2 metrics (e.g. {@code {kind:orm, type:Customer, label:Customer.findList}}),
-   * stored as jsonb. Null for legacy v1 metrics. Set once at metric creation.
+   * Canonical tags for v2 metrics (e.g. {@code {"kind":"orm","type":"Customer","label":"Customer.findList"}}),
+   * stored as a raw JSON String in a {@code jsonb} column (so {@code tags ->> 'label'} grouping
+   * works in SQL) via Ebean's {@code ScalarTypeJsonString} - no Jackson dependency required.
+   * Null for legacy v1 metrics. Set once at metric creation.
    */
   @DbJsonB
-  private Map<String, Object> tags;
+  private String tags;
 
-  public DAppMetric(DApp app, String key, String name, Map<String, Object> tags, boolean planCapable) {
+  public DAppMetric(DApp app, String key, String name, String tags, boolean planCapable) {
     this.app = app;
     this.key = key;
     this.name = name;
@@ -139,11 +140,11 @@ public class DAppMetric extends BaseDomain {
     this.planThresholdMicros = planThresholdMicros;
   }
 
-  public Map<String, Object> getTags() {
+  public String getTags() {
     return tags;
   }
 
-  public void setTags(Map<String, Object> tags) {
+  public void setTags(String tags) {
     this.tags = tags;
   }
 }

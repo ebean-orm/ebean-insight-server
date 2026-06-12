@@ -7,6 +7,7 @@ import org.ebean.monitor.v1.model.AppMetric;
 import org.ebean.monitor.v1.model.AppMetricStats;
 import org.ebean.monitor.v1.model.MetricTimeseries;
 import org.ebean.monitor.v1.model.MissingPlanMetric;
+import org.ebean.monitor.v1.model.TopGroup;
 
 @Controller
 public final class V1MetricsController implements MetricsApi {
@@ -18,8 +19,8 @@ public final class V1MetricsController implements MetricsApi {
   }
 
   @Override
-  public List<AppMetric> listAppMetrics(String app, String label, Boolean planCapable, Integer limit) {
-    return service.listAppMetrics(app, label, planCapable, limit);
+  public List<AppMetric> listAppMetrics(String app, String name, String label, String kind, String type, Boolean planCapable, Integer limit) {
+    return service.listAppMetrics(app, name, label, kind, type, planCapable, limit);
   }
 
   @Override
@@ -38,8 +39,8 @@ public final class V1MetricsController implements MetricsApi {
   }
 
   @Override
-  public List<AppMetricStats> topAppMetrics(String app, String orderBy, Long sinceMinutes, Long sinceHours, Integer limit, Boolean planCapable, String env) {
-    return service.topAppMetrics(app, orderBy, sinceMinutes, sinceHours, limit, planCapable, env);
+  public List<TopGroup> topAppMetrics(String app, String by, String name, String kind, String type, String orderBy, Long sinceMinutes, Long sinceHours, Integer limit, Boolean planCapable, String env) {
+    return service.topAppMetrics(app, by, name, kind, type, orderBy, sinceMinutes, sinceHours, limit, planCapable, env);
   }
 
   @Override
@@ -48,8 +49,8 @@ public final class V1MetricsController implements MetricsApi {
   }
 
   @Override
-  public List<AppMetricStats> topMetrics(String orderBy, Long sinceMinutes, Long sinceHours, Integer limit, Boolean planCapable, String env) {
-    return service.topMetrics(orderBy, sinceMinutes, sinceHours, limit, planCapable, env);
+  public List<TopGroup> topMetrics(String by, String name, String kind, String type, String orderBy, Long sinceMinutes, Long sinceHours, Integer limit, Boolean planCapable, String env) {
+    return service.topMetrics(by, name, kind, type, orderBy, sinceMinutes, sinceHours, limit, planCapable, env);
   }
 
   @Override

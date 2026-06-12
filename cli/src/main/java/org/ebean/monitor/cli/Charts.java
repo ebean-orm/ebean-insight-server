@@ -2,14 +2,14 @@ package org.ebean.monitor.cli;
 
 import java.util.List;
 
-import org.ebean.monitor.v1.model.AppMetricStats;
+import org.ebean.monitor.v1.model.TopGroup;
 
 /**
  * Shared rendering helpers for ranked-metric charts (Pareto bars).
  *
  * <p>Charts augment the numbers — they never replace them. Cumulative-percent
  * (Pareto) annotation is only meaningful for additive measures (total time,
- * call count); for mean/max we render bars for relative sizing only.
+ * call count); for mean/max/value we render bars for relative sizing only.
  */
 final class Charts {
 
@@ -19,29 +19,42 @@ final class Charts {
   }
 
   /** The plotted value for a row under the chosen ranking measure. */
-  static double measure(AppMetricStats r, TopCommand.OrderBy by) {
-    return switch (by) {
-      case total -> r.totalMicros();
-      case mean -> r.meanMicros();
-      case max -> r.maxMicros();
-      case count -> r.count();
+  static double measure(TopGroup r, TopCommand.Sort sort) {
+    return switch (sort) {
+      case total -> nz(r.totalMicros());
+      case mean -> nz(r.meanMicros());
+      case max -> nz(r.maxMicros());
+      case count -> nz(r.count());
+      case value -> r.value() == null ? 0d : r.value();
     };
   }
 
   /** Additive measures support a meaningful running cumulative percentage. */
-  static boolean additive(TopCommand.OrderBy by) {
-    return by == TopCommand.OrderBy.total || by == TopCommand.OrderBy.count;
+  static boolean additive(TopCommand.Sort sort) {
+    return sort == TopCommand.Sort.total || sort == TopCommand.Sort.count;
   }
 
-  static String unit(TopCommand.OrderBy by) {
-    return by == TopCommand.OrderBy.count ? "calls" : "us";
+  static String unit(TopCommand.Sort sort) {
+    return switch (sort) {
+      case count -> "calls";
+      case value -> "";
+      default -> "us";
+    };
+  }
+
+  /** A row's display label: the group value, falling back to the label tag. */
+  private static String rowLabel(TopGroup r) {
+    if (r.group() != null) {
+      return r.group();
+    }
+    return r.label() == null ? "" : r.label();
   }
 
   /**
    * Render a full-width Pareto bar chart of the rows under the chosen measure.
-   * Rows are assumed already ordered by {@code by} (descending).
+   * Rows are assumed already ordered by {@code sort} (descending).
    */
-  static void printPareto(List<AppMetricStats> rows, TopCommand.OrderBy by) {
+  static void printPareto(List<TopGroup> rows, TopCommand.Sort sort) {
     if (rows.isEmpty()) {
       System.out.println("No metrics found.");
       return;
@@ -49,23 +62,23 @@ final class Charts {
     double max = 0;
     double total = 0;
     int labelWidth = "LABEL".length();
-    for (AppMetricStats r : rows) {
-      double v = measure(r, by);
+    for (TopGroup r : rows) {
+      double v = measure(r, sort);
       max = Math.max(max, v);
       total += v;
-      String label = r.label() == null ? "" : r.label();
-      labelWidth = Math.max(labelWidth, Math.min(40, label.length()));
+      labelWidth = Math.max(labelWidth, Math.min(40, rowLabel(r).length()));
     }
-    boolean cum = additive(by) && total > 0;
-    System.out.printf("Top %d by %s (%s)%n%n", rows.size(), by.name(), unit(by));
+    boolean cum = additive(sort) && total > 0;
+    String unit = unit(sort);
+    System.out.printf("Top %d by %s%s%n%n", rows.size(), sort.name(), unit.isEmpty() ? "" : " (" + unit + ")");
     double running = 0;
     String fmt = "  %-" + labelWidth + "s  %s  %14s%s%n";
-    for (AppMetricStats r : rows) {
-      double v = measure(r, by);
+    for (TopGroup r : rows) {
+      double v = measure(r, sort);
       running += v;
-      String label = truncate(r.label() == null ? "" : r.label(), labelWidth);
+      String label = truncate(rowLabel(r), labelWidth);
       String bar = AnsiColor.chart(TermChart.bar(v, max, BAR_WIDTH));
-      String value = String.format("%,.0f %s", v, unit(by));
+      String value = unit.isEmpty() ? String.format("%,.0f", v) : String.format("%,.0f %s", v, unit);
       String cumStr = cum ? String.format("  (cum %3.0f%%)", running / total * 100.0) : "";
       System.out.printf(fmt, label, bar, value, cumStr);
     }
@@ -76,5 +89,9 @@ final class Charts {
       return s;
     }
     return s.substring(0, Math.max(1, width - 1)) + "\u2026";
+  }
+
+  private static double nz(Long v) {
+    return v == null ? 0d : v;
   }
 }

@@ -96,7 +96,8 @@ class MetricCommandsParseTest {
   @Test
   void top_defaults() {
     var cmd = CommandLine.populateCommand(new TopCommand());
-    assertThat(cmd.by).isEqualTo(TopCommand.OrderBy.total);
+    assertThat(cmd.by).isEqualTo("label");
+    assertThat(cmd.sort).isEqualTo(TopCommand.Sort.total);
     assertThat(cmd.limit).isEqualTo(20);
     assertThat(cmd.app).isNull();
     assertThat(cmd.env).isNull();
@@ -106,10 +107,12 @@ class MetricCommandsParseTest {
   @Test
   void top_parsesOptions() {
     var cmd = CommandLine.populateCommand(new TopCommand(),
-        "--app", "central-notifications", "--env", "test", "--by", "mean", "--since-hours", "2", "-n", "5");
+        "--app", "central-notifications", "--env", "test", "--by", "type",
+        "--sort", "mean", "--since-hours", "2", "-n", "5");
     assertThat(cmd.app).isEqualTo("central-notifications");
     assertThat(cmd.env).isEqualTo("test");
-    assertThat(cmd.by).isEqualTo(TopCommand.OrderBy.mean);
+    assertThat(cmd.by).isEqualTo("type");
+    assertThat(cmd.sort).isEqualTo(TopCommand.Sort.mean);
     assertThat(cmd.sinceHours).isEqualTo(2L);
     assertThat(cmd.sinceMinutes).isNull();
     assertThat(cmd.limit).isEqualTo(5);
@@ -131,8 +134,8 @@ class MetricCommandsParseTest {
   }
 
   @Test
-  void top_invalidOrderBy_failsParsing() {
-    var result = new CommandLine(new TopCommand()).execute("--by", "bananas");
+  void top_invalidSort_failsParsing() {
+    var result = new CommandLine(new TopCommand()).execute("--sort", "bananas");
     assertThat(result).isNotZero();
   }
 

@@ -36,8 +36,17 @@ final class MetricsCommand implements Callable<Integer> {
   @Option(names = "--app", required = true, description = "The application name.")
   String app;
 
-  @Option(names = "--label", description = "Filter by query label.")
+  @Option(names = "--name", description = "Filter by metric family name (e.g. ebean.query).")
+  @Nullable String name;
+
+  @Option(names = "--label", description = "Filter by the 'label' tag.")
   @Nullable String label;
+
+  @Option(names = "--kind", description = "Filter by the 'kind' tag (e.g. orm).")
+  @Nullable String kind;
+
+  @Option(names = "--type", description = "Filter by the 'type' tag (e.g. a bean type).")
+  @Nullable String type;
 
   @Option(names = "--plan-capable", arity = "0..1", fallbackValue = "true",
       description = "Filter to plan-capable metrics. Omit for no filter; use --plan-capable=false for the inverse.")
@@ -52,7 +61,7 @@ final class MetricsCommand implements Callable<Integer> {
   @Override
   public Integer call() {
     try (Insight insight = Insight.open(conn)) {
-      List<AppMetric> metrics = insight.metrics.listAppMetrics(app, label, planCapable, limit);
+      List<AppMetric> metrics = insight.metrics.listAppMetrics(app, name, label, kind, type, planCapable, limit);
       if (out.json()) {
         out.printJsonList(AppMetric.class, metrics);
         return 0;

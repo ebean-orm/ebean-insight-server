@@ -10,7 +10,6 @@ import java.util.Locale;
 
 import io.avaje.http.client.HttpException;
 import org.ebean.monitor.v1.model.AppMetric;
-import org.ebean.monitor.v1.model.AppMetricStats;
 import org.ebean.monitor.v1.model.MetricTimeBucket;
 import org.ebean.monitor.v1.model.MetricTimeseries;
 import org.ebean.monitor.v1.model.MissingPlanMetric;
@@ -18,6 +17,7 @@ import org.ebean.monitor.v1.model.PlanChange;
 import org.ebean.monitor.v1.model.PlanChangeDetail;
 import org.ebean.monitor.v1.model.QueryPlan;
 import org.ebean.monitor.v1.model.QueryPlanSummary;
+import org.ebean.monitor.v1.model.TopGroup;
 
 /**
  * "Light interactive" guided drill-down for ranked-metric lists.
@@ -71,6 +71,10 @@ final class Interactive {
   private final String titleTail;
   private final java.util.function.Function<By, List<Row>> reload;
   private final BufferedReader in;
+  /** The aggregation dimension of the ranked list (hash/name/label/tag), for drill-down. */
+  private final String dimension;
+  /** The single app the list is scoped to, or null when it spans apps. */
+  private final String appScope;
 
   private List<Row> rows;
   private By by;
@@ -78,7 +82,8 @@ final class Interactive {
 
   private Interactive(Insight insight, String env, Mode mode, boolean showApp,
                       String titleHead, String titleTail, By by,
-                      List<Row> rows, java.util.function.Function<By, List<Row>> reload) {
+                      List<Row> rows, java.util.function.Function<By, List<Row>> reload,
+                      String dimension, String appScope) {
     this.insight = insight;
     this.env = env;
     this.mode = mode;
@@ -87,6 +92,8 @@ final class Interactive {
     this.titleTail = titleTail;
     this.rows = rows;
     this.reload = reload;
+    this.dimension = dimension;
+    this.appScope = appScope;
     applyBy(by);
     this.in = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8));
   }
@@ -101,6 +108,8 @@ final class Interactive {
     this.titleTail = "";
     this.rows = List.of();
     this.reload = null;
+    this.dimension = "hash";
+    this.appScope = null;
     this.by = By.total;
     this.measure = TrendCommand.Measure.mean;
     this.in = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8));
@@ -111,16 +120,29 @@ final class Interactive {
     this.measure = TrendCommand.Measure.of(by.name());
   }
 
-  static int topLoop(Insight insight, List<AppMetricStats> initial, TopCommand.OrderBy by, String env,
-                     java.util.function.Function<String, List<AppMetricStats>> fetch) {
-    String only = singleApp(initial.stream().map(AppMetricStats::app).toList());
+  static int topLoop(Insight insight, String appScope, String dimension, List<TopGroup> initial,
+                     TopCommand.Sort sort, String env,
+                     java.util.function.Function<String, List<TopGroup>> fetch) {
+    String only = appScope != null ? appScope : singleApp(initial.stream().map(TopGroup::app).toList());
     long window = initial.isEmpty() ? 0 : initial.get(0).windowMinutes();
     String titleTail = (only != null ? " — " + only : "")
-        + (window > 0 ? " — window " + window + "m" : "");
+        + (window > 0 ? " — window " + window + "m" : "")
+        + " — by " + dimension;
+    By startBy = sortToBy(sort);
     java.util.function.Function<By, List<Row>> reload = b -> toTopRows(fetch.apply(b.name()), b);
-    List<Row> rows = toTopRows(initial, By.valueOf(by.name()));
+    List<Row> rows = toTopRows(initial, startBy);
     return new Interactive(insight, env, Mode.TOP, only == null, "Top", titleTail,
-        By.valueOf(by.name()), rows, reload).run();
+        startBy, rows, reload, dimension, appScope).run();
+  }
+
+  /** Map the command-line sort to the interactive measure toggle (which is timer-only). */
+  private static By sortToBy(TopCommand.Sort sort) {
+    return switch (sort) {
+      case mean -> By.mean;
+      case max -> By.max;
+      case count -> By.count;
+      default -> By.total;
+    };
   }
 
   static int missingPlansLoop(Insight insight, List<MissingPlanMetric> initial, MissingPlansCommand.OrderBy by,
@@ -130,7 +152,7 @@ final class Interactive {
     java.util.function.Function<By, List<Row>> reload = b -> toMissingRows(fetch.apply(b.name()), b);
     List<Row> rows = toMissingRows(initial, By.valueOf(by.name()));
     return new Interactive(insight, env, Mode.MISSING, only == null, "Missing plans", titleTail,
-        By.valueOf(by.name()), rows, reload).run();
+        By.valueOf(by.name()), rows, reload, "hash", only).run();
   }
 
   /**
@@ -153,7 +175,7 @@ final class Interactive {
     String label = metrics.get(0).name();
     Row row = new Row(app, hash, label == null ? hash : label, 0, "us");
     Interactive it = new Interactive(insight, env, Mode.TOP, false, "", "", By.total,
-        List.of(row), b -> List.of(row));
+        List.of(row), b -> List.of(row), "hash", app);
     it.rowMenu(row);
     return 0;
   }
@@ -165,15 +187,16 @@ final class Interactive {
    */
   static int changesLoop(Insight insight, List<PlanChange> changes, String env) {
     return new Interactive(insight, env, Mode.TOP, true, "", "", By.total,
-        List.of(), b -> List.of()).runChanges(changes);
+        List.of(), b -> List.of(), "hash", null).runChanges(changes);
   }
 
-  private static List<Row> toTopRows(List<AppMetricStats> src, By by) {
+  private static List<Row> toTopRows(List<TopGroup> src, By by) {
     String unit = by.unit();
     List<Row> out = new ArrayList<>(src.size());
-    for (AppMetricStats r : src) {
-      out.add(new Row(r.app(), r.key(), r.label(), measure(r, by), unit,
-          r.count(), r.totalMicros(), r.meanMicros(), r.maxMicros(),
+    for (TopGroup r : src) {
+      String label = r.label() != null ? r.label() : r.group();
+      out.add(new Row(r.app(), r.key(), label, measure(r, by), unit,
+          nz(r.count()), nz(r.totalMicros()), nz(r.meanMicros()), nz(r.maxMicros()),
           Boolean.TRUE.equals(r.planCapable()), null, null));
     }
     return out;
@@ -190,13 +213,17 @@ final class Interactive {
     return out;
   }
 
-  private static double measure(AppMetricStats r, By by) {
+  private static double measure(TopGroup r, By by) {
     return switch (by) {
-      case total -> r.totalMicros();
-      case mean -> r.meanMicros();
-      case max -> r.maxMicros();
-      case count -> r.count();
+      case total -> nz(r.totalMicros());
+      case mean -> nz(r.meanMicros());
+      case max -> nz(r.maxMicros());
+      case count -> nz(r.count());
     };
+  }
+
+  private static long nz(@org.jspecify.annotations.Nullable Long v) {
+    return v == null ? 0L : v;
   }
 
   private static double measure(MissingPlanMetric m, By by) {
@@ -393,6 +420,9 @@ final class Interactive {
 
   /** Returns false when the user asked to quit the whole session. */
   private boolean rowMenu(Row row) {
+    if (row.hash() == null || row.hash().isBlank()) {
+      return drillGroup(row);
+    }
     while (true) {
       System.out.println();
       System.out.println(row.label() + "  [" + row.app() + "]  " + row.hash());
@@ -423,6 +453,82 @@ final class Interactive {
         }
         case "h" -> showChanges(row);
         default -> System.out.println("Unknown action. Use s/p/c/t/h/b/q.");
+      }
+    }
+  }
+
+  /**
+   * Drill from an aggregated row (no single hash) into the individual queries
+   * that make up the group, then offer the per-query row menu. Maps the
+   * aggregation dimension to the matching {@code listAppMetrics} filter.
+   */
+  private boolean drillGroup(Row group) {
+    final String app = appScope != null ? appScope : group.app();
+    if (app == null) {
+      System.out.println("Cross-app aggregate — re-run with --app to drill into individual queries.");
+      return true;
+    }
+    final String dim = dimension == null ? "label" : dimension.toLowerCase(Locale.ROOT);
+    String name = null;
+    String label = null;
+    String kind = null;
+    String type = null;
+    switch (dim) {
+      case "label" -> label = group.label();
+      case "name" -> name = group.label();
+      case "kind" -> kind = group.label();
+      case "type" -> type = group.label();
+      default -> {
+        System.out.println("Drill not available for tag '" + dimension
+            + "'. Re-run with --by hash to list individual queries.");
+        return true;
+      }
+    }
+    final List<AppMetric> metrics;
+    try {
+      metrics = insight.metrics.listAppMetrics(app, name, label, kind, type, null, 100);
+    } catch (HttpException e) {
+      System.out.println("Failed to load queries: HTTP " + e.statusCode());
+      return true;
+    }
+    if (metrics.isEmpty()) {
+      System.out.println("No individual queries found for this group.");
+      return true;
+    }
+    final List<Row> drill = new ArrayList<>(metrics.size());
+    for (AppMetric m : metrics) {
+      final String lbl = m.label() != null ? m.label() : m.name();
+      drill.add(new Row(app, m.key(), lbl, 0, "us", 0, 0, 0, 0, true, null, null));
+    }
+    return drillLoop(group.label(), drill);
+  }
+
+  /** A nested list of the individual queries under a drilled group. */
+  private boolean drillLoop(String groupLabel, List<Row> drill) {
+    while (true) {
+      printList("Queries " + drill.size() + " — " + groupLabel, drill);
+      System.out.print("Select " + AnsiColor.hot("1-" + drill.size(), "")
+          + "   " + AnsiColor.hot("b", "ack") + "   " + AnsiColor.hot("q", "uit") + " > ");
+      System.out.flush();
+      String line = readLine();
+      if (line == null) {
+        System.out.println();
+        return false;
+      }
+      line = line.trim();
+      if (line.equalsIgnoreCase("q")) {
+        return false;
+      }
+      if (line.isEmpty() || line.equalsIgnoreCase("b")) {
+        return true;
+      }
+      Integer idx = parseIndex(line, drill.size());
+      if (idx == null) {
+        System.out.println("Enter 1-" + drill.size() + ", 'b' back, or 'q' quit.");
+        continue;
+      }
+      if (!rowMenu(drill.get(idx - 1))) {
+        return false;
       }
     }
   }

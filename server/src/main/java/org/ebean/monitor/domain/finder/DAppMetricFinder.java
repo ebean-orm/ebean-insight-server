@@ -10,6 +10,9 @@ import java.util.List;
 
 public class DAppMetricFinder extends Finder<Integer,DAppMetric> {
 
+  /** Defensive upper bound on rows returned for whole-app metric scans. */
+  private static final int MAX_ROWS = 5000;
+
   /**
    * Construct using the default Database.
    */
@@ -23,22 +26,7 @@ public class DAppMetricFinder extends Finder<Integer,DAppMetric> {
       .select(m.id, m.name, m.loc, m.sql)
       .app.eq(app)
       .name.desc()
-      .asDto(AppMetric.class)
-      .findList();
-  }
-
-  /**
-   * Return all metric variants (different hashes) for the given app sharing
-   * a label (the metric {@code name}). Useful when a query label maps to
-   * multiple distinct SQL variants.
-   */
-  public List<AppMetric> byAppLabel(DApp app, String label) {
-    final QDAppMetric m = QDAppMetric.alias();
-    return new QDAppMetric()
-      .select(m.id, m.name, m.loc, m.sql)
-      .app.eq(app)
-      .name.eq(label)
-      .name.desc()
+      .setMaxRows(MAX_ROWS)
       .asDto(AppMetric.class)
       .findList();
   }

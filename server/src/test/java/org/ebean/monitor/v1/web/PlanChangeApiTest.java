@@ -29,7 +29,7 @@ class PlanChangeApiTest {
 
   private static final Instant BASE = Instant.parse("2026-07-01T00:00:00Z");
 
-  private final V1QueryService service = new V1QueryService(null);
+  private final V1QueryService service = new V1QueryService(null, io.avaje.jsonb.Jsonb.instance());
 
   @BeforeAll
   static void setup() {
