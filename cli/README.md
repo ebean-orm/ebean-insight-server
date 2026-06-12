@@ -163,13 +163,15 @@ per-command forward.
 | `insight apps [--active-within-minutes N \| --active-within-hours N]` | List known applications. |
 | `insight envs` | List known environments. |
 | `insight metrics --app X [--label] [--plan-capable]` | List an app's metrics (ID, NAME, HASH, LOC); full SQL with `-o json`. |
-| `insight metric [<app>] [<hash>] [--app] [--hash]` | Show one metric (name, location, full SQL) by its hash. |
+| `insight metric [<app>] [<hash>] [--app] [--hash] [--env] [-i]` | Show one metric (name, location, full SQL) by its hash. `-i` drives an interactive drill-down (sql/plan/capture/trend/history) for the hash. |
 | `insight top [--app] [--env] [--by total\|mean\|max\|count] [--since-minutes N \| --since-hours N] [--plan-capable] [-n N] [--chart] [-i]` | Rank metrics by cost over a window. Omit `--app` to span all apps. `--chart` renders a horizontal Pareto bar chart; `-i` drives an interactive drill-down. |
 | `insight trend [<app>] [<hash>] [--app] [--hash] [--env] [--by total\|mean\|max\|count] [--since-minutes N \| --since-hours N]` | Per-bucket trend column charts for one metric (tall top chart = `--by` measure, lower chart = calls). |
 | `insight missing-plans [--app] [--by total\|mean\|max\|count] [--since-minutes N \| --since-hours N] [--older-than-minutes N \| --older-than-hours N] [--capture [--yes] [--env]] [-n N] [-i]` | Plan-capable metrics with no recent plan, ranked by cost. `--capture` requests a plan for every listed row (capped by `-n`); `-i` drives an interactive drill-down. |
 | `insight plans [--app] [--env] [--label] [--hash] [--since-minutes N] [--since-hours N] [-n/--limit N]` | List recently captured query plans (tabular). |
 | `insight pending [--app] [--env]` | List in-flight plan captures — requested but not yet collected (durable; shows AGE, ages out after ~15 min). |
 | `insight plan <planId> [--raw]` | Show one captured plan. `--raw` prints only the EXPLAIN plan text. |
+| `insight changes [--app] [--env] [--hash] [--type FIRST\|CHANGED] [--since-minutes N \| --since-hours N] [-n/--limit N] [-i]` | List recent plan-shape change events (newest first). `-i` drives an interactive drill-down: pick a change to diff, then drill into the query (sql/plan/capture/trend). |
+| `insight change <id> [--raw]` | Show one plan-change event: from/to plans and a unified EXPLAIN diff. `--raw` prints only the to-plan EXPLAIN text. |
 | `insight capture [<app>] [<hash>...] [--app] [--hash] [--stdin] [--env]` | Request a fresh plan capture for one or more metric hashes (space or comma separated). `--app`/`--hash` are flag-form alternatives to the positionals; `--stdin` reads additional whitespace/comma/newline-separated hashes from standard input. |
 | `insight config <set\|get\|unset\|list\|path>` | Manage persisted settings in `~/.insight/config.properties`. |
 | `insight login [--timeout-seconds N]` | Authenticate via Cognito (OAuth2 + PKCE) and cache the bearer token. |
@@ -232,21 +234,23 @@ insight top --by count                       # highest call volume
 insight top --app myapp --env test           # scope to one app / one env
 insight top --plan-capable                   # only queries that can have a plan captured
 insight top --chart                          # horizontal Pareto bar chart (cum% for total/count)
-insight top --by mean -i                     # interactive drill-down (sql/plan/capture/trend)
+insight top --by mean -i                     # interactive drill-down (sql/plan/capture/trend/history)
 ```
 
 The `--chart` view renders dependency-free Unicode bars scaled to the largest
 row; for additive measures (`total`, `count`) it also annotates a running
 cumulative percentage so you can see the Pareto "vital few". `-i` prints a
 numbered, bar-annotated list and then waits for you to pick a row and an action
-— a guided drill-down without a full-screen TUI. It reads line-by-line from
-stdin, so a session can be scripted via a pipe. With `-o json` or on a
-non-interactive stream it falls back to plain output.
+(**s**ql / **p**lan / **c**apture / **t**rend / **h**istory) — a guided
+drill-down without a full-screen TUI. It reads line-by-line from stdin, so a
+session can be scripted via a pipe. With `-o json` or on a non-interactive
+stream it falls back to plain output.
 
 ### 2b. Drill into one metric
 
 ```bash
 insight metric myapp <hash>                  # name, location and full SQL for one hash
+insight metric myapp <hash> -i               # interactive drill-down for a known hash (e.g. from a trace)
 insight metric myapp <hash> -o json
 insight trend myapp <hash> --since-hours 6   # top chart: mean time, lower: call volume
 insight trend myapp <hash> --by total        # top chart: total time per bucket

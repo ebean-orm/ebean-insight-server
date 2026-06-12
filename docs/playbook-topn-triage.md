@@ -54,6 +54,10 @@ env) and follow the [slow-query-trace playbook](playbook-slow-query-trace.md)
 from **step 1** (`metric`) onward: identify → quantify → plan → (capture) →
 change-check.
 
+> **Interactive (CLI):** run `insight top -i` (or `missing-plans -i`) and you
+> never leave the session — pick a row, then **s**ql / **p**lan / **c**apture /
+> **t**rend / **h**istory (plan-change diff) for it directly.
+
 If many of the top rows are plan-capable but have no captured plan, jump to the
 [missing-plans backfill playbook](playbook-missing-plans-backfill.md) to capture
 them in bulk first.

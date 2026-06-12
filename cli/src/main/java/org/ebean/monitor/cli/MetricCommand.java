@@ -23,6 +23,7 @@ import picocli.CommandLine.Parameters;
     footer = {
         "  insight metric myapp <hash>",
         "  insight metric --app myapp --hash <hash>",
+        "  insight metric myapp <hash> -i           # interactive drill-down (sql/plan/capture/trend/history)",
         "  insight metric myapp <hash> -o json",
         "  # find the hash first:  insight top --app myapp   (HASH column)"
     })
@@ -43,6 +44,14 @@ final class MetricCommand implements Callable<Integer> {
   @Option(names = "--hash", description = "Metric hash (alternative to the positional).")
   @Nullable String hashOpt;
 
+  @Option(names = "--env",
+      description = "Limit to one environment (used for capture/trend in interactive mode).")
+  @Nullable String env;
+
+  @Option(names = {"-i", "--interactive"},
+      description = "Drill down interactively: sql/plan/capture/trend/history for this hash.")
+  boolean interactive;
+
   @Override
   public Integer call() {
     String app = appOpt != null ? appOpt : appArg;
@@ -57,6 +66,9 @@ final class MetricCommand implements Callable<Integer> {
       throw new CliException("No metric hash given. Pass it positionally or with --hash.");
     }
     try (Insight insight = Insight.open(conn)) {
+      if (interactive && !out.json()) {
+        return Interactive.inspectLoop(insight, app, hash, env);
+      }
       List<AppMetric> metrics = insight.metrics.getMetricByHash(app, hash);
       if (out.json()) {
         out.printJsonList(AppMetric.class, metrics);

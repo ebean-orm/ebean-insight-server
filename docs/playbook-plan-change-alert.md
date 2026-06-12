@@ -19,6 +19,10 @@ insight changes --type CHANGED --since-hours 24 -n 20
 insight changes --app $APP --env $ENV --hash $HASH
 ```
 
+> **Interactive (CLI):** `insight changes --type CHANGED -i` walks the whole
+> playbook in one session — pick a change to see its from/to diff (step 2), then
+> press **d** to drill into that query (sql/plan/capture/trend), covering step 3.
+
 ```text
 # MCP tool
 changes(changeType=CHANGED, sinceHours=24, limit=20)

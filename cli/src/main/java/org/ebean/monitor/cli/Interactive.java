@@ -14,6 +14,8 @@ import org.ebean.monitor.v1.model.AppMetricStats;
 import org.ebean.monitor.v1.model.MetricTimeBucket;
 import org.ebean.monitor.v1.model.MetricTimeseries;
 import org.ebean.monitor.v1.model.MissingPlanMetric;
+import org.ebean.monitor.v1.model.PlanChange;
+import org.ebean.monitor.v1.model.PlanChangeDetail;
 import org.ebean.monitor.v1.model.QueryPlan;
 import org.ebean.monitor.v1.model.QueryPlanSummary;
 
@@ -129,6 +131,41 @@ final class Interactive {
     List<Row> rows = toMissingRows(initial, By.valueOf(by.name()));
     return new Interactive(insight, env, Mode.MISSING, only == null, "Missing plans", titleTail,
         By.valueOf(by.name()), rows, reload).run();
+  }
+
+  /**
+   * Hash-entry drill-down: open the row menu directly for a single
+   * {@code app}/{@code hash} (e.g. a hash lifted from a trace), without first
+   * ranking a list. Backs {@code insight metric <app> <hash> -i}.
+   */
+  static int inspectLoop(Insight insight, String app, String hash, String env) {
+    List<AppMetric> metrics;
+    try {
+      metrics = insight.metrics.getMetricByHash(app, hash);
+    } catch (HttpException e) {
+      System.out.println("Failed to load metric: HTTP " + e.statusCode());
+      return 1;
+    }
+    if (metrics.isEmpty()) {
+      System.out.println("No metric found for hash " + hash + " in app " + app + ".");
+      return 1;
+    }
+    String label = metrics.get(0).name();
+    Row row = new Row(app, hash, label == null ? hash : label, 0, "us");
+    Interactive it = new Interactive(insight, env, Mode.TOP, false, "", "", By.total,
+        List.of(row), b -> List.of(row));
+    it.rowMenu(row);
+    return 0;
+  }
+
+  /**
+   * Plan-change drill-down: browse a list of plan-change events, open one to see
+   * its from/to EXPLAIN diff, then optionally drill into that query's row menu
+   * (sql/plan/capture/trend/history). Backs {@code insight changes -i}.
+   */
+  static int changesLoop(Insight insight, List<PlanChange> changes, String env) {
+    return new Interactive(insight, env, Mode.TOP, true, "", "", By.total,
+        List.of(), b -> List.of()).runChanges(changes);
   }
 
   private static List<Row> toTopRows(List<AppMetricStats> src, By by) {
@@ -361,6 +398,7 @@ final class Interactive {
       System.out.println(row.label() + "  [" + row.app() + "]  " + row.hash());
       System.out.print("  " + AnsiColor.hot("s", "ql") + "  " + AnsiColor.hot("p", "lan")
           + "  " + AnsiColor.hot("c", "apture") + "  " + AnsiColor.hot("t", "rend")
+          + "  " + AnsiColor.hot("h", "istory")
           + "  " + AnsiColor.hot("b", "ack") + "  " + AnsiColor.hot("q", "uit") + " > ");
       System.out.flush();
       String line = readLine();
@@ -383,7 +421,8 @@ final class Interactive {
             return false;
           }
         }
-        default -> System.out.println("Unknown action. Use s/p/c/t/b/q.");
+        case "h" -> showChanges(row);
+        default -> System.out.println("Unknown action. Use s/p/c/t/h/b/q.");
       }
     }
   }
@@ -433,6 +472,97 @@ final class Interactive {
           + ", queue depth " + pending.pending() + "). Check 'insight pending' / 'insight plans' shortly.");
     } catch (HttpException e) {
       System.out.println("Capture failed: HTTP " + e.statusCode());
+    }
+  }
+
+  /**
+   * Show the plan-change history for this row's hash: a short table of recent
+   * change events, then the from/to EXPLAIN diff of the most recent one.
+   */
+  private void showChanges(Row row) {
+    try {
+      List<PlanChange> changes =
+          insight.plans.listPlanChanges(row.app(), env, row.hash(), null, null, null, 10);
+      if (changes.isEmpty()) {
+        System.out.println("No plan-shape changes recorded for this hash"
+            + (env == null ? "" : " (env " + env + ")") + ".");
+        return;
+      }
+      System.out.println();
+      System.out.print(ChangesCommand.renderTable(changes));
+      PlanChangeDetail detail = insight.plans.getPlanChange(changes.get(0).id());
+      System.out.println();
+      System.out.print(ChangeCommand.render(detail));
+    } catch (HttpException e) {
+      System.out.println("Failed to load plan changes: HTTP " + e.statusCode());
+    }
+  }
+
+  /** List plan-change events; pick one to diff and optionally drill into its query. */
+  private int runChanges(List<PlanChange> changes) {
+    while (true) {
+      System.out.println();
+      System.out.println("Plan changes " + changes.size());
+      System.out.println();
+      System.out.print(ChangesCommand.renderTable(changes));
+      System.out.print("Select " + AnsiColor.hot("1-" + changes.size(), "")
+          + "   " + AnsiColor.hot("q", "uit") + " > ");
+      System.out.flush();
+      String line = readLine();
+      if (line == null) {
+        System.out.println();
+        return 0;
+      }
+      line = line.trim();
+      if (line.isEmpty() || line.equalsIgnoreCase("q")) {
+        return 0;
+      }
+      Integer idx = parseIndex(line, changes.size());
+      if (idx == null) {
+        System.out.println("Enter a number 1-" + changes.size() + " or 'q' to quit.");
+        continue;
+      }
+      if (!changeMenu(changes.get(idx - 1))) {
+        return 0;
+      }
+    }
+  }
+
+  /** Render one change's from/to diff, then offer to drill into the query's row menu. */
+  private boolean changeMenu(PlanChange c) {
+    try {
+      PlanChangeDetail detail = insight.plans.getPlanChange(c.id());
+      System.out.println();
+      System.out.print(ChangeCommand.render(detail));
+    } catch (HttpException e) {
+      System.out.println("Failed to load change " + c.id() + ": HTTP " + e.statusCode());
+      return true;
+    }
+    while (true) {
+      System.out.println();
+      System.out.print("  " + AnsiColor.hot("d", "rill (sql/plan/capture/trend)")
+          + "  " + AnsiColor.hot("b", "ack") + "  " + AnsiColor.hot("q", "uit") + " > ");
+      System.out.flush();
+      String line = readLine();
+      if (line == null) {
+        System.out.println();
+        return false;
+      }
+      switch (line.trim().toLowerCase(Locale.ROOT)) {
+        case "", "b" -> {
+          return true;
+        }
+        case "q" -> {
+          return false;
+        }
+        case "d" -> {
+          Row row = new Row(c.appName(), c.hash(), c.label() == null ? c.hash() : c.label(), 0, "us");
+          if (!rowMenu(row)) {
+            return false;
+          }
+        }
+        default -> System.out.println("Use d/b/q.");
+      }
     }
   }
 

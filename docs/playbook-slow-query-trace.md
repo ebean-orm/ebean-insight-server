@@ -29,6 +29,11 @@ In the examples below, `$BASE` is the server base URL (e.g. via the
 [`forwarder`](../forwarder/README.md) or a port-forward) and `$APP`, `$HASH`,
 `$ENV` are the values from the trace.
 
+> **Interactive shortcut (CLI):** `insight metric $APP $HASH -i` (add
+> `--env $ENV`) opens a guided drill-down for the hash — pick **s**ql, **p**lan,
+> **c**apture, **t**rend, or **h**istory (plan-change diff) without retyping the
+> hash. This single session covers steps 1–5 below.
+
 ## 1. Identify the query — *what is this hash?*
 
 Confirm the hash, see its SQL, its ebean `label`, and whether it is

@@ -48,6 +48,26 @@ class MetricCommandsParseTest {
   }
 
   @Test
+  void metric_parsesInteractiveAndEnv() {
+    var cmd = CommandLine.populateCommand(new MetricCommand(), "myapp", "abc123", "-i", "--env", "test");
+    assertThat(cmd.interactive).isTrue();
+    assertThat(cmd.env).isEqualTo("test");
+    assertThat(CommandLine.populateCommand(new MetricCommand(), "myapp", "abc123").interactive).isFalse();
+  }
+
+  @Test
+  void changes_parsesInteractiveAndFilters() {
+    var cmd = CommandLine.populateCommand(new ChangesCommand(),
+        "--app", "myapp", "--env", "test", "--type", "CHANGED", "--hash", "h1", "-i");
+    assertThat(cmd.interactive).isTrue();
+    assertThat(cmd.app).isEqualTo("myapp");
+    assertThat(cmd.env).isEqualTo("test");
+    assertThat(cmd.type).isEqualTo("CHANGED");
+    assertThat(cmd.hash).isEqualTo("h1");
+    assertThat(CommandLine.populateCommand(new ChangesCommand()).interactive).isFalse();
+  }
+
+  @Test
   void trend_parsesPositionalAndFlagForms() {
     var pos = CommandLine.populateCommand(new TrendCommand(), "myapp", "abc123", "--since-hours", "6", "--env", "test");
     assertThat(pos.appArg).isEqualTo("myapp");

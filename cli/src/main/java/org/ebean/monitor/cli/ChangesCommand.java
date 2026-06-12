@@ -23,6 +23,7 @@ import picocli.CommandLine.Option;
         "  insight changes --type FIRST                 # only first-observed shapes",
         "  insight changes --hash <hash>                # one query's change history",
         "  insight changes --since-hours 24             # detected in the last 24h",
+        "  insight changes -i                           # interactive: pick a change, diff it, drill into the query",
         "  insight plan <id>                            # inspect a plan referenced by a change"
     })
 final class ChangesCommand implements Callable<Integer> {
@@ -54,6 +55,10 @@ final class ChangesCommand implements Callable<Integer> {
   @Option(names = {"-n", "--limit"}, defaultValue = "20", description = "Maximum rows (default: ${DEFAULT-VALUE}).")
   Integer limit = 20;
 
+  @Option(names = {"-i", "--interactive"},
+      description = "Browse changes interactively: pick a change to diff, then drill into the query.")
+  boolean interactive;
+
   @Override
   public Integer call() {
     try (Insight insight = Insight.open(conn)) {
@@ -66,6 +71,9 @@ final class ChangesCommand implements Callable<Integer> {
       if (changes.isEmpty()) {
         System.out.println("No plan changes found.");
         return 0;
+      }
+      if (interactive) {
+        return Interactive.changesLoop(insight, changes, env);
       }
       printTable(changes);
       return 0;
