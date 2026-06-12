@@ -97,8 +97,8 @@ class McpToolsIntegrationTest {
     assertThat(result.get("isError")).isEqualTo(false);
     assertThat(apis.called("topMetrics")).isTrue();
     Object[] a = apis.args("topMetrics");
-    assertThat(a[0]).isEqualTo("total");
-    assertThat(a[3]).isEqualTo(5);
+    assertThat(a[4]).isEqualTo("total");
+    assertThat(a[7]).isEqualTo(5);
   }
 
   @Test

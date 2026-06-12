@@ -90,11 +90,14 @@ paths:
       summary: List metrics for an application
       parameters:
         - $ref: '#/components/parameters/AppPath'
+        - $ref: '#/components/parameters/MetricName'
         - name: label
           in: query
           schema:
             type: string
-          description: Optional label filter (exact match).
+          description: Optional label filter (exact match on the `label` tag, or family name for v1-style metrics).
+        - $ref: '#/components/parameters/KindTag'
+        - $ref: '#/components/parameters/TypeTag'
         - name: planCapable
           in: query
           schema:
@@ -185,9 +188,13 @@ paths:
     get:
       tags: [metrics]
       operationId: topAppMetrics
-      summary: Top-N expensive metrics for an application
+      summary: Top-N metrics for an application, ranked at a chosen aggregation level
       parameters:
         - $ref: '#/components/parameters/AppPath'
+        - $ref: '#/components/parameters/By'
+        - $ref: '#/components/parameters/MetricName'
+        - $ref: '#/components/parameters/KindTag'
+        - $ref: '#/components/parameters/TypeTag'
         - $ref: '#/components/parameters/OrderBy'
         - $ref: '#/components/parameters/SinceMinutes'
         - $ref: '#/components/parameters/SinceHours'
@@ -200,13 +207,13 @@ paths:
         - $ref: '#/components/parameters/EnvQuery'
       responses:
         '200':
-          description: Top-N stats
+          description: Top-N ranked groups
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/AppMetricStats'
+                  $ref: '#/components/schemas/TopGroup'
         '400':
           $ref: '#/components/responses/BadRequest'
 
@@ -420,8 +427,12 @@ paths:
     get:
       tags: [metrics]
       operationId: topMetrics
-      summary: Top-N expensive metrics across all applications
+      summary: Top-N metrics across all applications, ranked at a chosen aggregation level
       parameters:
+        - $ref: '#/components/parameters/By'
+        - $ref: '#/components/parameters/MetricName'
+        - $ref: '#/components/parameters/KindTag'
+        - $ref: '#/components/parameters/TypeTag'
         - $ref: '#/components/parameters/OrderBy'
         - $ref: '#/components/parameters/SinceMinutes'
         - $ref: '#/components/parameters/SinceHours'
@@ -433,13 +444,13 @@ paths:
         - $ref: '#/components/parameters/EnvQuery'
       responses:
         '200':
-          description: Top-N stats
+          description: Top-N ranked groups
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/AppMetricStats'
+                  $ref: '#/components/schemas/TopGroup'
         '400':
           $ref: '#/components/responses/BadRequest'
 
@@ -523,9 +534,44 @@ components:
       in: query
       schema:
         type: string
-        enum: [total, mean, max, count]
+        enum: [total, mean, max, count, value]
         default: total
-      description: Sort dimension for top-N. Unknown values yield 400.
+      description: |
+        Sort dimension for top-N. `total`/`mean`/`max`/`count` apply to timer
+        metrics; `value` applies to gauge metrics (peak over the window).
+        Unknown values yield 400.
+    By:
+      name: by
+      in: query
+      schema:
+        type: string
+        default: label
+      description: |
+        Aggregation dimension for the ranked `top` result. Selects the level:
+        `hash` ranks individual metrics (one row per hash/identity, with
+        key/loc/sql/planCapable); `name` ranks families; any tag key
+        (`label` (default), `type`, `kind`, `db`, `op`, `region`, ...) groups by
+        that tag, summing timer stats (or taking the peak for gauges) across the
+        rows that share the value. Rows that do not carry the `by` tag are
+        excluded (so grouping by a tag a family lacks yields an empty list).
+    MetricName:
+      name: name
+      in: query
+      schema:
+        type: string
+      description: Optional metric family filter (e.g. `ebean.query`, `web.api`, `datasource.pool.size`).
+    KindTag:
+      name: kind
+      in: query
+      schema:
+        type: string
+      description: Optional tag filter on the `kind` tag (e.g. `orm`, `dto`, `sql`).
+    TypeTag:
+      name: type
+      in: query
+      schema:
+        type: string
+      description: Optional tag filter on the `type` tag (e.g. a bean type like `Customer`, or `main`/`readonly`).
     SinceMinutes:
       name: sinceMinutes
       in: query
@@ -649,10 +695,20 @@ components:
           format: int64
         name:
           type: string
-          description: Query label (the metric name, e.g. `orm.Customer.findById`).
+          description: Metric family (e.g. `ebean.query`, `web.api`, `datasource.pool.size`).
+        label:
+          type: string
+          description: |
+            Human-readable display label: the `label` tag when present
+            (e.g. `Customer.findList`), otherwise the family `name`.
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          description: Canonical metric tags (e.g. kind=orm, type=Customer, label=Customer.findList).
         key:
           type: string
-          description: Stable hash key.
+          description: Stable identity key (query hash, or md5 of name+tags for non-query metrics).
         loc:
           type: string
         sql:
@@ -667,8 +723,16 @@ components:
           format: int64
         app:
           type: string
+        name:
+          type: string
+          description: Metric family (e.g. `ebean.query`).
         label:
           type: string
+          description: Display label (the `label` tag, else the family `name`).
+        tags:
+          type: object
+          additionalProperties:
+            type: string
         key:
           type: string
         loc:
@@ -687,6 +751,74 @@ components:
         maxMicros:
           type: integer
           format: int64
+        value:
+          type: number
+          format: double
+          description: Gauge reading (peak over the window). Null for timer metrics.
+        windowMinutes:
+          type: integer
+          format: int64
+
+    TopGroup:
+      type: object
+      description: |
+        One ranked row from a `top` query. The aggregation dimension is chosen by
+        the `by` parameter; `group` holds the value ranked at that dimension
+        (a family when `by=name`, a label when `by=label`, a hash when `by=hash`,
+        a tag value otherwise). Timer stats (`count`/`total`/`mean`/`max`) are
+        summed across the group; gauge `value` is the peak. `key`/`loc`/`sql`/
+        `planCapable` are populated only when `by=hash` (a single underlying metric).
+      required: [group, name, hashCount, windowMinutes]
+      properties:
+        group:
+          type: string
+          description: The ranked value at the chosen `by` dimension.
+        app:
+          type: string
+          description: Application name; null when the group spans multiple applications.
+        name:
+          type: string
+          description: Metric family (e.g. `ebean.query`).
+        label:
+          type: string
+          description: Display label; null when not single-valued for the group (e.g. `by=type`/`by=name`).
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          description: Canonical tags; present only when the group is a single metric (`by=hash`).
+        key:
+          type: string
+          description: Identity key; present only when `by=hash`.
+        loc:
+          type: string
+        sql:
+          type: string
+        planCapable:
+          type: boolean
+          description: True when the group is (or contains) a plan-capable metric.
+        count:
+          type: integer
+          format: int64
+          description: Summed execution count over the window (timer metrics).
+        totalMicros:
+          type: integer
+          format: int64
+          description: Summed total time over the window (timer metrics).
+        meanMicros:
+          type: integer
+          format: int64
+        maxMicros:
+          type: integer
+          format: int64
+        value:
+          type: number
+          format: double
+          description: Gauge reading (peak over the window). Null for timer metrics.
+        hashCount:
+          type: integer
+          format: int64
+          description: Number of underlying metric identities (hashes) in the group.
         windowMinutes:
           type: integer
           format: int64

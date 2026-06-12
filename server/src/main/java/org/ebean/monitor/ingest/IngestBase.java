@@ -126,7 +126,7 @@ abstract class IngestBase {
     final MetricData data = entry.getData();
     final Map<String, Object> tags = TagString.parse(data.tags);
     final boolean planCapable = PlanCapable.derive(data.name, tags);
-    DAppMetric metric = new DAppMetric(metricApp, entry.getKey(), data.name, tags, planCapable);
+    DAppMetric metric = new DAppMetric(metricApp, entry.getKey(), data.name, TagJson.toJson(tags), planCapable);
     metric.setSql(data.sql);
     metric.setLoc(data.loc);
     return metric;

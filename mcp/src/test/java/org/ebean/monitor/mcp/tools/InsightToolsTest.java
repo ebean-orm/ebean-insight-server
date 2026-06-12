@@ -70,7 +70,7 @@ class InsightToolsTest {
   @Test
   void metrics_passesAllArgs() {
     tools.call("metrics", Map.of("app", "central-access", "label", "orm.X", "planCapable", true, "limit", 50));
-    assertThat(apis.args("listAppMetrics")).containsExactly("central-access", "orm.X", true, 50);
+    assertThat(apis.args("listAppMetrics")).containsExactly("central-access", null, "orm.X", null, null, true, 50);
   }
 
   @Test
@@ -88,8 +88,8 @@ class InsightToolsTest {
     assertThat(apis.called("topMetrics")).isFalse();
     Object[] a = apis.args("topAppMetrics");
     assertThat(a[0]).isEqualTo("central-access");
-    assertThat(a[1]).isEqualTo("mean");
-    assertThat(a[4]).isEqualTo(10);
+    assertThat(a[5]).isEqualTo("mean");
+    assertThat(a[8]).isEqualTo(10);
   }
 
   @Test

@@ -20,9 +20,9 @@ Once connected, the server advertises **tools** and **resources**:
 |---|---|
 | `apps` | List applications reporting to ebean-insight. |
 | `envs` | List environments. |
-| `metrics` | List an app's metrics (filter by label / plan-capable). |
+| `metrics` | List an app's metrics (filter by name / label / kind / type / plan-capable). |
 | `metric` | Fetch one metric (per-environment rows) for an app by hash. |
-| `top` | Top metrics by total/mean/max time or call count over a window. |
+| `top` | Top metrics grouped by a dimension and ranked over a window. |
 | `stats` | Aggregated execution stats for one metric by hash over a window. |
 | `trend` | Time-series of a metric's stats over a window (trend analysis). |
 | `plans` | List recently captured query plans. |

@@ -162,9 +162,9 @@ per-command forward.
 | `insight forward` (alias `daemon`) | Hold a supervised port-forward open for other commands to reuse. `--no-register` to not advertise it. |
 | `insight apps [--active-within-minutes N \| --active-within-hours N]` | List known applications. |
 | `insight envs` | List known environments. |
-| `insight metrics --app X [--label] [--plan-capable]` | List an app's metrics (ID, NAME, HASH, LOC); full SQL with `-o json`. |
+| `insight metrics --app X [--name] [--label] [--kind] [--type] [--plan-capable]` | List an app's metrics (ID, NAME, HASH, LOC); full SQL with `-o json`. |
 | `insight metric [<app>] [<hash>] [--app] [--hash] [--env] [-i]` | Show one metric (name, location, full SQL) by its hash. `-i` drives an interactive drill-down (sql/plan/capture/trend/history) for the hash. |
-| `insight top [--app] [--env] [--by total\|mean\|max\|count] [--since-minutes N \| --since-hours N] [--plan-capable] [-n N] [--chart] [-i]` | Rank metrics by cost over a window. Omit `--app` to span all apps. `--chart` renders a horizontal Pareto bar chart; `-i` drives an interactive drill-down. |
+| `insight top [--app] [--env] [--by <dim>] [--sort total\|mean\|max\|count\|value] [--name] [--kind] [--type] [--since-minutes N \| --since-hours N] [--plan-capable] [-n N] [--chart] [-i]` | Rank metrics over a window, grouped by `--by` (dimension, default `label`; also `name`, `hash`, `type`, `kind`, any tag) and ranked by `--sort`. Omit `--app` to span all apps. `--chart` renders a horizontal Pareto bar chart; `-i` drives an interactive drill-down. |
 | `insight trend [<app>] [<hash>] [--app] [--hash] [--env] [--by total\|mean\|max\|count] [--since-minutes N \| --since-hours N]` | Per-bucket trend column charts for one metric (tall top chart = `--by` measure, lower chart = calls). |
 | `insight missing-plans [--app] [--by total\|mean\|max\|count] [--since-minutes N \| --since-hours N] [--older-than-minutes N \| --older-than-hours N] [--capture [--yes] [--env]] [-n N] [-i]` | Plan-capable metrics with no recent plan, ranked by cost. `--capture` requests a plan for every listed row (capped by `-n`); `-i` drives an interactive drill-down. |
 | `insight plans [--app] [--env] [--label] [--hash] [--since-minutes N] [--since-hours N] [-n/--limit N]` | List recently captured query plans (tabular). |
@@ -228,14 +228,22 @@ insight envs                       # environments (e.g. dev, test)
 
 ```bash
 insight top                                  # all apps, by total time, last 60 min
-insight top --by mean --since-hours 6        # rank by mean over a wider window
-insight top --by max                         # worst single execution
-insight top --by count                       # highest call volume
+insight top --sort mean --since-hours 6      # rank by mean over a wider window
+insight top --sort max                       # worst single execution
+insight top --sort count                     # highest call volume
+insight top --by name                        # coarsest level: roll up per metric family
+insight top --by label                       # middle level: one row per label tag (the default)
+insight top --app myapp --by hash            # finest level: individual queries
 insight top --app myapp --env test           # scope to one app / one env
 insight top --plan-capable                   # only queries that can have a plan captured
 insight top --chart                          # horizontal Pareto bar chart (cum% for total/count)
-insight top --by mean -i                     # interactive drill-down (sql/plan/capture/trend/history)
+insight top --sort mean -i                   # interactive drill-down (sql/plan/capture/trend/history)
 ```
+
+`--by` selects which of the three aggregation levels to rank: `name` (coarsest —
+metric families), `label` (the default middle level — one row per label tag), and
+`hash` (finest — individual queries, whose `HASH` feeds `capture`/`plans`). It can
+also group by any other tag key such as `type` or `kind`.
 
 The `--chart` view renders dependency-free Unicode bars scaled to the largest
 row; for additive measures (`total`, `count`) it also annotates a running

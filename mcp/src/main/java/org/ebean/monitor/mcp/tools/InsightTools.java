@@ -20,6 +20,7 @@ import org.ebean.monitor.v1.model.PlanChange;
 import org.ebean.monitor.v1.model.PlanChangeDetail;
 import org.ebean.monitor.v1.model.QueryPlan;
 import org.ebean.monitor.v1.model.QueryPlanSummary;
+import org.ebean.monitor.v1.model.TopGroup;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -47,6 +48,7 @@ public class InsightTools {
   private final JsonType<List<Env>> envList;
   private final JsonType<List<AppMetric>> metricList;
   private final JsonType<List<AppMetricStats>> statsList;
+  private final JsonType<List<TopGroup>> topGroupList;
   private final JsonType<List<QueryPlanSummary>> planSummaryList;
   private final JsonType<List<MissingPlanMetric>> missingList;
   private final JsonType<QueryPlan> plan;
@@ -67,6 +69,7 @@ public class InsightTools {
     this.envList = listType(jsonb, Env.class);
     this.metricList = listType(jsonb, AppMetric.class);
     this.statsList = listType(jsonb, AppMetricStats.class);
+    this.topGroupList = listType(jsonb, TopGroup.class);
     this.planSummaryList = listType(jsonb, QueryPlanSummary.class);
     this.missingList = listType(jsonb, MissingPlanMetric.class);
     this.plan = jsonb.type(QueryPlan.class);
@@ -123,17 +126,28 @@ public class InsightTools {
     add("metrics", "List the metrics known for an application.",
         new Schema()
             .req("app", "string", "Application name.")
-            .prop("label", "string", "Filter by query label.")
+            .prop("name", "string", "Filter by metric family name (e.g. ebean.query).")
+            .prop("label", "string", "Filter by the 'label' tag.")
+            .prop("kind", "string", "Filter by the 'kind' tag (e.g. orm).")
+            .prop("type", "string", "Filter by the 'type' tag (e.g. a bean type).")
             .prop("planCapable", "boolean", "Filter to plan-capable metrics only.")
             .prop("limit", "integer", "Maximum rows."),
         a -> metricList.toJson(metricsApi.listAppMetrics(
-            reqStr(a, "app"), str(a, "label"), bool(a, "planCapable"), intg(a, "limit"))));
+            reqStr(a, "app"), str(a, "name"), str(a, "label"), str(a, "kind"), str(a, "type"),
+            bool(a, "planCapable"), intg(a, "limit"))));
 
-    add("top", "Top metrics by total/mean/max time or call count over a recent window. "
-            + "Ranks across all apps unless 'app' is given.",
+    add("top", "Top metrics grouped by an aggregation dimension and ranked over a recent window. "
+            + "Group with 'by' across the three levels: name (coarsest, metric families), "
+            + "label (default, one row per label tag), hash (finest, individual queries); "
+            + "also type, kind, or any tag key. Ranks across all apps unless 'app' is given.",
         new Schema()
             .prop("app", "string", "Limit to one application.")
-            .prop("orderBy", "string", "Rank by: total, mean, max, count (default total).")
+            .prop("by", "string", "Aggregation level/dimension: name (families), label (default), "
+                + "hash (individual queries), type, kind, or any tag key.")
+            .prop("name", "string", "Filter by metric family name (e.g. ebean.query).")
+            .prop("kind", "string", "Filter by the 'kind' tag (e.g. orm).")
+            .prop("type", "string", "Filter by the 'type' tag (e.g. a bean type).")
+            .prop("orderBy", "string", "Rank by: total, mean, max, count, value (default total).")
             .prop("env", "string", "Limit to one environment.")
             .prop("limit", "integer", "Maximum rows.")
             .prop("sinceMinutes", "integer", "Window size in minutes.")
@@ -142,10 +156,12 @@ public class InsightTools {
         a -> {
           String app = str(a, "app");
           if (app != null && !app.isBlank()) {
-            return statsList.toJson(metricsApi.topAppMetrics(app, str(a, "orderBy"),
+            return topGroupList.toJson(metricsApi.topAppMetrics(app, str(a, "by"), str(a, "name"),
+                str(a, "kind"), str(a, "type"), str(a, "orderBy"),
                 lng(a, "sinceMinutes"), lng(a, "sinceHours"), intg(a, "limit"), bool(a, "planCapable"), str(a, "env")));
           }
-          return statsList.toJson(metricsApi.topMetrics(str(a, "orderBy"),
+          return topGroupList.toJson(metricsApi.topMetrics(str(a, "by"), str(a, "name"),
+              str(a, "kind"), str(a, "type"), str(a, "orderBy"),
               lng(a, "sinceMinutes"), lng(a, "sinceHours"), intg(a, "limit"), bool(a, "planCapable"), str(a, "env")));
         });
 

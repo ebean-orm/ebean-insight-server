@@ -3,6 +3,9 @@ package org.ebean.monitor.v1.web;
 import io.avaje.inject.Component;
 import io.avaje.jex.http.BadRequestException;
 import io.avaje.jex.http.NotFoundException;
+import io.avaje.jsonb.JsonType;
+import io.avaje.jsonb.Jsonb;
+import io.avaje.jsonb.Types;
 import io.ebean.DB;
 import io.ebean.SqlQuery;
 import org.ebean.monitor.domain.DApp;
@@ -31,6 +34,7 @@ import org.ebean.monitor.v1.model.PlanChange;
 import org.ebean.monitor.v1.model.PlanChangeDetail;
 import org.ebean.monitor.v1.model.QueryPlan;
 import org.ebean.monitor.v1.model.QueryPlanSummary;
+import org.ebean.monitor.v1.model.TopGroup;
 import org.ebean.monitor.web.MessageService;
 import org.jspecify.annotations.Nullable;
 
@@ -61,6 +65,9 @@ public final class V1QueryService {
 
   private static final int DEFAULT_LIMIT = 50;
   private static final int MAX_LIMIT = 200;
+
+  /** Defensive cap on unbounded control-plane scans (apps, envs). */
+  private static final int MAX_ROWS_GUARD = 1000;
   private static final long DEFAULT_TOP_WINDOW_MINUTES = 60L;
   private static final long DEFAULT_ACTIVE_WINDOW_MINUTES = 60L;
 
@@ -75,7 +82,8 @@ public final class V1QueryService {
   private static final long M10_MAX_MINUTES = 2L * 24 * 60;    // 2 days
   private static final long M60_MAX_MINUTES = 120L * 24 * 60;  // 120 days
 
-  private static final Set<String> ORDER_BY_KEYS = Set.of("total", "mean", "max", "count");
+  private static final Set<String> ORDER_BY_KEYS = Set.of("total", "mean", "max", "count", "value");
+  private static final java.util.regex.Pattern SAFE_TAG_KEY = java.util.regex.Pattern.compile("[a-zA-Z0-9_.\\-]+");
 
   // How long a requested-but-not-yet-collected capture stays visible in the
   // pending view. Covers the app's ~5 minute bind-collection window with margin;
@@ -83,9 +91,11 @@ public final class V1QueryService {
   private static final long PENDING_STALE_MINUTES = 15L;
 
   private final MessageService messageService;
+  private final JsonType<Map<String, String>> tagsType;
 
-  public V1QueryService(MessageService messageService) {
+  public V1QueryService(MessageService messageService, Jsonb jsonb) {
     this.messageService = messageService;
+    this.tagsType = jsonb.type(Types.mapOf(String.class));
   }
 
   // ---------------------------------------------------------------------------
@@ -97,6 +107,7 @@ public final class V1QueryService {
     if (!window.hasFrom()) {
       return new QDApp()
         .orderBy().name.asc()
+        .setMaxRows(MAX_ROWS_GUARD)
         .findList()
         .stream()
         .map(V1QueryService::toApp)
@@ -108,9 +119,11 @@ public final class V1QueryService {
       join ebean_insight.timed_m1 t on t.app_id = a.id
       where t.event_time > :from
       order by a.name
+      limit :guard
       """;
     return DB.sqlQuery(sql)
       .setParameter("from", window.from())
+      .setParameter("guard", MAX_ROWS_GUARD)
       .mapTo((rs, i) -> new App(rs.getLong("id"), rs.getString("name")))
       .findList();
   }
@@ -143,14 +156,24 @@ public final class V1QueryService {
   // Metrics
   // ---------------------------------------------------------------------------
 
-  public List<AppMetric> listAppMetrics(String appName, @Nullable String label,
+  public List<AppMetric> listAppMetrics(String appName, @Nullable String name, @Nullable String label,
+                                        @Nullable String kind, @Nullable String type,
                                         @Nullable Boolean planCapable, @Nullable Integer limit) {
     final DApp app = findApp(appName);
     if (app == null) {
       return List.of();
     }
     final QDAppMetric q = new QDAppMetric().app.eq(app);
-    q.name.eqIfNotBlank(label);
+    q.name.eqIfNotBlank(name);
+    if (label != null && !label.isBlank()) {
+      q.raw("tags ->> 'label' = ?", label);
+    }
+    if (kind != null && !kind.isBlank()) {
+      q.raw("tags ->> 'kind' = ?", kind);
+    }
+    if (type != null && !type.isBlank()) {
+      q.raw("tags ->> 'type' = ?", type);
+    }
     if (planCapable != null) {
       q.planCapable.eq(planCapable);
     }
@@ -159,7 +182,7 @@ public final class V1QueryService {
       .setMaxRows(clampLimit(limit))
       .findList()
       .stream()
-      .map(V1QueryService::toAppMetric)
+      .map(this::toAppMetric)
       .toList();
   }
 
@@ -218,7 +241,7 @@ public final class V1QueryService {
     return List.of(stats);
   }
 
-  private static AppMetricStats toAppMetricStats(ResultSet rs, DApp app, DAppMetric metric, long minutes) throws SQLException {
+  private AppMetricStats toAppMetricStats(ResultSet rs, DApp app, DAppMetric metric, long minutes) throws SQLException {
     final long count = rs.getLong("count");
     final long total = rs.getLong("total");
     final long max = rs.getLong("max");
@@ -226,7 +249,9 @@ public final class V1QueryService {
     return AppMetricStats.builder()
       .id((long) metric.getId())
       .app(app.getName())
-      .label(metric.getName())
+      .name(metric.getName())
+      .label(displayLabel(metric.getName(), metric.getTags()))
+      .tags(tagsToStringMap(metric.getTags()))
       .key(metric.getKey())
       .loc(metric.getLoc())
       .planCapable(metric.isPlanCapable())
@@ -317,7 +342,7 @@ public final class V1QueryService {
     return MetricTimeseries.builder()
       .app(app.getName())
       .hash(metric.getKey())
-      .label(metric.getName())
+      .label(displayLabel(metric.getName(), metric.getTags()))
       .windowMinutes(minutes)
       .bucketMinutes(bucketMinutes)
       .buckets(buckets)
@@ -344,43 +369,76 @@ public final class V1QueryService {
     };
   }
 
-  public List<AppMetricStats> topAppMetrics(String appName, @Nullable String orderBy,
-                                            @Nullable Long sinceMinutes, @Nullable Long sinceHours,
-                                            @Nullable Integer limit, @Nullable Boolean planCapable,
-                                            @Nullable String env) {
+  public List<TopGroup> topAppMetrics(String appName, @Nullable String by, @Nullable String name,
+                                      @Nullable String kind, @Nullable String type, @Nullable String orderBy,
+                                      @Nullable Long sinceMinutes, @Nullable Long sinceHours,
+                                      @Nullable Integer limit, @Nullable Boolean planCapable,
+                                      @Nullable String env) {
     final TimeWindow window = TimeWindow.of(sinceMinutes, sinceHours, DEFAULT_TOP_WINDOW_MINUTES);
     final DApp app = findApp(appName);
     if (app == null) {
       return List.of();
     }
-    return runTopQuery(app, orderBy, window, planCapable, env, clampLimit(limit));
+    return runTopQuery(app, by, name, kind, type, orderBy, window, planCapable, env, clampLimit(limit));
   }
 
-  public List<AppMetricStats> topMetrics(@Nullable String orderBy,
-                                         @Nullable Long sinceMinutes, @Nullable Long sinceHours,
-                                         @Nullable Integer limit, @Nullable Boolean planCapable,
-                                         @Nullable String env) {
+  public List<TopGroup> topMetrics(@Nullable String by, @Nullable String name,
+                                   @Nullable String kind, @Nullable String type, @Nullable String orderBy,
+                                   @Nullable Long sinceMinutes, @Nullable Long sinceHours,
+                                   @Nullable Integer limit, @Nullable Boolean planCapable,
+                                   @Nullable String env) {
     final TimeWindow window = TimeWindow.of(sinceMinutes, sinceHours, DEFAULT_TOP_WINDOW_MINUTES);
-    return runTopQuery(null, orderBy, window, planCapable, env, clampLimit(limit));
+    return runTopQuery(null, by, name, kind, type, orderBy, window, planCapable, env, clampLimit(limit));
   }
 
-  private List<AppMetricStats> runTopQuery(@Nullable DApp app, @Nullable String orderBy,
-                                           TimeWindow window, @Nullable Boolean planCapable,
-                                           @Nullable String env, int limit) {
+  /**
+   * Ranked {@code top} query, aggregated at the level chosen by {@code by}:
+   * {@code hash} (individual metrics), {@code name} (families), or any tag key
+   * ({@code label} (default), {@code type}, {@code kind}, {@code db}, ...).
+   *
+   * <p>{@code orderBy=value} ranks gauge metrics (peak over the window) from the
+   * {@code gauge_*} rollups; all other order keys rank timer metrics from the
+   * {@code timed_*} rollups. When grouping by a tag, rows that do not carry that
+   * tag are excluded (so a family that lacks the tag yields an empty list).
+   */
+  private List<TopGroup> runTopQuery(@Nullable DApp app, @Nullable String by, @Nullable String name,
+                                     @Nullable String kind, @Nullable String type, @Nullable String orderBy,
+                                     TimeWindow window, @Nullable Boolean planCapable,
+                                     @Nullable String env, int limit) {
     final Integer envId = resolveEnvId(env);
     if (envFilterMisses(env, envId)) {
       return List.of();
     }
+    final String byKey = resolveBy(by);
+    final boolean byHash = "hash".equals(byKey);
+    final boolean byName = "name".equals(byKey);
+    final boolean byTag = !byHash && !byName;
+
     final String sortKey = resolveOrderBy(orderBy);
-    final String table = timedTableFor(window.minutes());
+    final boolean gauge = "value".equals(sortKey);
+    final long minutes = window.minutes();
+    final String table = gauge ? gaugeTableFor(minutes) : timedTableFor(minutes);
+
+    // byKey is validated to a safe identifier charset by resolveBy, so the tag
+    // expression is safe to inline. It must be inlined (not bound) so the
+    // GROUP BY expression matches the SELECT expression textually (Postgres
+    // cannot match parameterised group-by expressions to the select list).
+    final String tagExpr = "m.tags ->> '" + byKey + "'";
+    final String groupExpr = byHash ? "m.id" : byName ? "m.name" : tagExpr;
+    final String grpSelect = byHash ? "m.key" : byName ? "m.name" : tagExpr;
+
     final String sql = ("""
       select
-        m.id          as metric_id,
-        a.name        as app_name,
-        m.name        as label,
-        m.key         as key,
-        m.loc         as loc,
-        m.plan_capable as plan_capable,
+        %s as grp,
+        min(m.name)              as name,
+        max(m.tags ->> 'label')  as label_tag,
+        count(distinct m.app_id) as app_count,
+        min(a.name)              as app_name,
+        count(distinct m.id)     as hash_count,
+        bool_or(m.plan_capable)  as plan_capable,
+        min(m.key)               as mkey,
+        min(m.loc)               as mloc,
+        min(m.sql)               as msql,
         coalesce(sum(t.count), 0) as agg_count,
         coalesce(sum(t.total), 0) as agg_total,
         coalesce(max(t.max), 0)   as agg_max
@@ -390,20 +448,32 @@ public final class V1QueryService {
       where t.event_time > :from
       """
       + (app == null ? "" : "  and a.id = :appId\n")
+      + (isBlank(name) ? "" : "  and m.name = :name\n")
+      + (isBlank(kind) ? "" : "  and m.tags ->> 'kind' = :kind\n")
+      + (isBlank(type) ? "" : "  and m.tags ->> 'type' = :type\n")
       + (planCapable == null ? "" : "  and m.plan_capable = :planCapable\n")
       + (envId == null ? "" : "  and t.env_id = :envId\n")
+      + (byTag ? "  and " + tagExpr + " is not null\n" : "")
       + """
-      group by m.id, a.name, m.name, m.key, m.loc, m.plan_capable
+      group by %s
       order by %s desc
       limit :limit
-      """).formatted(table, orderByExpression(sortKey));
+      """).formatted(grpSelect, table, groupExpr, orderByExpression(sortKey));
 
-    final long minutes = window.minutes();
     final SqlQuery sqlQuery = DB.sqlQuery(sql)
       .setParameter("from", window.from())
       .setParameter("limit", limit);
     if (app != null) {
       sqlQuery.setParameter("appId", app.getId());
+    }
+    if (!isBlank(name)) {
+      sqlQuery.setParameter("name", name);
+    }
+    if (!isBlank(kind)) {
+      sqlQuery.setParameter("kind", kind);
+    }
+    if (!isBlank(type)) {
+      sqlQuery.setParameter("type", type);
     }
     if (planCapable != null) {
       sqlQuery.setParameter("planCapable", planCapable);
@@ -411,26 +481,50 @@ public final class V1QueryService {
     if (envId != null) {
       sqlQuery.setParameter("envId", envId);
     }
-    return sqlQuery.mapTo((rs, _) -> {
-        final long count = rs.getLong("agg_count");
-        final long total = rs.getLong("agg_total");
-        final long max = rs.getLong("agg_max");
-        final long mean = count == 0L ? 0L : Math.floorDiv(total, count);
-        return AppMetricStats.builder()
-          .id(rs.getLong("metric_id"))
-          .app(rs.getString("app_name"))
-          .label(rs.getString("label"))
-          .key(rs.getString("key"))
-          .loc(rs.getString("loc"))
-          .planCapable(rs.getBoolean("plan_capable"))
-          .count(count)
-          .totalMicros(total)
-          .meanMicros(mean)
-          .maxMicros(max)
-          .windowMinutes(minutes)
-          .build();
-      })
-      .findList();
+    final String byKeyFinal = byKey;
+    return sqlQuery.mapTo((rs, _) -> toTopGroup(rs, byKeyFinal, byHash, gauge, minutes)).findList();
+  }
+
+  private static TopGroup toTopGroup(ResultSet rs, String byKey, boolean byHash,
+                                     boolean gauge, long minutes) throws SQLException {
+    final String grp = rs.getString("grp");
+    final String name = rs.getString("name");
+    final long appCount = rs.getLong("app_count");
+    final var b = TopGroup.builder()
+      .group(grp)
+      .name(name)
+      .app(appCount == 1L ? rs.getString("app_name") : null)
+      .hashCount(rs.getLong("hash_count"))
+      .planCapable(rs.getBoolean("plan_capable"))
+      .label(topGroupLabel(byKey, byHash, grp, name, rs.getString("label_tag")))
+      .windowMinutes(minutes);
+    if (byHash) {
+      b.key(rs.getString("mkey")).loc(rs.getString("mloc")).sql(rs.getString("msql"));
+    }
+    final long max = rs.getLong("agg_max");
+    if (gauge) {
+      b.value((double) max);
+    } else {
+      final long count = rs.getLong("agg_count");
+      final long total = rs.getLong("agg_total");
+      b.count(count)
+        .totalMicros(total)
+        .meanMicros(count == 0L ? 0L : Math.floorDiv(total, count))
+        .maxMicros(max);
+    }
+    return b.build();
+  }
+
+  @Nullable
+  private static String topGroupLabel(String byKey, boolean byHash, @Nullable String grp,
+                                      String name, @Nullable String labelTag) {
+    if (byHash) {
+      return labelTag != null ? labelTag : name;
+    }
+    if ("label".equals(byKey)) {
+      return grp;
+    }
+    return null;
   }
 
   public List<MissingPlanMetric> listMissingPlans(String appName, @Nullable String orderBy,
@@ -469,7 +563,7 @@ public final class V1QueryService {
       select
         m.id              as metric_id,
         a.name            as app_name,
-        m.name            as label,
+        coalesce(m.tags ->> 'label', m.name) as label,
         m.key             as key,
         m.loc             as loc,
         m.sql             as sql,
@@ -621,7 +715,8 @@ public final class V1QueryService {
     }
     return q
       .orderBy().requestedAt.asc()
-      .findStream()
+      .findList()
+      .stream()
       .map(r -> PendingPlan.builder()
         .app(r.app().getName())
         .env(r.env() == null ? MessageService.ANY_ENV : r.env().getName())
@@ -668,7 +763,8 @@ public final class V1QueryService {
     return q
       .orderBy().detectedAt.desc().id.desc()
       .setMaxRows(clampLimit(limit))
-      .findStream()
+      .findList()
+      .stream()
       .map(V1QueryService::toPlanChange)
       .toList();
   }
@@ -706,6 +802,7 @@ public final class V1QueryService {
   public List<Env> listEnvs() {
     return new QDEnv()
       .orderBy().name.asc()
+      .setMaxRows(MAX_ROWS_GUARD)
       .findList()
       .stream()
       .map(e -> new Env(e.getName()))
@@ -843,6 +940,41 @@ public final class V1QueryService {
     return "ebean_insight.timed_d1";
   }
 
+  /** Gauge rollup table covering the window (parallels {@link #timedTableFor(long)}). */
+  static String gaugeTableFor(long windowMinutes) {
+    if (windowMinutes <= M1_MAX_MINUTES) {
+      return "ebean_insight.gauge_m1";
+    }
+    if (windowMinutes <= M10_MAX_MINUTES) {
+      return "ebean_insight.gauge_m10";
+    }
+    if (windowMinutes <= M60_MAX_MINUTES) {
+      return "ebean_insight.gauge_m60";
+    }
+    return "ebean_insight.gauge_d1";
+  }
+
+  /**
+   * Resolve the {@code by} aggregation key. {@code hash} and {@code name} are
+   * structural; anything else is treated as a tag key (default {@code label}).
+   * The value is only ever bound as a parameter (never interpolated into SQL).
+   */
+  private static String resolveBy(@Nullable String by) {
+    if (by == null || by.isBlank()) {
+      return "label";
+    }
+    final String key = by.trim();
+    if (!SAFE_TAG_KEY.matcher(key).matches()) {
+      throw new BadRequestException(
+        "Invalid 'by' value '" + by + "'; expected hash, name, or a tag key (letters, digits, _, ., -)");
+    }
+    return key;
+  }
+
+  private static boolean isBlank(@Nullable String s) {
+    return s == null || s.isBlank();
+  }
+
   private DApp requireApp(String appName) {
     final DApp app = findApp(appName);
     if (app == null) {
@@ -880,6 +1012,7 @@ public final class V1QueryService {
       case "mean" -> "case when sum(t.count) = 0 then 0 else sum(t.total) / sum(t.count) end";
       case "max" -> "max(t.max)";
       case "count" -> "sum(t.count)";
+      case "value" -> "max(t.max)";
       default -> "sum(t.total)";
     };
   }
@@ -896,14 +1029,37 @@ public final class V1QueryService {
     return new Env(env.getName());
   }
 
-  static AppMetric toAppMetric(DAppMetric m) {
+  AppMetric toAppMetric(DAppMetric m) {
     return AppMetric.builder()
       .id((long) m.getId())
       .name(m.getName())
+      .label(displayLabel(m.getName(), m.getTags()))
+      .tags(tagsToStringMap(m.getTags()))
       .key(m.getKey())
       .loc(m.getLoc())
       .sql(m.getSql())
       .build();
+  }
+
+  /** Display label: the {@code label} tag when present, otherwise the family name. */
+  String displayLabel(String name, @Nullable String tagsJson) {
+    final Map<String, String> tags = tagsToStringMap(tagsJson);
+    if (tags != null) {
+      final String label = tags.get("label");
+      if (label != null) {
+        return label;
+      }
+    }
+    return name;
+  }
+
+  @Nullable
+  Map<String, String> tagsToStringMap(@Nullable String tagsJson) {
+    if (tagsJson == null || tagsJson.isEmpty()) {
+      return null;
+    }
+    final Map<String, String> tags = tagsType.fromJson(tagsJson);
+    return tags == null || tags.isEmpty() ? null : tags;
   }
 
   static QueryPlanSummary toQueryPlanSummary(DQueryPlan p) {

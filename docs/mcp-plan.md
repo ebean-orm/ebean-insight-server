@@ -155,9 +155,9 @@ useful on its own.
 |---|---|---|
 | `apps` | List known applications | — |
 | `envs` | List known environments | — |
-| `metrics` | List metrics for an app, with filters | `app`, `label?`, `planCapable?` |
+| `metrics` | List metrics for an app, with filters | `app`, `name?`, `label?`, `kind?`, `type?`, `planCapable?` |
 | `metric` | Fetch one metric (per-env rows) by hash | `app`, `hash` |
-| `top` | Top metrics over a recent window | `app?`, `env?`, `by?` (total/mean/max/count), `limit?`, `sinceMinutes?`, `planCapable?` |
+| `top` | Top metrics grouped by a dimension, ranked over a recent window | `app?`, `by?` (label/name/hash/type/kind/...), `name?`, `kind?`, `type?`, `orderBy?` (total/mean/max/count/value), `env?`, `limit?`, `sinceMinutes?`, `planCapable?` |
 | `stats` | Aggregated stats for one metric by hash over a window | `app`, `hash`, `sinceMinutes?`, `sinceHours?`, `env?` |
 | `trend` | Time-series of a metric's stats over a window | `app`, `hash`, `sinceMinutes?`, `sinceHours?`, `env?` |
 | `plans` | List recently captured plans | `app?`, `env?`, `hash?`, `label?`, `sinceHours?`, `limit?` |

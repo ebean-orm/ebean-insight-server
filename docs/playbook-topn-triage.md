@@ -16,9 +16,15 @@ applications.
 
 ```bash
 # CLI — across all apps, by total time, last hour
-insight top --by total --since-minutes 60 -n 20
+insight top --sort total --since-minutes 60 -n 20
 # scope to one app/env, and to plan-capable queries only
-insight top --app $APP --env $ENV --by total --plan-capable -n 20
+insight top --app $APP --env $ENV --sort total --plan-capable -n 20
+# group by a different dimension across the three levels (default is label):
+#   name = metric families (coarsest), label = one row per label tag (default),
+#   hash = individual queries (finest); also any tag key such as type, kind
+insight top --by name --sort total -n 20              # coarsest: metric families
+insight top --by label --sort total -n 20             # middle (default): per label tag
+insight top --app $APP --by hash --sort total -n 20   # finest: individual queries
 ```
 
 ```text
@@ -34,8 +40,8 @@ curl "$BASE/v1/metrics/top?orderBy=total&sinceMinutes=60&limit=20"
 curl "$BASE/v1/apps/$APP/metrics/top?orderBy=total&planCapable=true&limit=20&env=$ENV"
 ```
 
-Switch `--by` / `orderBy` between `total`, `mean`, `max`, `count` to change the
-lens:
+Switch `--sort` / `orderBy` between `total`, `mean`, `max`, `count`, `value` to
+change the lens (and `--by` to change the grouping dimension):
 
 | Rank by | Surfaces |
 |---------|----------|
@@ -65,7 +71,7 @@ them in bulk first.
 ## TL;DR
 
 ```
-top (--by total|mean|max|count, --plan-capable)
+top (--by <dimension>, --sort total|mean|max|count|value, --plan-capable)
   → pick worst hash
   → slow-query-trace playbook (metric → stats/trend → plans/plan → …)
 ```

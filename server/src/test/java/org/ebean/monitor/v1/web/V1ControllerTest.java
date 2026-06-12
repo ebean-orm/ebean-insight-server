@@ -22,6 +22,7 @@ import org.ebean.monitor.v1.model.PendingResponse;
 import org.ebean.monitor.v1.model.PendingPlan;
 import org.ebean.monitor.v1.model.QueryPlan;
 import org.ebean.monitor.v1.model.QueryPlanSummary;
+import org.ebean.monitor.v1.model.TopGroup;
 import org.junit.jupiter.api.Test;
 
 import java.net.http.HttpResponse;
@@ -88,19 +89,21 @@ class V1ControllerTest {
     final List<Env> envs = envsApi.listEnvs();
     assertThat(envs).extracting(Env::name).contains(ENV);
 
-    final List<AppMetric> allMetrics = metricsApi.listAppMetrics(APP, null, null, null);
+    final List<AppMetric> allMetrics = metricsApi.listAppMetrics(APP, null, null, null, null, null, null);
     assertThat(allMetrics).extracting(AppMetric::name).contains(ORM_LABEL, PLAIN_LABEL);
 
-    final List<AppMetric> ormOnly = metricsApi.listAppMetrics(APP, null, true, null);
+    final List<AppMetric> ormOnly = metricsApi.listAppMetrics(APP, null, null, null, null, true, null);
     assertThat(ormOnly).extracting(AppMetric::name).contains(ORM_LABEL).doesNotContain(PLAIN_LABEL);
 
-    final List<AppMetric> plainOnly = metricsApi.listAppMetrics(APP, null, false, null);
+    final List<AppMetric> plainOnly = metricsApi.listAppMetrics(APP, null, null, null, null, false, null);
     assertThat(plainOnly).extracting(AppMetric::name).contains(PLAIN_LABEL).doesNotContain(ORM_LABEL);
 
-    final List<AppMetric> labelFilter = metricsApi.listAppMetrics(APP, ORM_LABEL, null, null);
+    // v1-style seed carries no tags, so the family `name` is the discriminator
+    // (the `label` param now filters on the tags['label'] tag).
+    final List<AppMetric> labelFilter = metricsApi.listAppMetrics(APP, ORM_LABEL, null, null, null, null, null);
     assertThat(labelFilter).extracting(AppMetric::name).containsOnly(ORM_LABEL);
 
-    assertThat(metricsApi.listAppMetrics("no-such-app", null, null, null)).isEmpty();
+    assertThat(metricsApi.listAppMetrics("no-such-app", null, null, null, null, null, null)).isEmpty();
 
     final List<AppMetric> byHash = metricsApi.getMetricByHash(APP, ORM_HASH);
     assertThat(byHash).extracting(AppMetric::key).containsOnly(ORM_HASH);
@@ -146,22 +149,24 @@ class V1ControllerTest {
     final MetricTimeseries tsNoHash = metricsApi.getMetricTimeseries(APP, "no-such-hash", null, null, null);
     assertThat(tsNoHash.buckets()).isEmpty();
 
-    final List<AppMetricStats> top = metricsApi.topAppMetrics(APP, "total", null, null, 10, null, null);
-    assertThat(top).extracting(AppMetricStats::app).containsOnly(APP);
-    assertThat(top).extracting(AppMetricStats::key).contains(ORM_HASH, PLAIN_HASH);
+    // by=hash → Level 3 (per-metric rows), the discriminator the v1-style
+    // tagless seed supports; key is present on each TopGroup row.
+    final List<TopGroup> top = metricsApi.topAppMetrics(APP, "hash", null, null, null, "total", null, null, 10, null, null);
+    assertThat(top).extracting(TopGroup::app).containsOnly(APP);
+    assertThat(top).extracting(TopGroup::key).contains(ORM_HASH, PLAIN_HASH);
 
-    final List<AppMetricStats> topEnv = metricsApi.topAppMetrics(APP, "total", null, null, 10, null, ENV);
-    assertThat(topEnv).extracting(AppMetricStats::key).contains(ORM_HASH, PLAIN_HASH);
+    final List<TopGroup> topEnv = metricsApi.topAppMetrics(APP, "hash", null, null, null, "total", null, null, 10, null, ENV);
+    assertThat(topEnv).extracting(TopGroup::key).contains(ORM_HASH, PLAIN_HASH);
 
-    assertThat(metricsApi.topAppMetrics(APP, "total", null, null, 10, null, "no-such-env")).isEmpty();
+    assertThat(metricsApi.topAppMetrics(APP, "hash", null, null, null, "total", null, null, 10, null, "no-such-env")).isEmpty();
 
-    assertThatThrownBy(() -> metricsApi.topAppMetrics(APP, "garbage", null, null, null, null, null))
+    assertThatThrownBy(() -> metricsApi.topAppMetrics(APP, "hash", null, null, null, "garbage", null, null, null, null, null))
       .isInstanceOfSatisfying(HttpException.class, e -> assertThat(e.statusCode()).isEqualTo(400));
 
-    final List<AppMetricStats> topOrm = metricsApi.topAppMetrics(APP, null, null, null, null, true, null);
-    assertThat(topOrm).extracting(AppMetricStats::key).contains(ORM_HASH).doesNotContain(PLAIN_HASH);
+    final List<TopGroup> topOrm = metricsApi.topAppMetrics(APP, "hash", null, null, null, null, null, null, null, true, null);
+    assertThat(topOrm).extracting(TopGroup::key).contains(ORM_HASH).doesNotContain(PLAIN_HASH);
 
-    assertThatThrownBy(() -> metricsApi.topAppMetrics(APP, null, 60L, 1L, null, null, null))
+    assertThatThrownBy(() -> metricsApi.topAppMetrics(APP, "hash", null, null, null, null, 60L, 1L, null, null, null))
       .isInstanceOfSatisfying(HttpException.class, e -> assertThat(e.statusCode()).isEqualTo(400));
 
     final List<MissingPlanMetric> missing = metricsApi.listMissingPlans(APP, null, null, null, null, null, null);
@@ -179,12 +184,12 @@ class V1ControllerTest {
     assertThat(missingGlobal).extracting(MissingPlanMetric::label).contains(ORM_LABEL).doesNotContain(PLAIN_LABEL);
     assertThat(missingGlobal).extracting(MissingPlanMetric::label).doesNotContain(STALE_LABEL);
 
-    final List<AppMetricStats> globalTop = metricsApi.topMetrics(null, null, null, 50, null, null);
-    assertThat(globalTop).extracting(AppMetricStats::key).contains(ORM_HASH);
+    final List<TopGroup> globalTop = metricsApi.topMetrics("hash", null, null, null, null, null, null, 50, null, null);
+    assertThat(globalTop).extracting(TopGroup::key).contains(ORM_HASH);
 
-    final List<AppMetricStats> globalTopEnv = metricsApi.topMetrics(null, null, null, 50, null, ENV);
-    assertThat(globalTopEnv).extracting(AppMetricStats::key).contains(ORM_HASH);
-    assertThat(metricsApi.topMetrics(null, null, null, 50, null, "no-such-env")).isEmpty();
+    final List<TopGroup> globalTopEnv = metricsApi.topMetrics("hash", null, null, null, null, null, null, 50, null, ENV);
+    assertThat(globalTopEnv).extracting(TopGroup::key).contains(ORM_HASH);
+    assertThat(metricsApi.topMetrics("hash", null, null, null, null, null, null, 50, null, "no-such-env")).isEmpty();
 
     final PendingResponse pending = plansApi.requestPlanCapture(APP, ORM_HASH, ENV);
     assertThat(pending.pending()).isGreaterThanOrEqualTo(1);
