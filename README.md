@@ -25,6 +25,13 @@ For the server's full configuration / mode reference see
 bearer auth on the server's endpoints see [`docs/auth.md`](docs/auth.md). For
 day-to-day CLI usage see [`cli/README.md`](cli/README.md).
 
+Playbooks — task-oriented guides that drive the API/CLI/MCP to an outcome:
+
+- [`docs/playbook-slow-query-trace.md`](docs/playbook-slow-query-trace.md) — a slow-query trace → root cause
+- [`docs/playbook-topn-triage.md`](docs/playbook-topn-triage.md) — find the most expensive queries
+- [`docs/playbook-missing-plans-backfill.md`](docs/playbook-missing-plans-backfill.md) — capture EXPLAINs for expensive queries
+- [`docs/playbook-plan-change-alert.md`](docs/playbook-plan-change-alert.md) — respond to a plan-shape regression
+
 ## Modules
 
 | Module | Purpose |

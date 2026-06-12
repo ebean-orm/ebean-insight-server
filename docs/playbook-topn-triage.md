@@ -1,0 +1,73 @@
+# Playbook: Top-N triage — find the most expensive queries
+
+**When to use this:** you have no specific lead, you just want to know *what is
+costing the most* right now (a slow service, a CPU-heavy database, a
+pre-release check). This playbook finds the worst offenders, then hands each one
+to the [slow-query-trace playbook](playbook-slow-query-trace.md) for root cause.
+
+Each step shows the **CLI**, the **MCP tool**, and the **raw HTTP** call. `$BASE`
+is the server base URL; `$APP`/`$ENV` are optional filters.
+
+## 1. Rank the expensive queries
+
+Rank metrics by total time (the usual triage measure — total = mean × calls, so
+it surfaces both slow queries and chatty ones). Drop `--app` to rank across all
+applications.
+
+```bash
+# CLI — across all apps, by total time, last hour
+insight top --by total --since-minutes 60 -n 20
+# scope to one app/env, and to plan-capable queries only
+insight top --app $APP --env $ENV --by total --plan-capable -n 20
+```
+
+```text
+# MCP tool
+top(orderBy=total, sinceMinutes=60, limit=20)
+top(app=$APP, env=$ENV, orderBy=total, planCapable=true, limit=20)
+```
+
+```bash
+# raw HTTP — cross-app
+curl "$BASE/v1/metrics/top?orderBy=total&sinceMinutes=60&limit=20"
+# raw HTTP — per-app (also supports env, planCapable)
+curl "$BASE/v1/apps/$APP/metrics/top?orderBy=total&planCapable=true&limit=20&env=$ENV"
+```
+
+Switch `--by` / `orderBy` between `total`, `mean`, `max`, `count` to change the
+lens:
+
+| Rank by | Surfaces |
+|---------|----------|
+| `total` | overall load (default) — slow × frequent |
+| `mean`  | individually slow queries |
+| `max`   | worst-case spikes / outliers |
+| `count` | chattiest queries (N+1 candidates) |
+
+Add `--plan-capable` (`planCapable=true`) to ignore queries you cannot get an
+EXPLAIN for.
+
+## 2. Pick a hash and drill in
+
+Each row carries the metric **hash**. Take the worst row's hash (and its app /
+env) and follow the [slow-query-trace playbook](playbook-slow-query-trace.md)
+from **step 1** (`metric`) onward: identify → quantify → plan → (capture) →
+change-check.
+
+If many of the top rows are plan-capable but have no captured plan, jump to the
+[missing-plans backfill playbook](playbook-missing-plans-backfill.md) to capture
+them in bulk first.
+
+## TL;DR
+
+```
+top (--by total|mean|max|count, --plan-capable)
+  → pick worst hash
+  → slow-query-trace playbook (metric → stats/trend → plans/plan → …)
+```
+
+## Related
+
+- [Playbook: slow-query trace → root cause](playbook-slow-query-trace.md)
+- [Playbook: missing-plans backfill](playbook-missing-plans-backfill.md)
+- API spec: [`api/src/main/openapi/v1.yaml`](../api/src/main/openapi/v1.yaml)
