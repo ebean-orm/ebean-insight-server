@@ -2,7 +2,6 @@ package org.ebean.monitor.v1.web;
 
 import io.avaje.jex.http.BadRequestException;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
@@ -18,16 +17,13 @@ import java.time.temporal.ChronoUnit;
  */
 record TimeWindow(Instant from, long minutes) {
 
-  /** Window meaning "no time filter". */
-  static final TimeWindow NONE = new TimeWindow(null, 0L);
-
   /**
    * Build a time window from caller-supplied minute / hour parameters.
    *
    * @param minutes        optional window size in minutes
    * @param hours          optional window size in hours
    * @param defaultMinutes window applied when neither parameter is supplied;
-   *                       use {@code 0} for "no default — return {@link #NONE}"
+   *                       use {@code 0} for "no default — no time filter"
    * @throws BadRequestException if both {@code minutes} and {@code hours}
    *                             are supplied
    */
@@ -53,9 +49,5 @@ record TimeWindow(Instant from, long minutes) {
   /** True when this window has a lower-bound timestamp. */
   boolean hasFrom() {
     return from != null;
-  }
-
-  Duration duration() {
-    return Duration.ofMinutes(minutes);
   }
 }
