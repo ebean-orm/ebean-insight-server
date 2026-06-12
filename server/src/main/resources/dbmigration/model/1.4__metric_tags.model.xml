@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<migration xmlns="http://ebean-orm.github.io/xml/ns/dbmigration">
+    <changeSet type="apply">
+        <addColumn tableName="ebean_insight.app_metric">
+            <column name="tags" type="jsonb"/>
+        </addColumn>
+    </changeSet>
+    <changeSet type="pendingDrops">
+        <dropColumn columnName="rollup_group" tableName="ebean_insight.app_metric"/>
+    </changeSet>
+</migration>

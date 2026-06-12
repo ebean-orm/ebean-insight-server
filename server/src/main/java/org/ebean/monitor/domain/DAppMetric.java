@@ -2,6 +2,7 @@ package org.ebean.monitor.domain;
 
 import io.ebean.annotation.Cache;
 import io.ebean.annotation.DbForeignKey;
+import io.ebean.annotation.DbJsonB;
 import io.ebean.annotation.Identity;
 import io.ebean.annotation.Index;
 import io.ebean.annotation.Length;
@@ -12,6 +13,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.util.Map;
 
 /**
  * The application metric.
@@ -82,6 +84,13 @@ public class DAppMetric extends BaseDomain {
    */
   private Long planThresholdMicros;
 
+  /**
+   * Canonical tags for v2 metrics (e.g. {@code {kind:orm, type:Customer, label:Customer.findList}}),
+   * stored as jsonb. Null for legacy v1 metrics. Set once at metric creation.
+   */
+  @DbJsonB
+  private Map<String, Object> tags;
+
   public DAppMetric(DApp app, String key, String name) {
     this.app = app;
     this.key = key;
@@ -129,5 +138,13 @@ public class DAppMetric extends BaseDomain {
 
   public void setPlanThresholdMicros(Long planThresholdMicros) {
     this.planThresholdMicros = planThresholdMicros;
+  }
+
+  public Map<String, Object> getTags() {
+    return tags;
+  }
+
+  public void setTags(Map<String, Object> tags) {
+    this.tags = tags;
   }
 }

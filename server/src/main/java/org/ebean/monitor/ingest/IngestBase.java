@@ -127,6 +127,7 @@ abstract class IngestBase {
     DAppMetric metric = new DAppMetric(metricApp, entry.getKey(), data.name);
     metric.setSql(data.sql);
     metric.setLoc(data.loc);
+    metric.setTags(TagString.parse(data.tags));
     return metric;
   }
 

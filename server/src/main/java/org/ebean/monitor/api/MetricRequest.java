@@ -14,6 +14,13 @@ import java.util.Map;
 public class MetricRequest {
 
   /**
+   * Metric payload format version. {@code 0}/absent means legacy v1 (flat names,
+   * no tags); {@code 2} means v2 (canonical family {@code name} + delimited
+   * {@code tags} string on each {@link MetricData}). Parsing only at this stage.
+   */
+  public int v;
+
+  /**
    * Optional start of the metric window provided by the client (epoch millis,
    * typically the {@code eventTime} of the prior successful send, or the
    * reporter start time on the first send). When non-zero, the OTLP forwarder
