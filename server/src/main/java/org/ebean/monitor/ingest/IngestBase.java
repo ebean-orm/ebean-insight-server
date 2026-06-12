@@ -125,7 +125,6 @@ abstract class IngestBase {
 
     final MetricData data = entry.getData();
     DAppMetric metric = new DAppMetric(metricApp, entry.getKey(), data.name);
-    metric.setRollupGroup(DeriveGroup.of(data.name));
     metric.setSql(data.sql);
     metric.setLoc(data.loc);
     return metric;

@@ -64,12 +64,6 @@ public class DAppMetric extends BaseDomain {
   private final boolean planCapable;
 
   /**
-   * The derived "rollup group" this metric will aggregate into.
-   */
-  @Length(300)
-  private String rollupGroup;
-
-  /**
    * The code location if supplied. Expected to be class and line of code.
    */
   @Length(300)
@@ -111,14 +105,6 @@ public class DAppMetric extends BaseDomain {
 
   public boolean isPlanCapable() {
     return planCapable;
-  }
-
-  public String getRollupGroup() {
-    return rollupGroup;
-  }
-
-  public void setRollupGroup(String rollupGroup) {
-    this.rollupGroup = rollupGroup;
   }
 
   public String getLoc() {

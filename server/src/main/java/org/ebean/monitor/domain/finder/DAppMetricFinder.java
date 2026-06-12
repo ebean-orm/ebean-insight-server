@@ -63,13 +63,4 @@ public class DAppMetricFinder extends Finder<Integer,DAppMetric> {
       .findOne();
   }
 
-  /**
-   * Return all the metrics with rollupGroup for use in rollup processing.
-   */
-  public List<DAppMetric> forRollup() {
-    final QDAppMetric m = QDAppMetric.alias();
-    return new QDAppMetric()
-      .select(m.name, m.rollupGroup, m.app)
-      .findList();
-  }
 }
