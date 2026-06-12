@@ -138,7 +138,9 @@ public final class OtlpMetricMapper {
     if (md == null || md.name == null || md.name.isEmpty()) {
       return;
     }
-    var mapped = MetricNameMapper.map(md.name);
+    var mapped = (md.tags != null && !md.tags.isEmpty())
+      ? MetricNameMapper.fromV2(md.name, md.tags)
+      : MetricNameMapper.map(md.name);
     boolean hasTimer = md.count != null && md.total != null;
     if (!hasTimer && md.value == null) {
       return;

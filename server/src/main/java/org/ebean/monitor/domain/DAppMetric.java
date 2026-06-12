@@ -91,13 +91,12 @@ public class DAppMetric extends BaseDomain {
   @DbJsonB
   private Map<String, Object> tags;
 
-  public DAppMetric(DApp app, String key, String name) {
+  public DAppMetric(DApp app, String key, String name, Map<String, Object> tags, boolean planCapable) {
     this.app = app;
     this.key = key;
     this.name = name;
-    this.planCapable = name != null
-      && (name.startsWith("orm.") || name.startsWith("dto.") || name.startsWith("sql.query."))
-      && !name.startsWith("orm.update.");
+    this.tags = tags;
+    this.planCapable = planCapable;
   }
 
   public String getKey() {
