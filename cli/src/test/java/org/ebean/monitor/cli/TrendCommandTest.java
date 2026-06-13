@@ -71,6 +71,35 @@ class TrendCommandTest {
   }
 
   @Test
+  void mean_isCallWeighted_notDilutedByEmptyBucketsWhenDownsampled() {
+    // 360 buckets alternating empty / busy(mean 100us). Down-sampling to <=180
+    // columns pairs an empty bucket with a busy one. A call-weighted mean keeps
+    // the busy mean (sum total / sum count = 1000/10 = 100); an unweighted
+    // average of per-bucket means would halve it to 50.
+    Instant t = Instant.parse("2024-01-01T00:00:00Z");
+    MetricTimeBucket[] arr = new MetricTimeBucket[360];
+    for (int i = 0; i < 360; i++) {
+      arr[i] = (i % 2 == 0)
+          ? new MetricTimeBucket(t.plusSeconds(i * 60L), 0L, 0L, 0L)
+          : new MetricTimeBucket(t.plusSeconds(i * 60L), 10L, 1000L, 200L);
+    }
+    MetricTimeseries ts = MetricTimeseries.builder()
+        .app("myapp").hash("h").label("orm.Foo.bar")
+        .windowMinutes(360L).bucketMinutes(1L)
+        .buckets(List.of(arr)).build();
+
+    PrintStream original = System.out;
+    ByteArrayOutputStream buf = new ByteArrayOutputStream();
+    try {
+      System.setOut(new PrintStream(buf, true, StandardCharsets.UTF_8));
+      TrendCommand.printTrend(ts, TrendCommand.Measure.mean);
+    } finally {
+      System.setOut(original);
+    }
+    assertThat(buf.toString(StandardCharsets.UTF_8)).contains("peak 100 us");
+  }
+
+  @Test
   void measureOf_mapsByName() {
     assertThat(TrendCommand.Measure.of("total")).isEqualTo(TrendCommand.Measure.total);
     assertThat(TrendCommand.Measure.of("mean")).isEqualTo(TrendCommand.Measure.mean);

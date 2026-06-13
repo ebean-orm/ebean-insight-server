@@ -82,6 +82,15 @@ public final class V1QueryService {
   private static final long M10_MAX_MINUTES = 2L * 24 * 60;    // 2 days
   private static final long M60_MAX_MINUTES = 120L * 24 * 60;  // 120 days
 
+  // Partition retention per rollup (CleanupPartitions defaults): m1 30d, m10
+  // 100d, m60 500d, d1 1000d. Each timeseries tier below selects a table only for
+  // windows far shorter than its retention, so retention never constrains it.
+  // Upper bound on buckets returned for a single-hash timeseries (see
+  // timeseriesTableFor). The trend chart down-samples to ~180 columns, so any
+  // count at/above that renders full width; this keeps the chart a consistent
+  // width across windows while bounding payload size.
+  private static final long TS_MAX_BUCKETS = 720L;
+
   private static final Set<String> ORDER_BY_KEYS = Set.of("total", "mean", "max", "count", "value");
   private static final java.util.regex.Pattern SAFE_TAG_KEY = java.util.regex.Pattern.compile("[a-zA-Z0-9_.\\-]+");
 
@@ -266,7 +275,8 @@ public final class V1QueryService {
   /**
    * Per-bucket time-series for a single metric (raw additive components per
    * bucket — count, total, max). Mean is derived client-side. Bucket resolution
-   * follows {@link #timedTableFor(long)} so long windows stay cheap.
+   * follows {@link #timeseriesTableFor(long)} so the chart stays a consistent
+   * width across windows while long windows stay cheap.
    *
    * <p>The series is dense: every bucket boundary across the window is returned,
    * with empty buckets reported as explicit zeros, so the consumer's time axis
@@ -278,7 +288,7 @@ public final class V1QueryService {
                                               @Nullable String env) {
     final TimeWindow window = TimeWindow.of(sinceMinutes, sinceHours, DEFAULT_TOP_WINDOW_MINUTES);
     final long minutes = window.minutes();
-    final String table = timedTableFor(minutes);
+    final String table = timeseriesTableFor(minutes);
     final long bucketMinutes = bucketMinutesFor(table);
     final DApp app = findApp(appName);
     if (app == null || hash == null || hash.isBlank()) {
@@ -942,6 +952,29 @@ public final class V1QueryService {
       return "ebean_insight.timed_m10";
     }
     if (windowMinutes <= M60_MAX_MINUTES) {
+      return "ebean_insight.timed_m60";
+    }
+    return "ebean_insight.timed_d1";
+  }
+
+  /**
+   * Table selection for the single-hash timeseries. Unlike {@link #timedTableFor}
+   * — which tiers coarsely to bound row scans for cross-metric aggregation — this
+   * picks the <em>finest</em> rollup that keeps the bucket count within
+   * {@link #TS_MAX_BUCKETS} and is still within the table's retention. Scanning a
+   * single hash at fine resolution is cheap, and the finer grid keeps the trend
+   * chart a consistent width across windows: e.g. a 6h window stays
+   * 1-minute/360 buckets instead of dropping to 10-minute/36 buckets at the 3h
+   * aggregation boundary.
+   */
+  static String timeseriesTableFor(long windowMinutes) {
+    if (windowMinutes <= TS_MAX_BUCKETS) {
+      return "ebean_insight.timed_m1";
+    }
+    if (windowMinutes <= TS_MAX_BUCKETS * 10) {
+      return "ebean_insight.timed_m10";
+    }
+    if (windowMinutes <= TS_MAX_BUCKETS * 60) {
       return "ebean_insight.timed_m60";
     }
     return "ebean_insight.timed_d1";

@@ -150,25 +150,47 @@ final class TrendCommand implements Callable<Integer> {
       printColumns("calls", callsNote, TermChart.fit(count, TARGET_WIDTH, TermChart.Agg.SUM), MEAN_ROWS);
       return;
     }
-    long[] series = new long[n];
-    long headline = 0;
+    long[] total = new long[n];
+    long[] max = new long[n];
+    long grandTotal = 0;
     for (int i = 0; i < n; i++) {
       MetricTimeBucket b = buckets.get(i);
-      long c = b.count() == null ? 0 : b.count();
-      long t = b.total() == null ? 0 : b.total();
-      long m = b.max() == null ? 0 : b.max();
-      long v = switch (by) {
-        case total -> t;
-        case max -> m;
-        default -> c == 0 ? 0 : Math.floorDiv(t, c); // mean
-      };
-      series[i] = v;
-      headline = by == Measure.total ? headline + v : Math.max(headline, v);
+      total[i] = b.total() == null ? 0 : b.total();
+      max[i] = b.max() == null ? 0 : b.max();
+      grandTotal += total[i];
+    }
+    // Down-sample first, then derive mean call-weighted (sum totals / sum counts)
+    // rather than averaging per-bucket means: an unweighted average would let
+    // empty buckets drag the line down, which matters more at fine resolution.
+    long[] series;
+    long headline;
+    switch (by) {
+      case total -> {
+        series = TermChart.fit(total, TARGET_WIDTH, TermChart.Agg.SUM);
+        headline = grandTotal;
+      }
+      case max -> {
+        series = TermChart.fit(max, TARGET_WIDTH, TermChart.Agg.MAX);
+        long peak = 0;
+        for (long v : series) peak = Math.max(peak, v);
+        headline = peak;
+      }
+      default -> { // mean
+        long[] ft = TermChart.fit(total, TARGET_WIDTH, TermChart.Agg.SUM);
+        long[] fc = TermChart.fit(count, TARGET_WIDTH, TermChart.Agg.SUM);
+        series = new long[ft.length];
+        long peak = 0;
+        for (int i = 0; i < ft.length; i++) {
+          series[i] = fc[i] == 0 ? 0 : Math.floorDiv(ft[i], fc[i]);
+          peak = Math.max(peak, series[i]);
+        }
+        headline = peak;
+      }
     }
     String note = by == Measure.total
         ? String.format("total %,d us", headline)
         : String.format("peak %,d us", headline);
-    printColumns(by.label(), note, TermChart.fit(series, TARGET_WIDTH, by.agg()), MEAN_ROWS);
+    printColumns(by.label(), note, series, MEAN_ROWS);
     printColumns("calls", callsNote, TermChart.fit(count, TARGET_WIDTH, TermChart.Agg.SUM), CALLS_ROWS);
   }
 
@@ -178,25 +200,19 @@ final class TrendCommand implements Callable<Integer> {
    * the same measure the list was ranked by. The lower chart is always calls.
    */
   enum Measure {
-    total("total (us)", TermChart.Agg.SUM),
-    mean("mean (us)", TermChart.Agg.AVG),
-    max("max (us)", TermChart.Agg.MAX),
-    count("calls", TermChart.Agg.SUM);
+    total("total (us)"),
+    mean("mean (us)"),
+    max("max (us)"),
+    count("calls");
 
     private final String label;
-    private final TermChart.Agg agg;
 
-    Measure(String label, TermChart.Agg agg) {
+    Measure(String label) {
       this.label = label;
-      this.agg = agg;
     }
 
     String label() {
       return label;
-    }
-
-    TermChart.Agg agg() {
-      return agg;
     }
 
     /** Map a {@code top}/{@code missing-plans} order-by name (total/mean/max/count) to a measure. */
