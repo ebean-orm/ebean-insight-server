@@ -145,6 +145,7 @@ public class InsightTools {
             .prop("by", "string", "Aggregation level/dimension: name (families), label (default), "
                 + "hash (individual queries), type, kind, or any tag key.")
             .prop("name", "string", "Filter by metric family name (e.g. ebean.query).")
+            .prop("label", "string", "Filter by the 'label' tag (e.g. orm.Customer.findById).")
             .prop("kind", "string", "Filter by the 'kind' tag (e.g. orm).")
             .prop("type", "string", "Filter by the 'type' tag (e.g. a bean type).")
             .prop("orderBy", "string", "Rank by: total, mean, max, count, value (default total).")
@@ -157,11 +158,11 @@ public class InsightTools {
           String app = str(a, "app");
           if (app != null && !app.isBlank()) {
             return topGroupList.toJson(metricsApi.topAppMetrics(app, str(a, "by"), str(a, "name"),
-                str(a, "kind"), str(a, "type"), str(a, "orderBy"),
+                str(a, "label"), str(a, "kind"), str(a, "type"), str(a, "orderBy"),
                 lng(a, "sinceMinutes"), lng(a, "sinceHours"), intg(a, "limit"), bool(a, "planCapable"), str(a, "env")));
           }
           return topGroupList.toJson(metricsApi.topMetrics(str(a, "by"), str(a, "name"),
-              str(a, "kind"), str(a, "type"), str(a, "orderBy"),
+              str(a, "label"), str(a, "kind"), str(a, "type"), str(a, "orderBy"),
               lng(a, "sinceMinutes"), lng(a, "sinceHours"), intg(a, "limit"), bool(a, "planCapable"), str(a, "env")));
         });
 

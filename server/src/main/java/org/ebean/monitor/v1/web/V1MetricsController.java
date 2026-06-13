@@ -39,8 +39,8 @@ public final class V1MetricsController implements MetricsApi {
   }
 
   @Override
-  public List<TopGroup> topAppMetrics(String app, String by, String name, String kind, String type, String orderBy, Long sinceMinutes, Long sinceHours, Integer limit, Boolean planCapable, String env) {
-    return service.topAppMetrics(app, by, name, kind, type, orderBy, sinceMinutes, sinceHours, limit, planCapable, env);
+  public List<TopGroup> topAppMetrics(String app, String by, String name, String label, String kind, String type, String orderBy, Long sinceMinutes, Long sinceHours, Integer limit, Boolean planCapable, String env) {
+    return service.topAppMetrics(app, by, name, label, kind, type, orderBy, sinceMinutes, sinceHours, limit, planCapable, env);
   }
 
   @Override
@@ -49,8 +49,8 @@ public final class V1MetricsController implements MetricsApi {
   }
 
   @Override
-  public List<TopGroup> topMetrics(String by, String name, String kind, String type, String orderBy, Long sinceMinutes, Long sinceHours, Integer limit, Boolean planCapable, String env) {
-    return service.topMetrics(by, name, kind, type, orderBy, sinceMinutes, sinceHours, limit, planCapable, env);
+  public List<TopGroup> topMetrics(String by, String name, String label, String kind, String type, String orderBy, Long sinceMinutes, Long sinceHours, Integer limit, Boolean planCapable, String env) {
+    return service.topMetrics(by, name, label, kind, type, orderBy, sinceMinutes, sinceHours, limit, planCapable, env);
   }
 
   @Override

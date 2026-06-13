@@ -88,8 +88,8 @@ class InsightToolsTest {
     assertThat(apis.called("topMetrics")).isFalse();
     Object[] a = apis.args("topAppMetrics");
     assertThat(a[0]).isEqualTo("central-access");
-    assertThat(a[5]).isEqualTo("mean");
-    assertThat(a[8]).isEqualTo(10);
+    assertThat(a[6]).isEqualTo("mean");
+    assertThat(a[9]).isEqualTo(10);
   }
 
   @Test

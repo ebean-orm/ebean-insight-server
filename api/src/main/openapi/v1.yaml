@@ -193,6 +193,7 @@ paths:
         - $ref: '#/components/parameters/AppPath'
         - $ref: '#/components/parameters/By'
         - $ref: '#/components/parameters/MetricName'
+        - $ref: '#/components/parameters/LabelTag'
         - $ref: '#/components/parameters/KindTag'
         - $ref: '#/components/parameters/TypeTag'
         - $ref: '#/components/parameters/OrderBy'
@@ -431,6 +432,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/By'
         - $ref: '#/components/parameters/MetricName'
+        - $ref: '#/components/parameters/LabelTag'
         - $ref: '#/components/parameters/KindTag'
         - $ref: '#/components/parameters/TypeTag'
         - $ref: '#/components/parameters/OrderBy'
@@ -560,6 +562,12 @@ components:
       schema:
         type: string
       description: Optional metric family filter (e.g. `ebean.query`, `web.api`, `datasource.pool.size`).
+    LabelTag:
+      name: label
+      in: query
+      schema:
+        type: string
+      description: Optional label filter (exact match on the `label` tag, or family name for v1-style metrics).
     KindTag:
       name: kind
       in: query
