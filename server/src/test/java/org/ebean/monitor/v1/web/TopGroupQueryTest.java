@@ -45,14 +45,14 @@ class TopGroupQueryTest {
 
     // by=name (Level 1): family rollup over timers. ebean.query spans the two
     // query hashes; the gauge family is ranked separately via orderBy=value.
-    final List<TopGroup> byName = metrics.topAppMetrics(APP, "name", null, null, null, "total", null, null, 50, null, null);
+    final List<TopGroup> byName = metrics.topAppMetrics(APP, "name", null, null, null, null, "total", null, null, 50, null, null);
     assertThat(byName).extracting(TopGroup::group).contains("ebean.query");
     final TopGroup queryFamily = byName.stream().filter(g -> g.group().equals("ebean.query")).findFirst().orElseThrow();
     assertThat(queryFamily.hashCount()).isEqualTo(3L);
     assertThat(queryFamily.name()).isEqualTo("ebean.query");
 
     // by=label (default): sum across the two hashes sharing label Customer.findList.
-    final List<TopGroup> byLabel = metrics.topAppMetrics(APP, null, "ebean.query", null, null, "total", null, null, 50, null, null);
+    final List<TopGroup> byLabel = metrics.topAppMetrics(APP, null, "ebean.query", null, null, null, "total", null, null, 50, null, null);
     assertThat(byLabel).extracting(TopGroup::group).containsExactlyInAnyOrder("Customer.findList", "Order.findList");
     final TopGroup custLabel = byLabel.stream().filter(g -> g.group().equals("Customer.findList")).findFirst().orElseThrow();
     assertThat(custLabel.label()).isEqualTo("Customer.findList");
@@ -61,17 +61,24 @@ class TopGroupQueryTest {
     assertThat(custLabel.totalMicros()).isEqualTo(1500L);
 
     // by=type (tag): Customer query (2 hashes) and Order query (1 hash).
-    final List<TopGroup> byType = metrics.topAppMetrics(APP, "type", "ebean.query", null, null, "total", null, null, 50, null, null);
+    final List<TopGroup> byType = metrics.topAppMetrics(APP, "type", "ebean.query", null, null, null, "total", null, null, 50, null, null);
     assertThat(byType).extracting(TopGroup::group).containsExactlyInAnyOrder("Customer", "Order");
     final TopGroup custType = byType.stream().filter(g -> g.group().equals("Customer")).findFirst().orElseThrow();
     assertThat(custType.hashCount()).isEqualTo(2L);
 
+    // by=hash with a label filter: scope per-hash rows to one label tag (drill
+    // from the default by=label view into its individual queries, with timing).
+    final List<TopGroup> byHashForLabel = metrics.topAppMetrics(APP, "hash", null, "Customer.findList", null, null, "total", null, null, 50, null, null);
+    assertThat(byHashForLabel).hasSize(2);
+    assertThat(byHashForLabel).extracting(TopGroup::label).containsOnly("Customer.findList");
+    assertThat(byHashForLabel).extracting(TopGroup::totalMicros).containsExactlyInAnyOrder(1000L, 500L);
+
     // strict grouping: datasource.* carries no label tag -> empty list.
-    final List<TopGroup> strict = metrics.topAppMetrics(APP, "label", "datasource.pool.size", null, null, "value", null, null, 50, null, null);
+    final List<TopGroup> strict = metrics.topAppMetrics(APP, "label", "datasource.pool.size", null, null, null, "value", null, null, 50, null, null);
     assertThat(strict).isEmpty();
 
     // gauge value path: rank datasource pool size by peak value, grouped by type.
-    final List<TopGroup> gauge = metrics.topAppMetrics(APP, "type", "datasource.pool.size", null, null, "value", null, null, 50, null, null);
+    final List<TopGroup> gauge = metrics.topAppMetrics(APP, "type", "datasource.pool.size", null, null, null, "value", null, null, 50, null, null);
     assertThat(gauge).extracting(TopGroup::group).contains("active");
     final TopGroup active = gauge.stream().filter(g -> g.group().equals("active")).findFirst().orElseThrow();
     assertThat(active.value()).isEqualTo(8.0d);

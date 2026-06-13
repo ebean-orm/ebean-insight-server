@@ -151,22 +151,22 @@ class V1ControllerTest {
 
     // by=hash → Level 3 (per-metric rows), the discriminator the v1-style
     // tagless seed supports; key is present on each TopGroup row.
-    final List<TopGroup> top = metricsApi.topAppMetrics(APP, "hash", null, null, null, "total", null, null, 10, null, null);
+    final List<TopGroup> top = metricsApi.topAppMetrics(APP, "hash", null, null, null, null, "total", null, null, 10, null, null);
     assertThat(top).extracting(TopGroup::app).containsOnly(APP);
     assertThat(top).extracting(TopGroup::key).contains(ORM_HASH, PLAIN_HASH);
 
-    final List<TopGroup> topEnv = metricsApi.topAppMetrics(APP, "hash", null, null, null, "total", null, null, 10, null, ENV);
+    final List<TopGroup> topEnv = metricsApi.topAppMetrics(APP, "hash", null, null, null, null, "total", null, null, 10, null, ENV);
     assertThat(topEnv).extracting(TopGroup::key).contains(ORM_HASH, PLAIN_HASH);
 
-    assertThat(metricsApi.topAppMetrics(APP, "hash", null, null, null, "total", null, null, 10, null, "no-such-env")).isEmpty();
+    assertThat(metricsApi.topAppMetrics(APP, "hash", null, null, null, null, "total", null, null, 10, null, "no-such-env")).isEmpty();
 
-    assertThatThrownBy(() -> metricsApi.topAppMetrics(APP, "hash", null, null, null, "garbage", null, null, null, null, null))
+    assertThatThrownBy(() -> metricsApi.topAppMetrics(APP, "hash", null, null, null, null, "garbage", null, null, null, null, null))
       .isInstanceOfSatisfying(HttpException.class, e -> assertThat(e.statusCode()).isEqualTo(400));
 
-    final List<TopGroup> topOrm = metricsApi.topAppMetrics(APP, "hash", null, null, null, null, null, null, null, true, null);
+    final List<TopGroup> topOrm = metricsApi.topAppMetrics(APP, "hash", null, null, null, null, null, null, null, null, true, null);
     assertThat(topOrm).extracting(TopGroup::key).contains(ORM_HASH).doesNotContain(PLAIN_HASH);
 
-    assertThatThrownBy(() -> metricsApi.topAppMetrics(APP, "hash", null, null, null, null, 60L, 1L, null, null, null))
+    assertThatThrownBy(() -> metricsApi.topAppMetrics(APP, "hash", null, null, null, null, null, 60L, 1L, null, null, null))
       .isInstanceOfSatisfying(HttpException.class, e -> assertThat(e.statusCode()).isEqualTo(400));
 
     final List<MissingPlanMetric> missing = metricsApi.listMissingPlans(APP, null, null, null, null, null, null);
@@ -184,12 +184,12 @@ class V1ControllerTest {
     assertThat(missingGlobal).extracting(MissingPlanMetric::label).contains(ORM_LABEL).doesNotContain(PLAIN_LABEL);
     assertThat(missingGlobal).extracting(MissingPlanMetric::label).doesNotContain(STALE_LABEL);
 
-    final List<TopGroup> globalTop = metricsApi.topMetrics("hash", null, null, null, null, null, null, 50, null, null);
+    final List<TopGroup> globalTop = metricsApi.topMetrics("hash", null, null, null, null, null, null, null, 50, null, null);
     assertThat(globalTop).extracting(TopGroup::key).contains(ORM_HASH);
 
-    final List<TopGroup> globalTopEnv = metricsApi.topMetrics("hash", null, null, null, null, null, null, 50, null, ENV);
+    final List<TopGroup> globalTopEnv = metricsApi.topMetrics("hash", null, null, null, null, null, null, null, 50, null, ENV);
     assertThat(globalTopEnv).extracting(TopGroup::key).contains(ORM_HASH);
-    assertThat(metricsApi.topMetrics("hash", null, null, null, null, null, null, 50, null, "no-such-env")).isEmpty();
+    assertThat(metricsApi.topMetrics("hash", null, null, null, null, null, null, null, 50, null, "no-such-env")).isEmpty();
 
     final PendingResponse pending = plansApi.requestPlanCapture(APP, ORM_HASH, ENV);
     assertThat(pending.pending()).isGreaterThanOrEqualTo(1);

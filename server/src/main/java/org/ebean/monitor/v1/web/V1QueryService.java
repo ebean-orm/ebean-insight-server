@@ -370,7 +370,8 @@ public final class V1QueryService {
   }
 
   public List<TopGroup> topAppMetrics(String appName, @Nullable String by, @Nullable String name,
-                                      @Nullable String kind, @Nullable String type, @Nullable String orderBy,
+                                      @Nullable String label, @Nullable String kind, @Nullable String type,
+                                      @Nullable String orderBy,
                                       @Nullable Long sinceMinutes, @Nullable Long sinceHours,
                                       @Nullable Integer limit, @Nullable Boolean planCapable,
                                       @Nullable String env) {
@@ -379,16 +380,17 @@ public final class V1QueryService {
     if (app == null) {
       return List.of();
     }
-    return runTopQuery(app, by, name, kind, type, orderBy, window, planCapable, env, clampLimit(limit));
+    return runTopQuery(app, by, name, label, kind, type, orderBy, window, planCapable, env, clampLimit(limit));
   }
 
   public List<TopGroup> topMetrics(@Nullable String by, @Nullable String name,
-                                   @Nullable String kind, @Nullable String type, @Nullable String orderBy,
+                                   @Nullable String label, @Nullable String kind, @Nullable String type,
+                                   @Nullable String orderBy,
                                    @Nullable Long sinceMinutes, @Nullable Long sinceHours,
                                    @Nullable Integer limit, @Nullable Boolean planCapable,
                                    @Nullable String env) {
     final TimeWindow window = TimeWindow.of(sinceMinutes, sinceHours, DEFAULT_TOP_WINDOW_MINUTES);
-    return runTopQuery(null, by, name, kind, type, orderBy, window, planCapable, env, clampLimit(limit));
+    return runTopQuery(null, by, name, label, kind, type, orderBy, window, planCapable, env, clampLimit(limit));
   }
 
   /**
@@ -402,7 +404,8 @@ public final class V1QueryService {
    * tag are excluded (so a family that lacks the tag yields an empty list).
    */
   private List<TopGroup> runTopQuery(@Nullable DApp app, @Nullable String by, @Nullable String name,
-                                     @Nullable String kind, @Nullable String type, @Nullable String orderBy,
+                                     @Nullable String label, @Nullable String kind, @Nullable String type,
+                                     @Nullable String orderBy,
                                      TimeWindow window, @Nullable Boolean planCapable,
                                      @Nullable String env, int limit) {
     final Integer envId = resolveEnvId(env);
@@ -449,6 +452,7 @@ public final class V1QueryService {
       """
       + (app == null ? "" : "  and a.id = :appId\n")
       + (isBlank(name) ? "" : "  and m.name = :name\n")
+      + (isBlank(label) ? "" : "  and m.tags ->> 'label' = :label\n")
       + (isBlank(kind) ? "" : "  and m.tags ->> 'kind' = :kind\n")
       + (isBlank(type) ? "" : "  and m.tags ->> 'type' = :type\n")
       + (planCapable == null ? "" : "  and m.plan_capable = :planCapable\n")
@@ -468,6 +472,9 @@ public final class V1QueryService {
     }
     if (!isBlank(name)) {
       sqlQuery.setParameter("name", name);
+    }
+    if (!isBlank(label)) {
+      sqlQuery.setParameter("label", label);
     }
     if (!isBlank(kind)) {
       sqlQuery.setParameter("kind", kind);

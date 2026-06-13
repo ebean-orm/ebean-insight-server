@@ -18,6 +18,7 @@ import org.ebean.monitor.v1.model.PlanChangeDetail;
 import org.ebean.monitor.v1.model.QueryPlan;
 import org.ebean.monitor.v1.model.QueryPlanSummary;
 import org.ebean.monitor.v1.model.TopGroup;
+import org.jspecify.annotations.Nullable;
 
 /**
  * "Light interactive" guided drill-down for ranked-metric lists.
@@ -75,6 +76,19 @@ final class Interactive {
   private final String dimension;
   /** The single app the list is scoped to, or null when it spans apps. */
   private final String appScope;
+  /**
+   * Fetches windowed per-hash timing scoped to a parent group, or null when not
+   * available (e.g. the pure-render tests or the single-hash entry points).
+   * Exactly one of {@code name/label/kind/type} is supplied by the caller.
+   */
+  @Nullable private final HashDrill drill;
+
+  /** Windowed {@code by=hash} fetch scoped to a parent group's tag/name filter. */
+  @FunctionalInterface
+  interface HashDrill {
+    List<TopGroup> fetch(@Nullable String app, @Nullable String name, @Nullable String label,
+                         @Nullable String kind, @Nullable String type, String orderBy);
+  }
 
   private List<Row> rows;
   private By by;
@@ -83,7 +97,7 @@ final class Interactive {
   private Interactive(Insight insight, String env, Mode mode, boolean showApp,
                       String titleHead, String titleTail, By by,
                       List<Row> rows, java.util.function.Function<By, List<Row>> reload,
-                      String dimension, String appScope) {
+                      String dimension, String appScope, @Nullable HashDrill drill) {
     this.insight = insight;
     this.env = env;
     this.mode = mode;
@@ -94,6 +108,7 @@ final class Interactive {
     this.reload = reload;
     this.dimension = dimension;
     this.appScope = appScope;
+    this.drill = drill;
     applyBy(by);
     this.in = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8));
   }
@@ -110,6 +125,7 @@ final class Interactive {
     this.reload = null;
     this.dimension = "hash";
     this.appScope = null;
+    this.drill = null;
     this.by = By.total;
     this.measure = TrendCommand.Measure.mean;
     this.in = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8));
@@ -122,7 +138,8 @@ final class Interactive {
 
   static int topLoop(Insight insight, String appScope, String dimension, List<TopGroup> initial,
                      TopCommand.Sort sort, String env,
-                     java.util.function.Function<String, List<TopGroup>> fetch) {
+                     java.util.function.Function<String, List<TopGroup>> fetch,
+                     @Nullable HashDrill drill) {
     String only = appScope != null ? appScope : singleApp(initial.stream().map(TopGroup::app).toList());
     long window = initial.isEmpty() ? 0 : initial.get(0).windowMinutes();
     String titleTail = (only != null ? " — " + only : "")
@@ -132,7 +149,7 @@ final class Interactive {
     java.util.function.Function<By, List<Row>> reload = b -> toTopRows(fetch.apply(b.name()), b);
     List<Row> rows = toTopRows(initial, startBy);
     return new Interactive(insight, env, Mode.TOP, only == null, "Top", titleTail,
-        startBy, rows, reload, dimension, appScope).run();
+        startBy, rows, reload, dimension, appScope, drill).run();
   }
 
   /** Map the command-line sort to the interactive measure toggle (which is timer-only). */
@@ -152,7 +169,7 @@ final class Interactive {
     java.util.function.Function<By, List<Row>> reload = b -> toMissingRows(fetch.apply(b.name()), b);
     List<Row> rows = toMissingRows(initial, By.valueOf(by.name()));
     return new Interactive(insight, env, Mode.MISSING, only == null, "Missing plans", titleTail,
-        By.valueOf(by.name()), rows, reload, "hash", only).run();
+        By.valueOf(by.name()), rows, reload, "hash", only, null).run();
   }
 
   /**
@@ -175,7 +192,7 @@ final class Interactive {
     String label = metrics.get(0).name();
     Row row = new Row(app, hash, label == null ? hash : label, 0, "us");
     Interactive it = new Interactive(insight, env, Mode.TOP, false, "", "", By.total,
-        List.of(row), b -> List.of(row), "hash", app);
+        List.of(row), b -> List.of(row), "hash", app, null);
     it.rowMenu(row);
     return 0;
   }
@@ -187,7 +204,7 @@ final class Interactive {
    */
   static int changesLoop(Insight insight, List<PlanChange> changes, String env) {
     return new Interactive(insight, env, Mode.TOP, true, "", "", By.total,
-        List.of(), b -> List.of(), "hash", null).runChanges(changes);
+        List.of(), b -> List.of(), "hash", null, null).runChanges(changes);
   }
 
   private static List<Row> toTopRows(List<TopGroup> src, By by) {
@@ -460,7 +477,9 @@ final class Interactive {
   /**
    * Drill from an aggregated row (no single hash) into the individual queries
    * that make up the group, then offer the per-query row menu. Maps the
-   * aggregation dimension to the matching {@code listAppMetrics} filter.
+   * aggregation dimension to the matching filter and fetches windowed per-hash
+   * timing via {@code top by=hash}; falls back to the metric catalog (no
+   * windowed timing) when no executions land in the window.
    */
   private boolean drillGroup(Row group) {
     final String app = appScope != null ? appScope : group.app();
@@ -484,6 +503,20 @@ final class Interactive {
         return true;
       }
     }
+    if (drill != null) {
+      final List<TopGroup> hashRows;
+      try {
+        hashRows = drill.fetch(app, name, label, kind, type, by.name());
+      } catch (HttpException e) {
+        System.out.println("Failed to load queries: HTTP " + e.statusCode());
+        return true;
+      }
+      if (!hashRows.isEmpty()) {
+        return drillLoop(group.label(), toTopRows(hashRows, by));
+      }
+    }
+    // No windowed activity (or no drill fetcher): list the catalog so the
+    // queries remain browsable for sql/plan/capture, with zeroed timing.
     final List<AppMetric> metrics;
     try {
       metrics = insight.metrics.listAppMetrics(app, name, label, kind, type, null, 100);
@@ -495,12 +528,12 @@ final class Interactive {
       System.out.println("No individual queries found for this group.");
       return true;
     }
-    final List<Row> drill = new ArrayList<>(metrics.size());
+    final List<Row> rows = new ArrayList<>(metrics.size());
     for (AppMetric m : metrics) {
       final String lbl = m.label() != null ? m.label() : m.name();
-      drill.add(new Row(app, m.key(), lbl, 0, "us", 0, 0, 0, 0, true, null, null));
+      rows.add(new Row(app, m.key(), lbl, 0, "us", 0, 0, 0, 0, true, null, null));
     }
-    return drillLoop(group.label(), drill);
+    return drillLoop(group.label(), rows);
   }
 
   /** A nested list of the individual queries under a drilled group. */
@@ -774,7 +807,9 @@ final class Interactive {
   private String trendPrompt(TrendCommand.Measure m, long windowMin) {
     return "trend  by " + AnsiColor.hot("t", "otal") + " " + AnsiColor.hot("m", "ean")
         + " ma" + AnsiColor.hot("x", "") + " cou" + AnsiColor.hot("n", "t")
-        + "   window 1h 6h 1d 7d 30d   " + AnsiColor.hot("p", "lans")
+        + "   window " + AnsiColor.hot("1h", "") + " " + AnsiColor.hot("6h", "") + " "
+        + AnsiColor.hot("1d", "") + " " + AnsiColor.hot("7d", "") + " " + AnsiColor.hot("30d", "")
+        + "   " + AnsiColor.hot("p", "lans")
         + "  " + AnsiColor.hot("b", "ack") + "  " + AnsiColor.hot("q", "uit")
         + "\n(now: " + m.name() + " / " + windowLabel(windowMin) + ") > ";
   }

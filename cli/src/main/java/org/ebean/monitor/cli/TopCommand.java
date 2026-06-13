@@ -69,6 +69,9 @@ final class TopCommand implements Callable<Integer> {
       description = "Filter to one metric family name (e.g. ebean.query, web.api).")
   @Nullable String name;
 
+  @Option(names = "--label", description = "Filter by the 'label' tag (e.g. orm.Customer.findById).")
+  @Nullable String label;
+
   @Option(names = "--kind", description = "Filter by the 'kind' tag (e.g. orm).")
   @Nullable String kind;
 
@@ -110,8 +113,11 @@ final class TopCommand implements Callable<Integer> {
     final boolean gauge = sort == Sort.value;
     try (Insight insight = Insight.open(conn)) {
       java.util.function.Function<String, List<TopGroup>> fetch = ob -> (app == null)
-          ? insight.metrics.topMetrics(by, name, kind, type, ob, sinceMinutes, sinceHours, limit, planCapable, env)
-          : insight.metrics.topAppMetrics(app, by, name, kind, type, ob, sinceMinutes, sinceHours, limit, planCapable, env);
+          ? insight.metrics.topMetrics(by, name, label, kind, type, ob, sinceMinutes, sinceHours, limit, planCapable, env)
+          : insight.metrics.topAppMetrics(app, by, name, label, kind, type, ob, sinceMinutes, sinceHours, limit, planCapable, env);
+      Interactive.HashDrill drill = (a, n, l, k, t, ob) -> (a == null)
+          ? insight.metrics.topMetrics("hash", n, l, k, t, ob, sinceMinutes, sinceHours, limit, planCapable, env)
+          : insight.metrics.topAppMetrics(a, "hash", n, l, k, t, ob, sinceMinutes, sinceHours, limit, planCapable, env);
       List<TopGroup> rows = fetch.apply(sort.name());
       if (out.json()) {
         out.printJsonList(TopGroup.class, rows);
@@ -122,7 +128,7 @@ final class TopCommand implements Callable<Integer> {
         return 0;
       }
       if (interactive) {
-        return Interactive.topLoop(insight, app, by, rows, sort, env, fetch);
+        return Interactive.topLoop(insight, app, by, rows, sort, env, fetch, drill);
       }
       if (chart) {
         Charts.printPareto(rows, sort);
@@ -135,13 +141,14 @@ final class TopCommand implements Callable<Integer> {
 
   private void printTable(List<TopGroup> rows, boolean byHash, boolean gauge) {
     int appWidth = "APP".length();
-    int groupWidth = "GROUP".length();
+    int groupWidth = (byHash ? "LABEL" : "GROUP").length();
     for (TopGroup r : rows) {
       if (r.app() != null) {
         appWidth = Math.max(appWidth, r.app().length());
       }
-      if (r.group() != null) {
-        groupWidth = Math.max(groupWidth, r.group().length());
+      String groupValue = byHash ? (r.label() == null ? r.group() : r.label()) : r.group();
+      if (groupValue != null) {
+        groupWidth = Math.max(groupWidth, groupValue.length());
       }
     }
     if (gauge) {
