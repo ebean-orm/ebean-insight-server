@@ -23,9 +23,14 @@ insight top --app $APP --env $ENV --sort total --plan-capable -n 20
 #   name = metric families (coarsest), label = one row per label tag (default),
 #   hash = individual queries (finest); also any tag key such as type, kind
 insight top --by name --sort total -n 20              # coarsest: metric families
+insight top --by name --all-apps --sort total -n 20   # collapse a shared name across apps
 insight top --by label --sort total -n 20             # middle (default): per label tag
 insight top --app $APP --by hash --sort total -n 20   # finest: individual queries
 ```
+
+By default a metric family (or tag value) reported by several apps shows **one
+row per app** (the APP column is populated). Add `--all-apps` (HTTP
+`allApps=true`) to roll those into a single cross-app row instead (APP blank).
 
 ```text
 # MCP tool

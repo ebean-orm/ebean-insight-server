@@ -184,12 +184,12 @@ class V1ControllerTest {
     assertThat(missingGlobal).extracting(MissingPlanMetric::label).contains(ORM_LABEL).doesNotContain(PLAIN_LABEL);
     assertThat(missingGlobal).extracting(MissingPlanMetric::label).doesNotContain(STALE_LABEL);
 
-    final List<TopGroup> globalTop = metricsApi.topMetrics("hash", null, null, null, null, null, null, null, 50, null, null);
+    final List<TopGroup> globalTop = metricsApi.topMetrics("hash", null, null, null, null, null, null, null, 50, null, null, null);
     assertThat(globalTop).extracting(TopGroup::key).contains(ORM_HASH);
 
-    final List<TopGroup> globalTopEnv = metricsApi.topMetrics("hash", null, null, null, null, null, null, null, 50, null, ENV);
+    final List<TopGroup> globalTopEnv = metricsApi.topMetrics("hash", null, null, null, null, null, null, null, 50, null, ENV, null);
     assertThat(globalTopEnv).extracting(TopGroup::key).contains(ORM_HASH);
-    assertThat(metricsApi.topMetrics("hash", null, null, null, null, null, null, null, 50, null, "no-such-env")).isEmpty();
+    assertThat(metricsApi.topMetrics("hash", null, null, null, null, null, null, null, 50, null, "no-such-env", null)).isEmpty();
 
     final PendingResponse pending = plansApi.requestPlanCapture(APP, ORM_HASH, ENV);
     assertThat(pending.pending()).isGreaterThanOrEqualTo(1);
@@ -348,6 +348,60 @@ class V1ControllerTest {
       """.formatted(ENV, APP, ORM_LABEL, ORM_HASH);
     final HttpResponse<String> res = httpClient.request()
       .path("api/ingest/plans")
+      .header("Content-Type", "application/json")
+      .header("Insight-Key", "testHash")
+      .body(payload)
+      .POST()
+      .asString();
+    assertThat(res.statusCode()).isEqualTo(204);
+  }
+
+  @Test
+  void topMetrics_perAppByDefault_aggregatedWithAllApps() throws InterruptedException {
+    final String sharedName = "shared.txn.perapptest";
+    seedSharedMetric("perapp-a", sharedName, "perapphasha000000000000000000001", 4, 400);
+    seedSharedMetric("perapp-b", sharedName, "perapphashb000000000000000000001", 6, 600);
+    Thread.sleep(200);
+    rollup();
+
+    final MetricsApi metricsApi = httpClient.create(MetricsApi.class);
+
+    // Default (allApps=null/false): the shared name yields one row PER APP, each
+    // with its app populated.
+    final List<TopGroup> perApp = metricsApi.topMetrics("name", sharedName, null, null, null,
+      "total", null, null, 50, null, null, null);
+    assertThat(perApp).hasSize(2);
+    assertThat(perApp).allSatisfy(g -> assertThat(g.app()).isNotNull());
+    assertThat(perApp).extracting(TopGroup::app).containsExactlyInAnyOrder("perapp-a", "perapp-b");
+    assertThat(perApp).extracting(TopGroup::count).containsExactlyInAnyOrder(4L, 6L);
+
+    // allApps=true: the two apps collapse into a single cross-app row (app blank,
+    // counts summed).
+    final List<TopGroup> crossApp = metricsApi.topMetrics("name", sharedName, null, null, null,
+      "total", null, null, 50, null, null, true);
+    assertThat(crossApp).hasSize(1);
+    assertThat(crossApp.get(0).app()).isNull();
+    assertThat(crossApp.get(0).count()).isEqualTo(10L);
+  }
+
+  private void seedSharedMetric(String app, String name, String hash, int count, long total) {
+    final String payload = """
+      {
+        "eventTime": %d,
+        "appName": "%s",
+        "environment": "%s",
+        "dbs": [
+          {
+            "db": "db",
+            "metrics": [
+              {"name": "%s", "count": %d, "total": %d, "mean": 100, "max": 200, "hash": "%s", "loc": "x.java:9", "sql": "select 9"}
+            ]
+          }
+        ]
+      }
+      """.formatted(eventMinute.toEpochMilli(), app, ENV, name, count, total, hash);
+    final HttpResponse<String> res = httpClient.request()
+      .path("api/ingest/metrics")
       .header("Content-Type", "application/json")
       .header("Insight-Key", "testHash")
       .body(payload)

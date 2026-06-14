@@ -444,6 +444,7 @@ paths:
           schema:
             type: boolean
         - $ref: '#/components/parameters/EnvQuery'
+        - $ref: '#/components/parameters/AllApps'
       responses:
         '200':
           description: Top-N ranked groups
@@ -522,6 +523,19 @@ components:
       schema:
         type: string
       description: Environment name filter.
+    AllApps:
+      name: allApps
+      in: query
+      schema:
+        type: boolean
+        default: false
+      description: |
+        Cross-app rollup toggle for `by=name` and tag grouping (no effect when
+        `by=hash`, which is already per-metric). Default `false`: each
+        application is kept as its own row, so a metric reported by several apps
+        appears once per app (APP populated). When `true`, groups that share the
+        same name/tag value are aggregated across all applications into a single
+        row (APP blank).
     Limit:
       name: limit
       in: query

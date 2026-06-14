@@ -29,6 +29,7 @@ import picocli.CommandLine.Option;
     footer = {
         "  insight top                              # top labels (default), by total time, last 60m",
         "  insight top --by name                    # coarsest level: roll up per metric family",
+        "  insight top --by name --all-apps         # collapse a shared name across apps into one row",
         "  insight top --by label                   # middle level: one row per label tag",
         "  insight top --by hash                    # finest level: individual queries (HASH feeds capture)",
         "  insight top --by type --name ebean.query # group ebean.query by its type tag",
@@ -98,6 +99,11 @@ final class TopCommand implements Callable<Integer> {
       description = "Drill down interactively: pick a row, then view sql/plan/capture/trend.")
   boolean interactive;
 
+  @Option(names = "--all-apps",
+      description = "Aggregate each name/tag group across all apps into one cross-app row "
+          + "(default: one row per app). Ignored with --by hash and when --app is set.")
+  boolean allApps;
+
   @Override
   public Integer call() {
     if (sinceMinutes != null && sinceHours != null) {
@@ -113,10 +119,10 @@ final class TopCommand implements Callable<Integer> {
     final boolean gauge = sort == Sort.value;
     try (Insight insight = Insight.open(conn)) {
       java.util.function.Function<String, List<TopGroup>> fetch = ob -> (app == null)
-          ? insight.metrics.topMetrics(by, name, label, kind, type, ob, sinceMinutes, sinceHours, limit, planCapable, env)
+          ? insight.metrics.topMetrics(by, name, label, kind, type, ob, sinceMinutes, sinceHours, limit, planCapable, env, allApps)
           : insight.metrics.topAppMetrics(app, by, name, label, kind, type, ob, sinceMinutes, sinceHours, limit, planCapable, env);
       Interactive.HashDrill drill = (a, n, l, k, t, ob) -> (a == null)
-          ? insight.metrics.topMetrics("hash", n, l, k, t, ob, sinceMinutes, sinceHours, limit, planCapable, env)
+          ? insight.metrics.topMetrics("hash", n, l, k, t, ob, sinceMinutes, sinceHours, limit, planCapable, env, allApps)
           : insight.metrics.topAppMetrics(a, "hash", n, l, k, t, ob, sinceMinutes, sinceHours, limit, planCapable, env);
       List<TopGroup> rows = fetch.apply(sort.name());
       if (out.json()) {

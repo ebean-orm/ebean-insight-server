@@ -390,7 +390,7 @@ public final class V1QueryService {
     if (app == null) {
       return List.of();
     }
-    return runTopQuery(app, by, name, label, kind, type, orderBy, window, planCapable, env, clampLimit(limit));
+    return runTopQuery(app, by, name, label, kind, type, orderBy, window, planCapable, env, false, clampLimit(limit));
   }
 
   public List<TopGroup> topMetrics(@Nullable String by, @Nullable String name,
@@ -398,9 +398,9 @@ public final class V1QueryService {
                                    @Nullable String orderBy,
                                    @Nullable Long sinceMinutes, @Nullable Long sinceHours,
                                    @Nullable Integer limit, @Nullable Boolean planCapable,
-                                   @Nullable String env) {
+                                   @Nullable String env, @Nullable Boolean allApps) {
     final TimeWindow window = TimeWindow.of(sinceMinutes, sinceHours, DEFAULT_TOP_WINDOW_MINUTES);
-    return runTopQuery(null, by, name, label, kind, type, orderBy, window, planCapable, env, clampLimit(limit));
+    return runTopQuery(null, by, name, label, kind, type, orderBy, window, planCapable, env, allApps, clampLimit(limit));
   }
 
   /**
@@ -417,7 +417,7 @@ public final class V1QueryService {
                                      @Nullable String label, @Nullable String kind, @Nullable String type,
                                      @Nullable String orderBy,
                                      TimeWindow window, @Nullable Boolean planCapable,
-                                     @Nullable String env, int limit) {
+                                     @Nullable String env, @Nullable Boolean allApps, int limit) {
     final Integer envId = resolveEnvId(env);
     if (envFilterMisses(env, envId)) {
       return List.of();
@@ -439,6 +439,13 @@ public final class V1QueryService {
     final String tagExpr = "m.tags ->> '" + byKey + "'";
     final String groupExpr = byHash ? "m.id" : byName ? "m.name" : tagExpr;
     final String grpSelect = byHash ? "m.key" : byName ? "m.name" : tagExpr;
+
+    // Per-app by default: a name/tag shared by several apps yields one row per
+    // app (app_count collapses to 1 so the APP is populated). An app-scoped
+    // query is inherently single-app. Only allApps=true rolls a group up across
+    // applications into a single cross-app row (APP blank).
+    final boolean perApp = app != null || !Boolean.TRUE.equals(allApps);
+    final String groupCols = perApp ? groupExpr + ", m.app_id" : groupExpr;
 
     final String sql = ("""
       select
@@ -472,7 +479,7 @@ public final class V1QueryService {
       group by %s
       order by %s desc
       limit :limit
-      """).formatted(grpSelect, table, groupExpr, orderByExpression(sortKey));
+      """).formatted(grpSelect, table, groupCols, orderByExpression(sortKey));
 
     final SqlQuery sqlQuery = DB.sqlQuery(sql)
       .setParameter("from", window.from())

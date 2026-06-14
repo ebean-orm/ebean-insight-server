@@ -153,7 +153,8 @@ public class InsightTools {
             .prop("limit", "integer", "Maximum rows.")
             .prop("sinceMinutes", "integer", "Window size in minutes.")
             .prop("sinceHours", "integer", "Window size in hours.")
-            .prop("planCapable", "boolean", "Filter to plan-capable metrics only."),
+            .prop("planCapable", "boolean", "Filter to plan-capable metrics only.")
+            .prop("allApps", "boolean", "Roll groups up across all apps into one cross-app row (default false: one row per app)."),
         a -> {
           String app = str(a, "app");
           if (app != null && !app.isBlank()) {
@@ -163,7 +164,7 @@ public class InsightTools {
           }
           return topGroupList.toJson(metricsApi.topMetrics(str(a, "by"), str(a, "name"),
               str(a, "label"), str(a, "kind"), str(a, "type"), str(a, "orderBy"),
-              lng(a, "sinceMinutes"), lng(a, "sinceHours"), intg(a, "limit"), bool(a, "planCapable"), str(a, "env")));
+              lng(a, "sinceMinutes"), lng(a, "sinceHours"), intg(a, "limit"), bool(a, "planCapable"), str(a, "env"), bool(a, "allApps")));
         });
 
     add("plans", "List recently captured query plans.",
