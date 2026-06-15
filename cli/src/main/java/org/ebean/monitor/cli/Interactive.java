@@ -34,20 +34,27 @@ import org.jspecify.annotations.Nullable;
 final class Interactive {
 
   private static final int BAR_WIDTH = 24;
+  private static final int NAME_MAX = 40;
   private static final int LABEL_MAX = 70;
   private static final int HASH_SHORT = 12;
 
   /** Which ranked list is being shown — drives the per-mode columns. */
   enum Mode { TOP, MISSING }
 
-  /** A flattened ranked row: enough to render and to drive the row actions. */
-  record Row(String app, String hash, String label, double value, String unit,
+  /**
+   * A flattened ranked row: enough to render and to drive the row actions.
+   *
+   * <p>{@code name} is the v2 metric family (display only). {@code label} carries
+   * the aggregation dimension value and doubles as the drill-down filter key, so it
+   * must stay the raw value (not a name-decorated display string).
+   */
+  record Row(String app, String hash, String name, String label, double value, String unit,
              long count, long total, long mean, long max,
              boolean planCapable, Long captureCount, String lastCaptured) {
 
     /** Compact constructor for tests that only need the identity + ranked value. */
     Row(String app, String hash, String label, double value, String unit) {
-      this(app, hash, label, value, unit, 0, 0, 0, 0, false, null, null);
+      this(app, hash, null, label, value, unit, 0, 0, 0, 0, false, null, null);
     }
   }
 
@@ -212,7 +219,7 @@ final class Interactive {
     List<Row> out = new ArrayList<>(src.size());
     for (TopGroup r : src) {
       String label = r.label() != null ? r.label() : r.group();
-      out.add(new Row(r.app(), r.key(), label, measure(r, by), unit,
+      out.add(new Row(r.app(), r.key(), r.name(), label, measure(r, by), unit,
           nz(r.count()), nz(r.totalMicros()), nz(r.meanMicros()), nz(r.maxMicros()),
           Boolean.TRUE.equals(r.planCapable()), null, null));
     }
@@ -223,7 +230,7 @@ final class Interactive {
     String unit = by.unit();
     List<Row> out = new ArrayList<>(src.size());
     for (MissingPlanMetric m : src) {
-      out.add(new Row(m.app(), m.key(), m.label(), measure(m, by), unit,
+      out.add(new Row(m.app(), m.key(), null, m.label(), measure(m, by), unit,
           m.count(), m.totalMicros(), m.meanMicros(), m.maxMicros(),
           false, m.captureCount(), m.lastCapturedAt() == null ? "never" : m.lastCapturedAt().toString()));
     }
@@ -512,7 +519,7 @@ final class Interactive {
         return true;
       }
       if (!hashRows.isEmpty()) {
-        return drillLoop(group.label(), toTopRows(hashRows, by));
+        return drillLoop(Display.join(group.name(), group.label(), group.label()), toTopRows(hashRows, by));
       }
     }
     // No windowed activity (or no drill fetcher): list the catalog so the
@@ -531,9 +538,9 @@ final class Interactive {
     final List<Row> rows = new ArrayList<>(metrics.size());
     for (AppMetric m : metrics) {
       final String lbl = m.label() != null ? m.label() : m.name();
-      rows.add(new Row(app, m.key(), lbl, 0, "us", 0, 0, 0, 0, true, null, null));
+      rows.add(new Row(app, m.key(), m.name(), lbl, 0, "us", 0, 0, 0, 0, true, null, null));
     }
-    return drillLoop(group.label(), rows);
+    return drillLoop(Display.join(group.name(), group.label(), group.label()), rows);
   }
 
   /** A nested list of the individual queries under a drilled group. */
@@ -990,6 +997,7 @@ final class Interactive {
     if (showApp) {
       cols.add(new Col("APP", false, r -> r.app() == null ? "" : r.app()));
     }
+    cols.add(new Col("NAME", false, r -> r.name() == null ? "" : tail(r.name(), NAME_MAX)));
     cols.add(new Col("LABEL", false, r -> tail(r.label(), LABEL_MAX)));
     cols.add(new Col("HASH", false, r -> shortHash(r.hash())));
     cols.add(new Col("COUNT", true, r -> num(r.count())));

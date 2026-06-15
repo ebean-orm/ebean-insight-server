@@ -14,23 +14,24 @@ class InteractiveRenderTest {
 
   private static final String HASH = "a2e2082df04620910f8fa034561b3346";
 
-  private static Interactive.Row top(String app, String hash, String label, long mean) {
-    return new Interactive.Row(app, hash, label, mean, "us", 1000, 5_000_000, mean, 120_000, true, null, null);
+  private static Interactive.Row top(String app, String hash, String name, String label, long mean) {
+    return new Interactive.Row(app, hash, name, label, mean, "us", 1000, 5_000_000, mean, 120_000, true, null, null);
   }
 
   @Test
   void renderList_topMode_showsCoreColumnsValuesAndShortHash() {
     var i = Interactive.forRender(Interactive.Mode.TOP, true);
     List<Interactive.Row> rows = List.of(
-        top("central-access", HASH, "orm.A.find", 93203),
-        top("central-access", "h2", "orm.B.find", 12612));
+        top("central-access", HASH, "ebean.query", "orm.A.find", 93203),
+        top("central-access", "h2", "ebean.query", "orm.B.find", 12612));
 
     String out = i.renderList("Top 2 by mean", rows);
     String header = headerLine(out.split("\n"));
 
-    assertThat(header).contains("#").contains("APP").contains("LABEL")
+    assertThat(header).contains("#").contains("APP").contains("NAME").contains("LABEL")
         .contains("COUNT").contains("TOTAL(us)").contains("MEAN(us)").contains("MAX(us)")
         .contains("PLAN").contains("HASH").contains("chart");
+    assertThat(out).contains("ebean.query");   // v2 family name column
     assertThat(out).contains("orm.A.find");
     assertThat(out).contains("93,203");        // grouped digits, no unit suffix in columns
     assertThat(out).contains("a2e2082df046");  // 12-char short hash
@@ -41,14 +42,14 @@ class InteractiveRenderTest {
   @Test
   void renderList_singleApp_hidesAppColumn() {
     var i = Interactive.forRender(Interactive.Mode.TOP, false);
-    String out = i.renderList("Top 1 by mean", List.of(top("central-access", HASH, "orm.A.find", 5)));
+    String out = i.renderList("Top 1 by mean", List.of(top("central-access", HASH, "ebean.query", "orm.A.find", 5)));
     assertThat(headerLine(out.split("\n"))).doesNotContain("APP");
   }
 
   @Test
   void renderList_missingMode_showsCapturesAndCaptured() {
     var i = Interactive.forRender(Interactive.Mode.MISSING, false);
-    Interactive.Row r = new Interactive.Row("app", HASH, "orm.CDriver.driver_all_since",
+    Interactive.Row r = new Interactive.Row("app", HASH, null, "orm.CDriver.driver_all_since",
         0, "us", 0, 0, 0, 0, false, 0L, null);
 
     String out = i.renderList("Missing plans 1 by total", List.of(r));

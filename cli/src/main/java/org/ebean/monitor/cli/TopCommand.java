@@ -1,6 +1,7 @@
 package org.ebean.monitor.cli;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.Callable;
 
 import org.ebean.monitor.v1.model.TopGroup;
@@ -115,7 +116,6 @@ final class TopCommand implements Callable<Integer> {
     if (env == null) {
       env = ConfigDefaults.envOrNull();
     }
-    final boolean byHash = "hash".equalsIgnoreCase(by);
     final boolean gauge = sort == Sort.value;
     try (Insight insight = Insight.open(conn)) {
       java.util.function.Function<String, List<TopGroup>> fetch = ob -> (app == null)
@@ -140,57 +140,88 @@ final class TopCommand implements Callable<Integer> {
         Charts.printPareto(rows, sort);
         return 0;
       }
-      printTable(rows, byHash, gauge);
+      printTable(rows, gauge);
       return 0;
     }
   }
 
-  private void printTable(List<TopGroup> rows, boolean byHash, boolean gauge) {
+  private void printTable(List<TopGroup> rows, boolean gauge) {
+    final boolean byHash = "hash".equalsIgnoreCase(by);
+    final boolean byName = "name".equalsIgnoreCase(by);
+    // A "tag" dimension is any grouping other than name/label/hash (e.g. type, kind):
+    // NAME and LABEL aren't single-valued, so the tag value gets its own column.
+    final boolean tagDim = !byHash && !byName && !"label".equalsIgnoreCase(by);
+    final String tagHeader = by.toUpperCase(Locale.ROOT);
+
     int appWidth = "APP".length();
-    int groupWidth = (byHash ? "LABEL" : "GROUP").length();
+    int nameWidth = "NAME".length();
+    int labelWidth = "LABEL".length();
+    int tagWidth = tagHeader.length();
     for (TopGroup r : rows) {
       if (r.app() != null) {
         appWidth = Math.max(appWidth, r.app().length());
       }
-      String groupValue = byHash ? (r.label() == null ? r.group() : r.label()) : r.group();
-      if (groupValue != null) {
-        groupWidth = Math.max(groupWidth, groupValue.length());
+      nameWidth = Math.max(nameWidth, nv(r.name()).length());
+      labelWidth = Math.max(labelWidth, nv(r.label()).length());
+      if (tagDim) {
+        tagWidth = Math.max(tagWidth, nv(r.group()).length());
       }
     }
+
+    String idFmt = "%-" + appWidth + "s  %-" + nameWidth + "s  %-" + labelWidth + "s"
+        + (tagDim ? "  %-" + tagWidth + "s" : "");
+
     if (gauge) {
-      String headFmt = "%-" + appWidth + "s  %-" + groupWidth + "s  %16s  %8s  %6s%n";
-      String rowFmt = "%-" + appWidth + "s  %-" + groupWidth + "s  %16s  %8d  %6d%n";
-      System.out.printf(headFmt, "APP", "GROUP", "VALUE", "WINDOW", "HASHES");
+      System.out.printf(idFmt + "  %16s  %8s  %6s%n", idHead(tagDim, tagHeader, "VALUE", "WINDOW", "HASHES"));
       for (TopGroup r : rows) {
-        System.out.printf(rowFmt, nv(r.app()), nv(r.group()),
-            r.value() == null ? "" : String.format("%,.0f", r.value()),
-            r.windowMinutes(), r.hashCount());
+        System.out.printf(idFmt + "  %16s  %8d  %6d%n", idRow(r, tagDim,
+            r.value() == null ? "" : String.format("%,.0f", r.value()), r.windowMinutes(), r.hashCount()));
       }
       return;
     }
     if (byHash) {
-      String headFmt = "%-" + appWidth + "s  %-" + groupWidth + "s  %10s  %16s  %14s  %14s  %8s  %5s  %s%n";
-      String rowFmt = "%-" + appWidth + "s  %-" + groupWidth + "s  %10d  %16d  %14d  %14d  %8d  %5s  %s%n";
-      System.out.printf(headFmt,
-          "APP", "LABEL", "COUNT", "TOTAL(us)", "MEAN(us)", "MAX(us)", "WINDOW", "PLAN", "HASH");
+      System.out.printf(idFmt + "  %10s  %16s  %14s  %14s  %8s  %5s  %s%n",
+          idHead(false, tagHeader, "COUNT", "TOTAL(us)", "MEAN(us)", "MAX(us)", "WINDOW", "PLAN", "HASH"));
       for (TopGroup r : rows) {
-        System.out.printf(rowFmt,
-            nv(r.app()), nv(r.label() == null ? r.group() : r.label()),
+        System.out.printf(idFmt + "  %10d  %16d  %14d  %14d  %8d  %5s  %s%n", idRow(r, false,
             z(r.count()), z(r.totalMicros()), z(r.meanMicros()), z(r.maxMicros()),
-            r.windowMinutes(), Boolean.TRUE.equals(r.planCapable()) ? "yes" : "no", nv(r.key()));
+            r.windowMinutes(), Boolean.TRUE.equals(r.planCapable()) ? "yes" : "no", nv(r.key())));
       }
       return;
     }
-    String headFmt = "%-" + appWidth + "s  %-" + groupWidth + "s  %10s  %16s  %14s  %14s  %8s  %6s%n";
-    String rowFmt = "%-" + appWidth + "s  %-" + groupWidth + "s  %10d  %16d  %14d  %14d  %8d  %6d%n";
-    System.out.printf(headFmt,
-        "APP", "GROUP", "COUNT", "TOTAL(us)", "MEAN(us)", "MAX(us)", "WINDOW", "HASHES");
+    System.out.printf(idFmt + "  %10s  %16s  %14s  %14s  %8s  %6s%n",
+        idHead(tagDim, tagHeader, "COUNT", "TOTAL(us)", "MEAN(us)", "MAX(us)", "WINDOW", "HASHES"));
     for (TopGroup r : rows) {
-      System.out.printf(rowFmt,
-          nv(r.app()), nv(r.group()),
+      System.out.printf(idFmt + "  %10d  %16d  %14d  %14d  %8d  %6d%n", idRow(r, tagDim,
           z(r.count()), z(r.totalMicros()), z(r.meanMicros()), z(r.maxMicros()),
-          r.windowMinutes(), r.hashCount());
+          r.windowMinutes(), r.hashCount()));
     }
+  }
+
+  /** Header cells: APP, NAME, LABEL, [tag], then the supplied measure headers. */
+  private static Object[] idHead(boolean tagDim, String tagHeader, Object... rest) {
+    List<Object> cells = new java.util.ArrayList<>();
+    cells.add("APP");
+    cells.add("NAME");
+    cells.add("LABEL");
+    if (tagDim) {
+      cells.add(tagHeader);
+    }
+    java.util.Collections.addAll(cells, rest);
+    return cells.toArray();
+  }
+
+  /** Row cells: app, name, label, [tag value], then the supplied measure values. */
+  private static Object[] idRow(TopGroup r, boolean tagDim, Object... rest) {
+    List<Object> cells = new java.util.ArrayList<>();
+    cells.add(nv(r.app()));
+    cells.add(nv(r.name()));
+    cells.add(nv(r.label()));
+    if (tagDim) {
+      cells.add(nv(r.group()));
+    }
+    java.util.Collections.addAll(cells, rest);
+    return cells.toArray();
   }
 
   private static String nv(@Nullable String s) {

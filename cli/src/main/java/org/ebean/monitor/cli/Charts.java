@@ -42,12 +42,9 @@ final class Charts {
     };
   }
 
-  /** A row's display label: the group value, falling back to the label tag. */
+  /** A row's single-line chart identity: {@code name:label}, with fallbacks. */
   private static String rowLabel(TopGroup r) {
-    if (r.group() != null) {
-      return r.group();
-    }
-    return r.label() == null ? "" : r.label();
+    return Display.chartLabel(r);
   }
 
   /**
