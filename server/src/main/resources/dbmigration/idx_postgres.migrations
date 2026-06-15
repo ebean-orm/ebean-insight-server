@@ -4,4 +4,6 @@
 -1362069816,    1.2__plan_shape.sql
 702796780,      1.3__plan_change.sql
 85386349,       1.4__metric_tags.sql
+1704466480,     1.5__reset_data.sql
+1157210771,     1.6__base_partitions.sql
 
