@@ -124,7 +124,7 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Download all CLI artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           path: dist
 
