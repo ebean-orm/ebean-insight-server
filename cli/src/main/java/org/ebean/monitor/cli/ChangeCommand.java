@@ -56,6 +56,7 @@ final class ChangeCommand implements Callable<Integer> {
     sb.append("change:    ").append(c.changeType()).append('\n');
     sb.append("app:       ").append(c.appName()).append('\n');
     sb.append("env:       ").append(c.envName()).append('\n');
+    sb.append("name:      ").append(c.name() == null ? "" : c.name()).append('\n');
     sb.append("label:     ").append(c.label() == null ? "" : c.label()).append('\n');
     sb.append("hash:      ").append(c.hash()).append('\n');
     sb.append("detected:  ").append(c.detectedAt()).append('\n');

@@ -313,6 +313,8 @@ paths:
           in: query
           schema:
             type: string
+        - $ref: '#/components/parameters/KindTag'
+        - $ref: '#/components/parameters/TypeTag'
         - $ref: '#/components/parameters/SinceMinutes'
         - $ref: '#/components/parameters/SinceHours'
         - $ref: '#/components/parameters/Limit'
@@ -946,8 +948,17 @@ components:
           type: string
         hash:
           type: string
+        name:
+          type: string
+          description: Metric family (e.g. `ebean.query`).
         label:
           type: string
+          description: Display label (the `label` tag, else the family `name`).
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          description: Canonical metric tags (e.g. kind=orm, type=Customer, label=Customer.findList).
         queryTimeMicros:
           type: integer
           format: int64
@@ -971,8 +982,17 @@ components:
           format: int64
         hash:
           type: string
+        name:
+          type: string
+          description: Metric family (e.g. `ebean.query`).
         label:
           type: string
+          description: Display label (the `label` tag, else the family `name`).
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          description: Canonical metric tags (e.g. kind=orm, type=Customer, label=Customer.findList).
         appMetricId:
           type: integer
           format: int64
@@ -1062,7 +1082,15 @@ components:
           description: Stable metric hash (query plan key).
         label:
           type: string
-          description: Human-readable metric label (e.g. "orm.OrderDao.findOrders").
+          description: Human-readable metric label (e.g. "Customer.findList").
+        name:
+          type: string
+          description: Metric family (e.g. `ebean.query`).
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          description: Canonical metric tags (e.g. kind=orm, type=Customer, label=Customer.findList).
         changeType:
           type: string
           enum: [FIRST, CHANGED]

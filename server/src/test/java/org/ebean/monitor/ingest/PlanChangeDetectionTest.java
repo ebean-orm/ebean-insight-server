@@ -34,7 +34,7 @@ class PlanChangeDetectionTest {
   }
 
   private IngestMessage ingest() {
-    return new IngestMessage(database, new ProcessHeader(), new ProcessMetrics());
+    return new IngestMessage(database, new ProcessHeader(), new ProcessMetrics(), io.avaje.jsonb.Jsonb.instance());
   }
 
   private static QueryPlanRequest req(String env, String hash, String plan, Instant when) {

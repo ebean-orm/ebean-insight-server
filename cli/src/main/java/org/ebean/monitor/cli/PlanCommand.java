@@ -48,6 +48,7 @@ final class PlanCommand implements Callable<Integer> {
   static void printPlan(QueryPlan p) {
     System.out.println("id:        " + p.id());
     System.out.println("hash:      " + p.hash());
+    System.out.println("name:      " + p.name());
     System.out.println("label:     " + p.label());
     System.out.println("env:       " + p.envName());
     System.out.println("queryTime: " + p.queryTimeMicros() + "us");

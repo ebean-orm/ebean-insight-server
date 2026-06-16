@@ -70,18 +70,19 @@ public final class TestApis {
   }
 
   static QueryPlan samplePlan(long id) {
-    return new QueryPlan(id, "hash" + id, "orm.X.find", 1L, "test",
+    return new QueryPlan(id, "hash" + id, "ebean.query", "orm.X.find", java.util.Map.of(), 1L, "test",
         100L, 1L, 100L, Instant.parse("2026-06-01T00:00:00Z"),
         "select 1", "[]", "Seq Scan", "shape", "h", 1);
   }
 
   static QueryPlanSummary sampleSummary(long id) {
-    return new QueryPlanSummary(id, 1L, "test", "hash" + id, "orm.X.find",
+    return new QueryPlanSummary(id, 1L, "test", "hash" + id, "ebean.query", "orm.X.find", java.util.Map.of(),
         100L, 1L, Instant.parse("2026-06-01T00:00:00Z"), "shape", false);
   }
 
   static PlanChangeDetail samplePlanChangeDetail(long id) {
     PlanChange change = new PlanChange(id, "central-access", "test", "hash1", "orm.X.find",
+        "ebean.query", java.util.Map.of(),
         "CHANGED", 5L, 8L, "aaaaaaaa", "bbbbbbbb", 1, 100L, 200L,
         Instant.parse("2026-06-01T00:00:00Z"), Instant.parse("2026-06-01T00:01:00Z"));
     return new PlanChangeDetail(change, samplePlan(5L), samplePlan(8L));

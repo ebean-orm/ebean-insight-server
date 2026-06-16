@@ -29,6 +29,13 @@ public class DQueryPlan extends BaseDomain {
 
   @Column
   private String hash;
+
+  @Column
+  private String name;
+  @Column
+  private String kind;
+  @Column
+  private String type;
   @Column
   private String label;
 
@@ -91,6 +98,33 @@ public class DQueryPlan extends BaseDomain {
 
   public DQueryPlan setLabel(String label) {
     this.label = label;
+    return this;
+  }
+
+  public String name() {
+    return name;
+  }
+
+  public DQueryPlan setName(String name) {
+    this.name = name;
+    return this;
+  }
+
+  public String kind() {
+    return kind;
+  }
+
+  public DQueryPlan setKind(String kind) {
+    this.kind = kind;
+    return this;
+  }
+
+  public String type() {
+    return type;
+  }
+
+  public DQueryPlan setType(String type) {
+    this.type = type;
     return this;
   }
 

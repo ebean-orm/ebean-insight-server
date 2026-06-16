@@ -49,6 +49,18 @@ public class DQueryPlanChange extends BaseDomain {
 
   @Column
   @Nullable
+  private String name;
+
+  @Column
+  @Nullable
+  private String kind;
+
+  @Column
+  @Nullable
+  private String type;
+
+  @Column
+  @Nullable
   private String label;
 
   @Enumerated(EnumType.STRING)
@@ -117,6 +129,36 @@ public class DQueryPlanChange extends BaseDomain {
 
   public DQueryPlanChange setLabel(@Nullable String label) {
     this.label = label;
+    return this;
+  }
+
+  @Nullable
+  public String name() {
+    return name;
+  }
+
+  public DQueryPlanChange setName(@Nullable String name) {
+    this.name = name;
+    return this;
+  }
+
+  @Nullable
+  public String kind() {
+    return kind;
+  }
+
+  public DQueryPlanChange setKind(@Nullable String kind) {
+    this.kind = kind;
+    return this;
+  }
+
+  @Nullable
+  public String type() {
+    return type;
+  }
+
+  public DQueryPlanChange setType(@Nullable String type) {
+    this.type = type;
     return this;
   }
 

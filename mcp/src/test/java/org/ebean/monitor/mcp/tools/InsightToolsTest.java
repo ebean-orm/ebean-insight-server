@@ -105,7 +105,8 @@ class InsightToolsTest {
     Object[] a = apis.args("listPlans");
     assertThat(a[0]).isEqualTo("central-access");
     assertThat(a[1]).isEqualTo("test");
-    assertThat(a[6]).isEqualTo(5);
+    assertThat(a[6]).isNull();
+    assertThat(a[8]).isEqualTo(5);
   }
 
   @Test

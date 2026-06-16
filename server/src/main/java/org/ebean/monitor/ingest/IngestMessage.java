@@ -2,6 +2,9 @@ package org.ebean.monitor.ingest;
 
 import io.ebean.Database;
 import io.avaje.config.Config;
+import io.avaje.jsonb.JsonType;
+import io.avaje.jsonb.Jsonb;
+import io.avaje.jsonb.Types;
 import org.ebean.monitor.api.MetricRequest;
 
 import jakarta.inject.Singleton;
@@ -27,6 +30,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -40,13 +44,15 @@ public class IngestMessage {
   private final Database database;
   private final ProcessHeader lookup;
   private final ProcessMetrics lookupMetrics;
+  private final JsonType<Map<String, String>> tagsType;
   private final boolean changeEnabled;
   private final boolean firstObserved;
 
-  IngestMessage(Database database, ProcessHeader lookup, ProcessMetrics lookupMetrics) {
+  IngestMessage(Database database, ProcessHeader lookup, ProcessMetrics lookupMetrics, Jsonb jsonb) {
     this.database = database;
     this.lookup = lookup;
     this.lookupMetrics = lookupMetrics;
+    this.tagsType = jsonb.type(Types.mapOf(String.class));
     final boolean storePlans = Config.getBool("plans.store.enabled", Config.getBool("metrics.store.enabled", true));
     this.changeEnabled = Config.getBool("plans.change.enabled", storePlans);
     this.firstObserved = Config.getBool("plans.change.firstObserved", true);
@@ -80,8 +86,9 @@ public class IngestMessage {
         .setQueryTimeMicros(plan.queryTimeMicros)
         .setCaptureCount(plan.captureCount)
         .setCaptureMicros(plan.captureMicros)
-        .setLabel(plan.label)
         .setWhenCaptured(parseWhenCaptured(plan.whenCaptured));
+
+      applyIdentity(newPlan, appMetric, plan.label);
 
       final var shape = PlanShape.fingerprint(plan.plan);
       if (shape != null) {
@@ -143,6 +150,9 @@ public class IngestMessage {
         continue;
       }
       event
+        .setName(plan.name())
+        .setKind(plan.kind())
+        .setType(plan.type())
         .setLabel(plan.label())
         .setToShapeHash(shapeHash)
         .setAlgo(algo)
@@ -235,5 +245,51 @@ public class IngestMessage {
       .app.eq(app)
       .key.eq(hash)
       .findOne();
+  }
+
+  /**
+   * Resolve the v2 identity (name/kind/type/label) for a captured plan from its
+   * matched metric, so the plan row is self-describing and display/filtering need
+   * no read-time metric join.
+   *
+   * <p>When the metric is present its canonical family {@code name} plus
+   * {@code kind}/{@code type}/{@code label} tags are copied. When no metric is
+   * found (capture arrived before the metric, or a v1 client) we fall back to the
+   * client-sent flat label (e.g. {@code orm.Customer.findList}): split off a known
+   * {@code orm.}/{@code dto.}/{@code sql.} prefix as {@code kind}, the remainder as
+   * {@code label}, {@code type} null, {@code name} the {@code ebean.query} family.
+   */
+  private void applyIdentity(DQueryPlan plan, @Nullable DAppMetric metric, @Nullable String clientLabel) {
+    if (metric != null) {
+      final Map<String, String> tags = parseTags(metric.getTags());
+      final String label = tags.get("label");
+      plan.setName(metric.getName())
+        .setKind(tags.get("kind"))
+        .setType(tags.get("type"))
+        .setLabel(label != null ? label : metric.getName());
+      return;
+    }
+    // fallback: derive from the client-sent flat label
+    plan.setName("ebean.query");
+    if (clientLabel == null) {
+      return;
+    }
+    final int dot = clientLabel.indexOf('.');
+    if (dot > 0) {
+      final String prefix = clientLabel.substring(0, dot);
+      if (prefix.equals("orm") || prefix.equals("dto") || prefix.equals("sql")) {
+        plan.setKind(prefix).setLabel(clientLabel.substring(dot + 1));
+        return;
+      }
+    }
+    plan.setLabel(clientLabel);
+  }
+
+  private Map<String, String> parseTags(@Nullable String tagsJson) {
+    if (tagsJson == null || tagsJson.isBlank()) {
+      return Map.of();
+    }
+    final Map<String, String> tags = tagsType.fromJson(tagsJson);
+    return tags != null ? tags : Map.of();
   }
 }

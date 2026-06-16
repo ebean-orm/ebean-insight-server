@@ -6,4 +6,5 @@
 85386349,       1.4__metric_tags.sql
 1704466480,     1.5__reset_data.sql
 1157210771,     1.6__base_partitions.sql
+1809545849,     1.7__plan_identity.sql
 

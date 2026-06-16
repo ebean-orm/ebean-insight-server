@@ -589,7 +589,7 @@ final class Interactive {
 
   private void showPlan(Row row) {
     try {
-      List<QueryPlanSummary> plans = insight.plans.listPlans(row.app(), null, null, row.hash(), null, null, 1);
+      List<QueryPlanSummary> plans = insight.plans.listPlans(row.app(), null, null, row.hash(), null, null, null, null, 1);
       if (plans.isEmpty()) {
         System.out.println("No captured plan for this hash yet. Use " + AnsiColor.hot("c", "apture") + " to request one.");
         return;
@@ -829,7 +829,7 @@ final class Interactive {
   private void showPlanTimeline(Row row, MetricTimeseries ts) {
     List<QueryPlanSummary> plans;
     try {
-      plans = insight.plans.listPlans(row.app(), env, null, row.hash(), null, null, 50);
+      plans = insight.plans.listPlans(row.app(), env, null, row.hash(), null, null, null, null, 50);
     } catch (HttpException e) {
       System.out.println("Failed to load plans: HTTP " + e.statusCode());
       return;

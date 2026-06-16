@@ -664,6 +664,7 @@ public final class V1QueryService {
 
   public List<QueryPlanSummary> listPlans(@Nullable String app, @Nullable String env,
                                           @Nullable String label, @Nullable String hash,
+                                          @Nullable String kind, @Nullable String type,
                                           @Nullable Long sinceMinutes, @Nullable Long sinceHours,
                                           @Nullable Integer limit) {
     final TimeWindow window = TimeWindow.of(sinceMinutes, sinceHours, 0L);
@@ -676,7 +677,7 @@ public final class V1QueryService {
     } else {
       resolved = null;
     }
-    return runPlanSummaryQuery(resolved, env, label, hash, window, clampLimit(limit));
+    return runPlanSummaryQuery(resolved, env, label, hash, kind, type, window, clampLimit(limit));
   }
 
   public QueryPlan getPlan(long planId) {
@@ -839,6 +840,7 @@ public final class V1QueryService {
 
   private List<QueryPlanSummary> runPlanSummaryQuery(@Nullable DApp app, @Nullable String env,
                                                      @Nullable String label, @Nullable String hash,
+                                                     @Nullable String kind, @Nullable String type,
                                                      TimeWindow window, int limit) {
     final QDQueryPlan q = new QDQueryPlan();
     if (app != null) {
@@ -847,6 +849,8 @@ public final class V1QueryService {
     q.env.name.eqIfNotBlank(env);
     q.label.eqIfNotBlank(label);
     q.hash.eqIfNotBlank(hash);
+    q.kind.eqIfNotBlank(kind);
+    q.type.eqIfNotBlank(type);
     if (window.hasFrom()) {
       q.whenCreated.gt(window.from());
     }
@@ -1119,7 +1123,9 @@ public final class V1QueryService {
       .appMetricId(p.metric() == null ? 0L : (long) p.metric().getId())
       .envName(p.env().getName())
       .hash(p.hash())
+      .name(p.name())
       .label(p.label())
+      .tags(planTags(p.kind(), p.type(), p.label()))
       .queryTimeMicros(p.queryTimeMicros())
       .captureCount(p.captureCount())
       .whenCaptured(p.whenCaptured())
@@ -1132,7 +1138,9 @@ public final class V1QueryService {
     return QueryPlan.builder()
       .id((long) p.getId())
       .hash(p.hash())
+      .name(p.name())
       .label(p.label())
+      .tags(planTags(p.kind(), p.type(), p.label()))
       .appMetricId(p.metric() == null ? 0L : (long) p.metric().getId())
       .envName(p.env().getName())
       .queryTimeMicros(p.queryTimeMicros())
@@ -1154,7 +1162,9 @@ public final class V1QueryService {
       .appName(c.app().getName())
       .envName(c.env().getName())
       .hash(c.hash())
+      .name(c.name())
       .label(c.label())
+      .tags(planTags(c.kind(), c.type(), c.label()))
       .changeType(c.changeType().name())
       .fromPlanId(c.fromPlan() == null ? null : (long) c.fromPlan().getId())
       .toPlanId((long) c.toPlan().getId())
@@ -1166,5 +1176,19 @@ public final class V1QueryService {
       .whenCaptured(c.whenCaptured())
       .detectedAt(c.detectedAt())
       .build();
+  }
+
+  private static Map<String, String> planTags(@Nullable String kind, @Nullable String type, @Nullable String label) {
+    final Map<String, String> tags = new java.util.LinkedHashMap<>();
+    if (kind != null) {
+      tags.put("kind", kind);
+    }
+    if (type != null) {
+      tags.put("type", type);
+    }
+    if (label != null) {
+      tags.put("label", label);
+    }
+    return tags;
   }
 }

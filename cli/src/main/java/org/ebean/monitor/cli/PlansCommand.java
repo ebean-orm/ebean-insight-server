@@ -43,6 +43,12 @@ final class PlansCommand implements Callable<Integer> {
   @Option(names = "--hash", description = "Filter by plan hash.")
   @Nullable String hash;
 
+  @Option(names = "--kind", description = "Filter by query kind tag (e.g. orm, dto, sql).")
+  @Nullable String kind;
+
+  @Option(names = "--type", description = "Filter by bean type tag (e.g. Customer).")
+  @Nullable String type;
+
   @Option(names = "--since-minutes", description = "Only plans captured within the last N minutes.")
   @Nullable Long sinceMinutes;
 
@@ -59,7 +65,7 @@ final class PlansCommand implements Callable<Integer> {
   public Integer call() {
     try (Insight insight = Insight.open(conn)) {
       List<QueryPlanSummary> plans =
-          insight.plans.listPlans(app, env, label, hash, sinceMinutes, sinceHours, limit);
+          insight.plans.listPlans(app, env, label, hash, kind, type, sinceMinutes, sinceHours, limit);
       if (out.json()) {
         out.printJsonList(QueryPlanSummary.class, plans);
         return 0;
@@ -78,8 +84,12 @@ final class PlansCommand implements Callable<Integer> {
 
   /** Render the plan list. When {@code indexed}, prepend a 1-based {@code #} column. */
   private static void printTable(List<QueryPlanSummary> plans, boolean indexed) {
+    int nameWidth = "NAME".length();
     int labelWidth = "LABEL".length();
     for (QueryPlanSummary p : plans) {
+      if (p.name() != null) {
+        nameWidth = Math.max(nameWidth, p.name().length());
+      }
       if (p.label() != null) {
         labelWidth = Math.max(labelWidth, p.label().length());
       }
@@ -87,14 +97,15 @@ final class PlansCommand implements Callable<Integer> {
     int idxWidth = Math.max(1, Integer.toString(plans.size()).length());
     String idxHead = indexed ? "%-" + idxWidth + "s  " : "%s";
     String idxRow = indexed ? "%-" + idxWidth + "d  " : "%s";
-    String headFmt = idxHead + "%-8s  %-12s  %-32s  %-" + labelWidth + "s  %12s  %8s  %-19s  %-8s%n";
-    String rowFmt = idxRow + "%-8d  %-12s  %-32s  %-" + labelWidth + "s  %12d  %8d  %-19s  %-8s%n";
+    String headFmt = idxHead + "%-8s  %-12s  %-32s  %-" + nameWidth + "s  %-" + labelWidth + "s  %12s  %8s  %-19s  %-8s%n";
+    String rowFmt = idxRow + "%-8d  %-12s  %-32s  %-" + nameWidth + "s  %-" + labelWidth + "s  %12d  %8d  %-19s  %-8s%n";
     System.out.printf(headFmt,
-        indexed ? "#" : "", "ID", "ENV", "HASH", "LABEL", "TIME(us)", "COUNT", "CAPTURED", "SHAPE");
+        indexed ? "#" : "", "ID", "ENV", "HASH", "NAME", "LABEL", "TIME(us)", "COUNT", "CAPTURED", "SHAPE");
     int i = 1;
     for (QueryPlanSummary p : plans) {
       System.out.printf(rowFmt,
-          indexed ? i++ : "", p.id(), p.envName(), p.hash(), p.label(),
+          indexed ? i++ : "", p.id(), p.envName(), p.hash(),
+          p.name() == null ? "" : p.name(), p.label() == null ? "" : p.label(),
           p.queryTimeMicros(), p.captureCount(), p.whenCaptured(),
           Interactive.shortShape(p.planShapeHash()));
     }

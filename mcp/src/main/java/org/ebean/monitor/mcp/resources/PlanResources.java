@@ -36,7 +36,7 @@ public class PlanResources {
   /** Recent captured plans as MCP resource descriptors. */
   public List<Map<String, Object>> list() {
     List<QueryPlanSummary> plans =
-        plansApi.listPlans(null, null, null, null, null, null, LIST_LIMIT);
+        plansApi.listPlans(null, null, null, null, null, null, null, null, LIST_LIMIT);
     List<Map<String, Object>> resources = new ArrayList<>();
     for (QueryPlanSummary p : plans) {
       Map<String, Object> r = new LinkedHashMap<>();

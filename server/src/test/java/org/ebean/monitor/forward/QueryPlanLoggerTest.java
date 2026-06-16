@@ -50,6 +50,7 @@ class QueryPlanLoggerTest {
       .contains("captureCount=42")
       .contains("queryTimeMicros=1500")
       .contains("label=\"User.findById\"")
+      .contains("name=\"ebean.query\"")
       .contains("whenCaptured=2025-06-05T02:30:00Z")
       .contains("sql: select id, name from user where id = ?")
       .contains("plan:\nIndex Scan using user_pk on user")
@@ -62,6 +63,19 @@ class QueryPlanLoggerTest {
     var req = sampleRequest();
     String line = logger.format(req, req.plans.get(0));
     assertThat(line).contains("bind: 1");
+  }
+
+  @Test
+  void format_splitsFlatLabelIntoKindAndLabel() {
+    var logger = new QueryPlanLogger(true, false);
+    var req = sampleRequest();
+    var p = req.plans.get(0);
+    p.label = "orm.Foo.find";
+    String line = logger.format(req, p);
+    assertThat(line)
+      .contains("name=\"ebean.query\"")
+      .contains("kind=\"orm\"")
+      .contains("label=\"Foo.find\"");
   }
 
   @Test

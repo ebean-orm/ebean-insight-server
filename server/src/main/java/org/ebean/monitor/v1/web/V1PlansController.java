@@ -30,8 +30,8 @@ public final class V1PlansController implements PlansApi {
   }
 
   @Override
-  public List<QueryPlanSummary> listPlans(String app, String env, String label, String hash, Long sinceMinutes, Long sinceHours, Integer limit) {
-    return service.listPlans(app, env, label, hash, sinceMinutes, sinceHours, limit);
+  public List<QueryPlanSummary> listPlans(String app, String env, String label, String hash, String kind, String type, Long sinceMinutes, Long sinceHours, Integer limit) {
+    return service.listPlans(app, env, label, hash, kind, type, sinceMinutes, sinceHours, limit);
   }
 
   @Override

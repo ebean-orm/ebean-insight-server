@@ -25,7 +25,7 @@ class IngestQueueConsumerStoreFlagTest {
     final AtomicInteger planCalls = new AtomicInteger();
 
     CountingIngestMessage() {
-      super(null, null, null);
+      super(null, null, null, io.avaje.jsonb.Jsonb.instance());
     }
 
     @Override

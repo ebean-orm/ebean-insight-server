@@ -173,11 +173,14 @@ public class InsightTools {
             .prop("env", "string", "Filter by environment.")
             .prop("label", "string", "Filter by query label.")
             .prop("hash", "string", "Filter by plan hash.")
+            .prop("kind", "string", "Filter by query kind tag (e.g. orm, dto, sql).")
+            .prop("type", "string", "Filter by bean type tag (e.g. Customer).")
             .prop("sinceMinutes", "integer", "Window size in minutes.")
             .prop("sinceHours", "integer", "Window size in hours.")
             .prop("limit", "integer", "Maximum rows."),
         a -> planSummaryList.toJson(plansApi.listPlans(
             str(a, "app"), str(a, "env"), str(a, "label"), str(a, "hash"),
+            str(a, "kind"), str(a, "type"),
             lng(a, "sinceMinutes"), lng(a, "sinceHours"), intg(a, "limit"))));
 
     add("plan", "Fetch a single captured query plan by id (SQL, bind values, plan text).",

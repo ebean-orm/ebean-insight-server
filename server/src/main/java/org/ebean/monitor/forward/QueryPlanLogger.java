@@ -53,6 +53,17 @@ public final class QueryPlanLogger {
 
   // package-private for tests
   String format(QueryPlanRequest req, QueryPlanRequest.QPlan p) {
+    final String flat = p.label == null ? "" : p.label;
+    String kind = "";
+    String label = flat;
+    final int dot = flat.indexOf('.');
+    if (dot > 0) {
+      final String prefix = flat.substring(0, dot);
+      if (prefix.equals("orm") || prefix.equals("dto") || prefix.equals("sql")) {
+        kind = prefix;
+        label = flat.substring(dot + 1);
+      }
+    }
     var sb = new StringBuilder(512);
     sb.append("QUERYPLAN app=").append(req.appName)
       .append(" env=").append(req.environment)
@@ -60,7 +71,9 @@ public final class QueryPlanLogger {
       .append(" captureMicros=").append(p.captureMicros)
       .append(" captureCount=").append(p.captureCount)
       .append(" queryTimeMicros=").append(p.queryTimeMicros)
-      .append(" label=\"").append(p.label == null ? "" : p.label).append('"')
+      .append(" name=\"ebean.query\"")
+      .append(" kind=\"").append(kind).append('"')
+      .append(" label=\"").append(label).append('"')
       .append(" whenCaptured=").append(p.whenCaptured)
       .append('\n').append("sql: ").append(p.sql);
     if (includeBind && p.bind != null && !p.bind.isEmpty()) {

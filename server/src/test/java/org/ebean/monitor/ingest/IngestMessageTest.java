@@ -44,7 +44,7 @@ class IngestMessageTest {
   public IngestMessageTest() {
     ProcessHeader header = new ProcessHeader();
     ProcessMetrics lookupMetrics = new ProcessMetrics();
-    this.ingest = new IngestMessage(database, header, lookupMetrics);
+    this.ingest = new IngestMessage(database, header, lookupMetrics, io.avaje.jsonb.Jsonb.instance());
   }
 
   private static MetricRequest req(String resourcePath) {

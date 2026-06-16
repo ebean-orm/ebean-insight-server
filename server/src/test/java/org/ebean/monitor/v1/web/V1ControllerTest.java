@@ -233,21 +233,21 @@ class V1ControllerTest {
     // collected (the any-env one having its env filled in), so they drop out
     assertThat(plansApi.listPendingPlans(null, null)).extracting(PendingPlan::hash).doesNotContain(ORM_HASH);
 
-    final List<QueryPlanSummary> appPlans = plansApi.listPlans(APP, null, null, null, null, null, null);
+    final List<QueryPlanSummary> appPlans = plansApi.listPlans(APP, null, null, null, null, null, null, null, null);
     assertThat(appPlans).extracting(QueryPlanSummary::hash).contains(ORM_HASH);
 
-    final List<QueryPlanSummary> byHashPlans = plansApi.listPlans(APP, null, null, ORM_HASH, null, null, null);
+    final List<QueryPlanSummary> byHashPlans = plansApi.listPlans(APP, null, null, ORM_HASH, null, null, null, null, null);
     assertThat(byHashPlans).extracting(QueryPlanSummary::hash).containsOnly(ORM_HASH);
 
-    final List<QueryPlanSummary> byLabelPlans = plansApi.listPlans(APP, null, ORM_LABEL, null, null, null, null);
+    final List<QueryPlanSummary> byLabelPlans = plansApi.listPlans(APP, null, ORM_LABEL, null, null, null, null, null, null);
     assertThat(byLabelPlans).extracting(QueryPlanSummary::hash).contains(ORM_HASH);
 
-    assertThat(plansApi.listPlans(APP, ENV, null, null, null, null, null))
+    assertThat(plansApi.listPlans(APP, ENV, null, null, null, null, null, null, null))
       .extracting(QueryPlanSummary::hash).contains(ORM_HASH);
-    assertThat(plansApi.listPlans(APP, "no-such-env", null, null, null, null, null))
+    assertThat(plansApi.listPlans(APP, "no-such-env", null, null, null, null, null, null, null))
       .isEmpty();
 
-    final List<QueryPlanSummary> globalPlans = plansApi.listPlans(null, null, null, ORM_HASH, null, null, null);
+    final List<QueryPlanSummary> globalPlans = plansApi.listPlans(null, null, null, ORM_HASH, null, null, null, null, null);
     assertThat(globalPlans).extracting(QueryPlanSummary::hash).containsOnly(ORM_HASH);
 
     final long planId = appPlans.getFirst().id();
