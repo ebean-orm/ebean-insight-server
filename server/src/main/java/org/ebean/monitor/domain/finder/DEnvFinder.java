@@ -1,9 +1,9 @@
 package org.ebean.monitor.domain.finder;
 
 import io.ebean.Finder;
-import org.ebean.monitor.api.Env;
 import org.ebean.monitor.domain.DEnv;
 import org.ebean.monitor.domain.query.QDEnv;
+import org.ebean.monitor.v1.model.Env;
 
 import java.util.List;
 

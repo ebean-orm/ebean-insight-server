@@ -1,9 +1,9 @@
 package org.ebean.monitor.domain.finder;
 
 import io.ebean.Finder;
-import org.ebean.monitor.api.App;
 import org.ebean.monitor.domain.DApp;
 import org.ebean.monitor.domain.query.QDApp;
+import org.ebean.monitor.v1.model.App;
 
 import java.util.List;
 

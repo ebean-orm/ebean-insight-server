@@ -3,14 +3,13 @@ package org.ebean.monitor.web;
 import io.avaje.http.client.HttpClient;
 import io.avaje.inject.test.InjectTest;
 import jakarta.inject.Inject;
-import org.ebean.monitor.api.App;
-import org.ebean.monitor.api.AppMetric;
-import org.ebean.monitor.api.Env;
 import org.ebean.monitor.domain.DApp;
 import org.ebean.monitor.domain.DAppMetric;
 import org.ebean.monitor.domain.DEnv;
 import org.ebean.monitor.domain.DQueryPlan;
 import org.ebean.monitor.domain.query.QDQueryPlan;
+import org.ebean.monitor.v1.model.App;
+import org.ebean.monitor.v1.model.Env;
 import org.junit.jupiter.api.Test;
 
 import java.net.http.HttpResponse;
@@ -41,16 +40,16 @@ class IngestControllerTest {
       // allow queue consumer to process
       Thread.sleep(500);
 
-      var envNames = DEnv.find.findAll().stream().map(Env::getName).toList();
+      var envNames = DEnv.find.findAll().stream().map(Env::name).toList();
       assertThat(envNames).contains("dev1");
 
       var apps = DApp.find.findAll();
-      assertThat(apps).extracting(App::getName).contains("int1");
+      assertThat(apps).extracting(App::name).contains("int1");
       final App app1 = apps.getFirst();
 
-      var appMetrics = DAppMetric.find.byApp(DApp.find.ref(app1.getId()));
+      var appMetrics = DAppMetric.find.byApp(DApp.find.ref(app1.id()));
       assertThat(appMetrics)
-        .extracting(AppMetric::getName)
+        .extracting(DAppMetric::getName)
         .contains("OrderDao.findOrdersForPublishing");
 
       ingestQueryPlan();
