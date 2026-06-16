@@ -40,23 +40,24 @@ class AutoPlanTriggerTest {
   }
 
   private static MetricRequest req(String appName, String env, MetricData... metrics) {
-    var r = new MetricRequest();
-    r.appName = appName;
-    r.environment = env;
-    var db = new MetricDbData();
-    db.db = "h2";
-    db.metrics = new ArrayList<>(List.of(metrics));
-    r.dbs = new ArrayList<>(List.of(db));
-    return r;
+    var db = MetricDbData.builder()
+      .db("h2")
+      .metrics(new ArrayList<>(List.of(metrics)))
+      .build();
+    return MetricRequest.builder()
+      .appName(appName)
+      .environment(env)
+      .dbs(new ArrayList<>(List.of(db)))
+      .build();
   }
 
   private static MetricData metric(String hash, long mean, long count) {
-    var m = new MetricData();
-    m.name = "orm.User.findById";
-    m.hash = hash;
-    m.mean = mean;
-    m.count = count;
-    return m;
+    return MetricData.builder()
+      .name("orm.User.findById")
+      .hash(hash)
+      .mean(mean)
+      .count(count)
+      .build();
   }
 
   @Test

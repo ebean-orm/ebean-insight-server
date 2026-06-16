@@ -73,24 +73,24 @@ public class IngestMessage {
   public void ingestQueryPlans(QueryPlanRequest queryPlans) {
     final var header = lookup.ingestHeader(queryPlans);
     List<DQueryPlan> newPlans = new ArrayList<>();
-    for (QueryPlanRequest.QPlan plan : queryPlans.plans) {
-      DAppMetric appMetric = findAppMetric(header.app(), plan.hash);
+    for (QueryPlanRequest.QPlan plan : queryPlans.plans()) {
+      DAppMetric appMetric = findAppMetric(header.app(), plan.hash());
       if (appMetric == null) {
-        log.warn("Unable to find AppMetric for query plan hash {} app {}", plan.hash, header.app());
+        log.warn("Unable to find AppMetric for query plan hash {} app {}", plan.hash(), header.app());
       }
       var newPlan = new DQueryPlan(header.app(), header.env(), appMetric)
-        .setBind(plan.bind)
-        .setPlan(plan.plan)
-        .setSql(plan.sql)
-        .setHash(plan.hash)
-        .setQueryTimeMicros(plan.queryTimeMicros)
-        .setCaptureCount(plan.captureCount)
-        .setCaptureMicros(plan.captureMicros)
-        .setWhenCaptured(parseWhenCaptured(plan.whenCaptured));
+        .setBind(plan.bind())
+        .setPlan(plan.plan())
+        .setSql(plan.sql())
+        .setHash(plan.hash())
+        .setQueryTimeMicros(plan.queryTimeMicros())
+        .setCaptureCount(plan.captureCount())
+        .setCaptureMicros(plan.captureMicros())
+        .setWhenCaptured(parseWhenCaptured(plan.whenCaptured()));
 
       applyIdentity(newPlan, appMetric, plan);
 
-      final var shape = PlanShape.fingerprint(plan.plan);
+      final var shape = PlanShape.fingerprint(plan.plan());
       if (shape != null) {
         newPlan.setPlanShape(shape.skeleton())
           .setPlanShapeHash(shape.hash())
@@ -105,7 +105,7 @@ public class IngestMessage {
     if (changeEnabled) {
       detectChanges(header.app(), header.env(), newPlans);
     }
-    markCollected(header.app(), header.env(), queryPlans.plans);
+    markCollected(header.app(), header.env(), queryPlans.plans());
   }
 
   /**
@@ -202,8 +202,8 @@ public class IngestMessage {
   private void markCollected(DApp app, DEnv env, List<QueryPlanRequest.QPlan> plans) {
     final Set<String> hashes = new LinkedHashSet<>();
     for (QueryPlanRequest.QPlan plan : plans) {
-      if (plan.hash != null) {
-        hashes.add(plan.hash);
+      if (plan.hash() != null) {
+        hashes.add(plan.hash());
       }
     }
     if (hashes.isEmpty()) {
@@ -273,13 +273,13 @@ public class IngestMessage {
     }
     // fallback: no metric — use explicit client identity, else split the flat label
     plan.setName("ebean.query");
-    if (notBlank(req.kind)) {
-      plan.setKind(req.kind);
+    if (notBlank(req.kind())) {
+      plan.setKind(req.kind());
     }
-    if (notBlank(req.type)) {
-      plan.setType(req.type);
+    if (notBlank(req.type())) {
+      plan.setType(req.type());
     }
-    final String clientLabel = req.label;
+    final String clientLabel = req.label();
     if (clientLabel == null) {
       return;
     }

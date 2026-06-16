@@ -14,7 +14,7 @@ class IngestDbData extends IngestBase {
 
   @Override
   public void createMetricEntries() {
-    createMetricEntries(metricDbData.metrics);
+    createMetricEntries(metricDbData.metrics());
   }
 
 }

@@ -31,8 +31,8 @@ public class MessageService {
   @Nullable
   public String responseBody(MetricRequest data) {
     // deliver both the env-specific bucket and the "any env" bucket for this app
-    List<String> exact = responseMap.remove(key(data.appName, data.environment));
-    List<String> any = responseMap.remove(key(data.appName, ANY_ENV));
+    List<String> exact = responseMap.remove(key(data.appName(), data.environment()));
+    List<String> any = responseMap.remove(key(data.appName(), ANY_ENV));
     if (responseMap.isEmpty()) {
       pendingResponse.set(false);
     }

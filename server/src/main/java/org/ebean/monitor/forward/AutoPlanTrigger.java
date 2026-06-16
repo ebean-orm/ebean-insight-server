@@ -60,41 +60,41 @@ public final class AutoPlanTrigger {
   }
 
   public void onIngest(MetricRequest req) {
-    if (!enabled || req == null || req.dbs == null || req.dbs.isEmpty()) {
+    if (!enabled || req == null || req.dbs() == null || req.dbs().isEmpty()) {
       return;
     }
     final long now = clock.getAsLong();
     pruneIfFull(now);
-    for (MetricDbData db : req.dbs) {
-      if (db.metrics == null) continue;
-      for (MetricData m : db.metrics) {
+    for (MetricDbData db : req.dbs()) {
+      if (db.metrics() == null) continue;
+      for (MetricData m : db.metrics()) {
         evaluate(req, m, now);
       }
     }
   }
 
   private void evaluate(MetricRequest req, MetricData m, long now) {
-    if (m.hash == null || m.count == null || m.count == 0L) {
+    if (m.hash() == null || m.count() == null || m.count() == 0L) {
       return;
     }
-    final long mean = (m.mean != null) ? m.mean
-      : (m.total != null ? (m.total / m.count) : 0L);
+    final long mean = (m.mean() != null) ? m.mean()
+      : (m.total() != null ? (m.total() / m.count()) : 0L);
     if (mean <= 0L) {
       return;
     }
-    final long threshold = thresholds.thresholdMicros(req.appName, m.hash);
+    final long threshold = thresholds.thresholdMicros(req.appName(), m.hash());
     if (mean < threshold) {
       return;
     }
-    final Key key = new Key(req.appName, req.environment, m.hash);
+    final Key key = new Key(req.appName(), req.environment(), m.hash());
     final Long prev = requestedAt.get(key);
     if (prev != null && (now - prev) < cooldownMillis) {
       return;
     }
     requestedAt.put(key, now);
-    messageService.pushMessage(req.appName, req.environment, "qp:" + m.hash);
+    messageService.pushMessage(req.appName(), req.environment(), "qp:" + m.hash());
     log.info("autoplan request appName={} env={} hash={} mean={}us threshold={}us",
-      req.appName, req.environment, m.hash, mean, threshold);
+      req.appName(), req.environment(), m.hash(), mean, threshold);
   }
 
   private void pruneIfFull(long now) {

@@ -1,28 +1,37 @@
 package org.ebean.monitor.forward;
 
 import org.ebean.monitor.api.QueryPlanRequest;
+import org.ebean.monitor.api.QueryPlanRequest$QPlanBuilder;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class QueryPlanLoggerTest {
 
-  private static QueryPlanRequest sampleRequest() {
-    var req = new QueryPlanRequest();
-    req.appName = "consolidation";
-    req.environment = "prod";
-    var p = new QueryPlanRequest.QPlan();
-    p.hash = "abc123";
-    p.label = "User.findById";
-    p.sql = "select id, name from user where id = ?";
-    p.bind = "1";
-    p.plan = "Index Scan using user_pk on user";
-    p.queryTimeMicros = 1500;
-    p.captureCount = 42;
-    p.captureMicros = 1850;
-    p.whenCaptured = "2025-06-05T02:30:00Z";
-    req.plans.add(p);
+  private static QueryPlanRequest$QPlanBuilder samplePlanBuilder() {
+    return QueryPlanRequest.QPlan.builder()
+      .hash("abc123")
+      .label("User.findById")
+      .sql("select id, name from user where id = ?")
+      .bind("1")
+      .plan("Index Scan using user_pk on user")
+      .queryTimeMicros(1500)
+      .captureCount(42)
+      .captureMicros(1850)
+      .whenCaptured("2025-06-05T02:30:00Z");
+  }
+
+  private static QueryPlanRequest requestWith(QueryPlanRequest.QPlan plan) {
+    var req = QueryPlanRequest.builder()
+      .appName("consolidation")
+      .environment("prod")
+      .build();
+    req.plans().add(plan);
     return req;
+  }
+
+  private static QueryPlanRequest sampleRequest() {
+    return requestWith(samplePlanBuilder().build());
   }
 
   @Test
@@ -31,7 +40,7 @@ class QueryPlanLoggerTest {
     assertThat(logger.enabled()).isFalse();
     // log() must not throw with disabled / null / empty input
     logger.log(null);
-    logger.log(new QueryPlanRequest());
+    logger.log(QueryPlanRequest.builder().build());
     logger.log(sampleRequest());
   }
 
@@ -39,7 +48,7 @@ class QueryPlanLoggerTest {
   void format_excludesBind_byDefault() {
     var logger = new QueryPlanLogger(true, false);
     var req = sampleRequest();
-    String line = logger.format(req, req.plans.get(0));
+    String line = logger.format(req, req.plans().get(0));
 
     assertThat(line)
       .contains("QUERYPLAN")
@@ -61,16 +70,15 @@ class QueryPlanLoggerTest {
   void format_includesBind_whenEnabled() {
     var logger = new QueryPlanLogger(true, true);
     var req = sampleRequest();
-    String line = logger.format(req, req.plans.get(0));
+    String line = logger.format(req, req.plans().get(0));
     assertThat(line).contains("bind: 1");
   }
 
   @Test
   void format_splitsFlatLabelIntoKindAndLabel() {
     var logger = new QueryPlanLogger(true, false);
-    var req = sampleRequest();
-    var p = req.plans.get(0);
-    p.label = "orm.Foo.find";
+    var p = samplePlanBuilder().label("orm.Foo.find").build();
+    var req = requestWith(p);
     String line = logger.format(req, p);
     assertThat(line)
       .contains("name=\"ebean.query\"")
@@ -81,11 +89,8 @@ class QueryPlanLoggerTest {
   @Test
   void format_prefersExplicitKindAndType() {
     var logger = new QueryPlanLogger(true, false);
-    var req = sampleRequest();
-    var p = req.plans.get(0);
-    p.kind = "orm";
-    p.type = "Customer";
-    p.label = "Customer.findList";
+    var p = samplePlanBuilder().kind("orm").type("Customer").label("Customer.findList").build();
+    var req = requestWith(p);
     String line = logger.format(req, p);
     assertThat(line)
       .contains("name=\"ebean.query\"")
@@ -97,10 +102,8 @@ class QueryPlanLoggerTest {
   @Test
   void format_handlesNullLabelAndEmptyBind() {
     var logger = new QueryPlanLogger(true, true);
-    var req = sampleRequest();
-    var p = req.plans.get(0);
-    p.label = null;
-    p.bind = "";
+    var p = samplePlanBuilder().label(null).bind("").build();
+    var req = requestWith(p);
     String line = logger.format(req, p);
     assertThat(line)
       .contains("label=\"\"")

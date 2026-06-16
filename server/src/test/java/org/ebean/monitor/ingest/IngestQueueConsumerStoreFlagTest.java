@@ -72,8 +72,8 @@ class IngestQueueConsumerStoreFlagTest {
     var msg = new CountingIngestMessage();
     var c = consumer(msg);
 
-    invokeIngestRequest(c, new MetricRequest());
-    invokeIngestQueryPlans(c, new QueryPlanRequest());
+    invokeIngestRequest(c, MetricRequest.builder().build());
+    invokeIngestQueryPlans(c, QueryPlanRequest.builder().build());
     assertThat(msg.metricCalls.get()).isEqualTo(1);
     assertThat(msg.planCalls.get()).isEqualTo(1);
   }
@@ -86,8 +86,8 @@ class IngestQueueConsumerStoreFlagTest {
     var msg = new CountingIngestMessage();
     var c = consumer(msg);
 
-    invokeIngestRequest(c, new MetricRequest());
-    invokeIngestQueryPlans(c, new QueryPlanRequest());
+    invokeIngestRequest(c, MetricRequest.builder().build());
+    invokeIngestQueryPlans(c, QueryPlanRequest.builder().build());
     assertThat(msg.metricCalls.get()).isZero();
     assertThat(msg.planCalls.get()).isZero();
   }
@@ -99,8 +99,8 @@ class IngestQueueConsumerStoreFlagTest {
     var msg = new CountingIngestMessage();
     var c = consumer(msg);
 
-    invokeIngestRequest(c, new MetricRequest());
-    invokeIngestQueryPlans(c, new QueryPlanRequest());
+    invokeIngestRequest(c, MetricRequest.builder().build());
+    invokeIngestQueryPlans(c, QueryPlanRequest.builder().build());
     assertThat(msg.metricCalls.get()).isZero();
     assertThat(msg.planCalls.get()).isEqualTo(1);
   }
@@ -112,8 +112,8 @@ class IngestQueueConsumerStoreFlagTest {
     var msg = new CountingIngestMessage();
     var c = consumer(msg);
 
-    invokeIngestRequest(c, new MetricRequest());
-    invokeIngestQueryPlans(c, new QueryPlanRequest());
+    invokeIngestRequest(c, MetricRequest.builder().build());
+    invokeIngestQueryPlans(c, QueryPlanRequest.builder().build());
     assertThat(msg.metricCalls.get()).isEqualTo(1);
     assertThat(msg.planCalls.get()).isZero();
   }

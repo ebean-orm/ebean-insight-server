@@ -22,8 +22,8 @@ import java.time.Instant;
 class ProcessHeader {
 
   IngestPlanHeader ingestHeader(QueryPlanRequest request) {
-    final DEnv env = lookupEnv(request.environment);
-    final DApp app = lookupApp(request.appName);
+    final DEnv env = lookupEnv(request.environment());
+    final DApp app = lookupApp(request.appName());
     return new IngestPlanHeader(env, app);
   }
 
@@ -31,14 +31,14 @@ class ProcessHeader {
    * Process header level properties returning the IngestHeader.
    */
   IngestHeader ingestHeader(MetricRequest request) {
-    final Instant eventTime = toInstant(request.eventTime);
-    final DEnv env = lookupEnv(request.environment);
-    final DApp app = lookupApp(request.appName);
-    final DAppPod pod = lookupPod(app, request.instanceId);
+    final Instant eventTime = toInstant(request.eventTime());
+    final DEnv env = lookupEnv(request.environment());
+    final DApp app = lookupApp(request.appName());
+    final DAppPod pod = lookupPod(app, request.instanceId());
 
-    IngestHeader header = new IngestHeader(eventTime, env, app, pod, request.metrics);
-    for (MetricDbData db : request.dbs) {
-      header.add(db, lookupDb(app, dbName(db.db)));
+    IngestHeader header = new IngestHeader(eventTime, env, app, pod, request.metrics());
+    for (MetricDbData db : request.dbs()) {
+      header.add(db, lookupDb(app, dbName(db.db())));
     }
     return header;
   }

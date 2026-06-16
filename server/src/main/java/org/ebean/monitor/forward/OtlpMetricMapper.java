@@ -50,9 +50,9 @@ public final class OtlpMetricMapper {
   }
 
   String build(MetricRequest req, long reportingPeriodNanos) {
-    long endNano = (req.eventTime > 0 ? req.eventTime : System.currentTimeMillis()) * 1_000_000L;
-    long startNano = (req.startEventTime > 0)
-      ? req.startEventTime * 1_000_000L
+    long endNano = (req.eventTime() > 0 ? req.eventTime() : System.currentTimeMillis()) * 1_000_000L;
+    long startNano = (req.startEventTime() > 0)
+      ? req.startEventTime() * 1_000_000L
       : endNano - reportingPeriodNanos;
 
     var sw = new StringWriter(2048);
@@ -86,18 +86,18 @@ public final class OtlpMetricMapper {
     w.endObject();
     w.name("metrics");
     w.beginArray();
-    if (req.metrics != null) {
-      for (MetricData md : req.metrics) {
+    if (req.metrics() != null) {
+      for (MetricData md : req.metrics()) {
         writeMetric(w, md, startNano, endNano, null);
       }
     }
-    if (req.dbs != null) {
-      for (MetricDbData db : req.dbs) {
-        if (db == null || db.metrics == null) {
+    if (req.dbs() != null) {
+      for (MetricDbData db : req.dbs()) {
+        if (db == null || db.metrics() == null) {
           continue;
         }
-        for (MetricData md : db.metrics) {
-          writeMetric(w, md, startNano, endNano, db.db);
+        for (MetricData md : db.metrics()) {
+          writeMetric(w, md, startNano, endNano, db.db());
         }
       }
     }
@@ -114,16 +114,16 @@ public final class OtlpMetricMapper {
     w.beginObject();
     w.name("attributes");
     w.beginArray();
-    writeAttr(w, "service.name", req.appName);
-    writeAttr(w, "deployment.environment.name", req.environment);
-    writeAttr(w, "service.instance.id", req.instanceId);
-    writeAttr(w, "service.version", req.version);
-    boolean clientHasNamespace = req.resAttrs != null && req.resAttrs.containsKey("service.namespace");
+    writeAttr(w, "service.name", req.appName());
+    writeAttr(w, "deployment.environment.name", req.environment());
+    writeAttr(w, "service.instance.id", req.instanceId());
+    writeAttr(w, "service.version", req.version());
+    boolean clientHasNamespace = req.resAttrs() != null && req.resAttrs().containsKey("service.namespace");
     if (!namespace.isEmpty() && !clientHasNamespace) {
       writeAttr(w, "service.namespace", namespace);
     }
-    if (req.resAttrs != null) {
-      for (var e : req.resAttrs.entrySet()) {
+    if (req.resAttrs() != null) {
+      for (var e : req.resAttrs().entrySet()) {
         if (RESERVED_KEYS.contains(e.getKey())) {
           continue;
         }
@@ -135,24 +135,24 @@ public final class OtlpMetricMapper {
   }
 
   private void writeMetric(JsonWriter w, MetricData md, long startNano, long endNano, String db) {
-    if (md == null || md.name == null || md.name.isEmpty()) {
+    if (md == null || md.name() == null || md.name().isEmpty()) {
       return;
     }
-    var mapped = (md.tags != null && !md.tags.isEmpty())
-      ? MetricNameMapper.fromV2(md.name, md.tags)
-      : MetricNameMapper.map(md.name);
-    boolean hasTimer = md.count != null && md.total != null;
-    if (!hasTimer && md.value == null) {
+    var mapped = (md.tags() != null && !md.tags().isEmpty())
+      ? MetricNameMapper.fromV2(md.name(), md.tags())
+      : MetricNameMapper.map(md.name());
+    boolean hasTimer = md.count() != null && md.total() != null;
+    if (!hasTimer && md.value() == null) {
       return;
     }
     if (hasTimer) {
-      writeSum(w, mapped.name() + ".count", "1", md.count, startNano, endNano, mapped.attrs(), db);
-      writeSum(w, mapped.name() + ".total", "us", md.total, startNano, endNano, mapped.attrs(), db);
-      if (md.max != null) {
-        writeGaugeLong(w, mapped.name() + ".max", "us", md.max, endNano, mapped.attrs(), db);
+      writeSum(w, mapped.name() + ".count", "1", md.count(), startNano, endNano, mapped.attrs(), db);
+      writeSum(w, mapped.name() + ".total", "us", md.total(), startNano, endNano, mapped.attrs(), db);
+      if (md.max() != null) {
+        writeGaugeLong(w, mapped.name() + ".max", "us", md.max(), endNano, mapped.attrs(), db);
       }
     } else {
-      writeGaugeDouble(w, mapped.name(), "", md.value, endNano, mapped.attrs(), db);
+      writeGaugeDouble(w, mapped.name(), "", md.value(), endNano, mapped.attrs(), db);
     }
   }
 

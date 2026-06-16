@@ -8,11 +8,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 class MetricKeyTest {
 
   private static MetricData metric(String name, String hash, String tags) {
-    var md = new MetricData();
-    md.name = name;
-    md.hash = hash;
-    md.tags = tags;
-    return md;
+    return MetricData.builder()
+      .name(name)
+      .hash(hash)
+      .tags(tags)
+      .build();
   }
 
   @Test

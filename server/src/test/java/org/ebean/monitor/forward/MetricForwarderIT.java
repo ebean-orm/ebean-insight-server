@@ -67,18 +67,20 @@ class MetricForwarderIT {
     forwarder = newForwarder();
     forwarder.start();
 
-    var req = new MetricRequest();
-    req.eventTime = 1_700_000_000_000L;
-    req.appName = "myapp";
-    req.environment = "test";
-    req.instanceId = "pod-1";
-    req.version = "1.0";
-    var md = new MetricData();
-    md.name = "iud.User.save";
-    md.count = 7L;
-    md.total = 1234L;
-    md.max = 999L;
-    req.metrics.add(md);
+    var req = MetricRequest.builder()
+      .eventTime(1_700_000_000_000L)
+      .appName("myapp")
+      .environment("test")
+      .instanceId("pod-1")
+      .version("1.0")
+      .build();
+    var md = MetricData.builder()
+      .name("iud.User.save")
+      .count(7L)
+      .total(1234L)
+      .max(999L)
+      .build();
+    req.metrics().add(md);
 
     forwarder.forward(req);
 
@@ -99,8 +101,7 @@ class MetricForwarderIT {
     Config.setProperty("forward.otel.enabled", "false");
     forwarder = newForwarder();
     forwarder.start();
-    var req = new MetricRequest();
-    req.appName = "x";
+    var req = MetricRequest.builder().appName("x").build();
     forwarder.forward(req);
     assertThat(forwarder.forwardedCount()).isZero();
     assertThat(forwarder.droppedCount()).isZero();
@@ -116,8 +117,7 @@ class MetricForwarderIT {
 
     forwarder = newForwarder();
     // do NOT start the worker so the queue won't drain
-    var req = new MetricRequest();
-    req.appName = "x";
+    var req = MetricRequest.builder().appName("x").build();
     forwarder.forward(req);
     forwarder.forward(req);
     forwarder.forward(req);

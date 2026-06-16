@@ -46,20 +46,28 @@ class PlanIdentityTest {
   }
 
   private static QueryPlanRequest req(String appName, String hash, String flatLabel) {
-    QueryPlanRequest r = new QueryPlanRequest();
-    r.appName = appName;
-    r.environment = "prod";
-    QueryPlanRequest.QPlan p = new QueryPlanRequest.QPlan();
-    p.hash = hash;
-    p.label = flatLabel;
-    p.sql = "select * from foo where id = ?";
-    p.bind = "[5]";
-    p.plan = "Seq Scan on public.foo  (cost=0.00..1.00 rows=1 width=10)";
-    p.queryTimeMicros = 100;
-    p.captureCount = 1;
-    p.captureMicros = 50;
-    p.whenCaptured = Instant.parse("2026-06-01T00:00:00Z").toString();
-    r.plans.add(p);
+    return req(appName, hash, flatLabel, null, null);
+  }
+
+  private static QueryPlanRequest req(String appName, String hash, String flatLabel, String kind, String type) {
+    QueryPlanRequest.QPlan p = QueryPlanRequest.QPlan.builder()
+      .hash(hash)
+      .label(flatLabel)
+      .kind(kind)
+      .type(type)
+      .sql("select * from foo where id = ?")
+      .bind("[5]")
+      .plan("Seq Scan on public.foo  (cost=0.00..1.00 rows=1 width=10)")
+      .queryTimeMicros(100)
+      .captureCount(1)
+      .captureMicros(50)
+      .whenCaptured(Instant.parse("2026-06-01T00:00:00Z").toString())
+      .build();
+    QueryPlanRequest r = QueryPlanRequest.builder()
+      .appName(appName)
+      .environment("prod")
+      .build();
+    r.plans().add(p);
     return r;
   }
 
@@ -107,9 +115,7 @@ class PlanIdentityTest {
     String hash = "pit-h3-" + System.nanoTime();
     app(appName);
 
-    QueryPlanRequest r = req(appName, hash, "Customer.findList");
-    r.plans.get(0).kind = "orm";
-    r.plans.get(0).type = "Customer";
+    QueryPlanRequest r = req(appName, hash, "Customer.findList", "orm", "Customer");
     ingest().ingestQueryPlans(r);
 
     DQueryPlan plan = planFor(hash);

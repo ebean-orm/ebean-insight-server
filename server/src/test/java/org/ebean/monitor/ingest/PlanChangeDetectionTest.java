@@ -38,20 +38,22 @@ class PlanChangeDetectionTest {
   }
 
   private static QueryPlanRequest req(String env, String hash, String plan, Instant when) {
-    QueryPlanRequest r = new QueryPlanRequest();
-    r.appName = "pcd-app";
-    r.environment = env;
-    QueryPlanRequest.QPlan p = new QueryPlanRequest.QPlan();
-    p.hash = hash;
-    p.label = "orm.Foo.find";
-    p.sql = "select * from foo where id = ?";
-    p.bind = "[5]";
-    p.plan = plan;
-    p.queryTimeMicros = 100;
-    p.captureCount = 1;
-    p.captureMicros = 50;
-    p.whenCaptured = when.toString();
-    r.plans.add(p);
+    QueryPlanRequest.QPlan p = QueryPlanRequest.QPlan.builder()
+      .hash(hash)
+      .label("orm.Foo.find")
+      .sql("select * from foo where id = ?")
+      .bind("[5]")
+      .plan(plan)
+      .queryTimeMicros(100)
+      .captureCount(1)
+      .captureMicros(50)
+      .whenCaptured(when.toString())
+      .build();
+    QueryPlanRequest r = QueryPlanRequest.builder()
+      .appName("pcd-app")
+      .environment(env)
+      .build();
+    r.plans().add(p);
     return r;
   }
 

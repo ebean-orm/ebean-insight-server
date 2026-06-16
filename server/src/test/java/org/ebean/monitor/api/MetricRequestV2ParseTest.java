@@ -23,14 +23,14 @@ class MetricRequestV2ParseTest {
 
     MetricRequest req = jsonb.type(MetricRequest.class).fromJson(json);
 
-    assertThat(req.v).isEqualTo(2);
-    assertThat(req.dbs).hasSize(1);
-    var metrics = req.dbs.get(0).metrics;
+    assertThat(req.v()).isEqualTo(2);
+    assertThat(req.dbs()).hasSize(1);
+    var metrics = req.dbs().get(0).metrics();
     assertThat(metrics).hasSize(2);
-    assertThat(metrics.get(0).name).isEqualTo("ebean.query");
-    assertThat(metrics.get(0).tags).isEqualTo("kind:orm,label:Customer.findList,type:Customer");
-    assertThat(metrics.get(1).name).isEqualTo("ebean.dml");
-    assertThat(metrics.get(1).tags).isEqualTo("label:User.save");
+    assertThat(metrics.get(0).name()).isEqualTo("ebean.query");
+    assertThat(metrics.get(0).tags()).isEqualTo("kind:orm,label:Customer.findList,type:Customer");
+    assertThat(metrics.get(1).name()).isEqualTo("ebean.dml");
+    assertThat(metrics.get(1).tags()).isEqualTo("label:User.save");
   }
 
   @Test
@@ -45,9 +45,9 @@ class MetricRequestV2ParseTest {
 
     MetricRequest req = jsonb.type(MetricRequest.class).fromJson(json);
 
-    assertThat(req.v).isZero();
-    var md = req.dbs.get(0).metrics.get(0);
-    assertThat(md.name).isEqualTo("orm.Customer.findList");
-    assertThat(md.tags).isNull();
+    assertThat(req.v()).isZero();
+    var md = req.dbs().get(0).metrics().get(0);
+    assertThat(md.name()).isEqualTo("orm.Customer.findList");
+    assertThat(md.tags()).isNull();
   }
 }

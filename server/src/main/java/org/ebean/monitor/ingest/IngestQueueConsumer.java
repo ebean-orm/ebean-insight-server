@@ -74,7 +74,7 @@ public class IngestQueueConsumer {
   @Timed
   private void ingestRequest(MetricRequest data) {
     log.debug("ingesting request");
-    missingEnvWarner.check(data.appName, data.environment);
+    missingEnvWarner.check(data.appName(), data.environment());
     // forward to OTLP (no-op if disabled, never throws)
     forwarder.forward(data);
     // detect expensive queries and request plan capture (no-op if disabled)
@@ -96,7 +96,7 @@ public class IngestQueueConsumer {
 
   private void ingestQueryPlans(QueryPlanRequest queryPlans) {
     log.debug("ingesting query plans");
-    missingEnvWarner.check(queryPlans.appName, queryPlans.environment);
+    missingEnvWarner.check(queryPlans.appName(), queryPlans.environment());
     try {
       // emit to dedicated logger (no-op when disabled)
       queryPlanLogger.log(queryPlans);

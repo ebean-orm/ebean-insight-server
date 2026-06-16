@@ -8,10 +8,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 class MessageServiceTest {
 
   private static MetricRequest poll(String app, String env) {
-    var req = new MetricRequest();
-    req.appName = app;
-    req.environment = env;
-    return req;
+    return MetricRequest.builder()
+      .appName(app)
+      .environment(env)
+      .build();
   }
 
   @Test

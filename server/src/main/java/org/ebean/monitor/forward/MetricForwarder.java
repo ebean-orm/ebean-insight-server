@@ -136,7 +136,7 @@ public final class MetricForwarder {
       body = mapper.build(req, config.reportingPeriodNanos());
     } catch (Exception e) {
       failed.incrementAndGet();
-      log.error("Failed to build OTLP payload for {}/{}", req.appName, req.environment, e);
+      log.error("Failed to build OTLP payload for {}/{}", req.appName(), req.environment(), e);
       return;
     }
     try {
@@ -153,7 +153,7 @@ public final class MetricForwarder {
       if (code >= 200 && code < 300) {
         forwarded.incrementAndGet();
         if (log.isTraceEnabled()) {
-          log.trace("OTLP forwarded app={} env={} status={}", req.appName, req.environment, code);
+          log.trace("OTLP forwarded app={} env={} status={}", req.appName(), req.environment(), code);
         }
       } else {
         long n = failed.incrementAndGet();

@@ -64,15 +64,15 @@ class IngestHeader {
 
   BaseEntry createMetricEntry(IngestEntry entry, DAppDatabase db) {
     final MetricData data = entry.getData();
-    if (data.value != null) {
-      return new DGaugeEntry(entry.getMetric(), env, app, eventTime, pod, valueOf(data.value));
+    if (data.value() != null) {
+      return new DGaugeEntry(entry.getMetric(), env, app, eventTime, pod, valueOf(data.value()));
     }
 
     DTimedEntry timed = new DTimedEntry(entry.getMetric(), env, app, eventTime, db, pod);
-    timed.setCount(maybe(data.count));
-    timed.setMax(maybe(data.max));
-    timed.setMean(maybe(data.mean));
-    timed.setTotal(maybe(data.total));
+    timed.setCount(maybe(data.count()));
+    timed.setMax(maybe(data.max()));
+    timed.setMean(maybe(data.mean()));
+    timed.setTotal(maybe(data.total()));
     return timed;
   }
 
