@@ -20,9 +20,22 @@ public class QueryPlanRequest {
     public String hash;
 
     /**
-     * Return the label of the query.
+     * Return the label of the query (prefix-free, e.g. {@code Customer.findList}).
+     * Older clients send the flat ebean label (e.g. {@code orm.Customer.findList}).
      */
     public String label;
+
+    /**
+     * Return the query kind tag (e.g. {@code orm}, {@code dto}, {@code sql}).
+     * May be null for older clients that only send the flat {@link #label}.
+     */
+    public String kind;
+
+    /**
+     * Return the bean type tag (e.g. {@code Customer}).
+     * May be null for older clients or raw-SQL plans with no bean type.
+     */
+    public String type;
 
     /**
      * Return the sql of the query.

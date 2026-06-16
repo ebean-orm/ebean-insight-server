@@ -88,7 +88,7 @@ public class IngestMessage {
         .setCaptureMicros(plan.captureMicros)
         .setWhenCaptured(parseWhenCaptured(plan.whenCaptured));
 
-      applyIdentity(newPlan, appMetric, plan.label);
+      applyIdentity(newPlan, appMetric, plan);
 
       final var shape = PlanShape.fingerprint(plan.plan);
       if (shape != null) {
@@ -248,18 +248,20 @@ public class IngestMessage {
   }
 
   /**
-   * Resolve the v2 identity (name/kind/type/label) for a captured plan from its
-   * matched metric, so the plan row is self-describing and display/filtering need
-   * no read-time metric join.
+   * Resolve the v2 identity (name/kind/type/label) for a captured plan, so the
+   * plan row is self-describing and display/filtering need no read-time metric join.
    *
    * <p>When the metric is present its canonical family {@code name} plus
-   * {@code kind}/{@code type}/{@code label} tags are copied. When no metric is
-   * found (capture arrived before the metric, or a v1 client) we fall back to the
-   * client-sent flat label (e.g. {@code orm.Customer.findList}): split off a known
-   * {@code orm.}/{@code dto.}/{@code sql.} prefix as {@code kind}, the remainder as
-   * {@code label}, {@code type} null, {@code name} the {@code ebean.query} family.
+   * {@code kind}/{@code type}/{@code label} tags are copied (the metric is the
+   * source of truth). When no metric is found (capture arrived before the metric,
+   * or a forward-only deployment) we fall back to the client-sent identity:
+   * a v2 client supplies explicit {@code kind}/{@code type} and a prefix-free
+   * {@code label}; an older client sends only the flat label (e.g.
+   * {@code orm.Customer.findList}) which we split — a known
+   * {@code orm.}/{@code dto.}/{@code sql.} prefix becomes {@code kind}, the
+   * remainder {@code label}. {@code name} is always the {@code ebean.query} family.
    */
-  private void applyIdentity(DQueryPlan plan, @Nullable DAppMetric metric, @Nullable String clientLabel) {
+  private void applyIdentity(DQueryPlan plan, @Nullable DAppMetric metric, QueryPlanRequest.QPlan req) {
     if (metric != null) {
       final Map<String, String> tags = parseTags(metric.getTags());
       final String label = tags.get("label");
@@ -269,9 +271,21 @@ public class IngestMessage {
         .setLabel(label != null ? label : metric.getName());
       return;
     }
-    // fallback: derive from the client-sent flat label
+    // fallback: no metric — use explicit client identity, else split the flat label
     plan.setName("ebean.query");
+    if (notBlank(req.kind)) {
+      plan.setKind(req.kind);
+    }
+    if (notBlank(req.type)) {
+      plan.setType(req.type);
+    }
+    final String clientLabel = req.label;
     if (clientLabel == null) {
+      return;
+    }
+    if (plan.kind() != null) {
+      // v2 client: label is already prefix-free
+      plan.setLabel(clientLabel);
       return;
     }
     final int dot = clientLabel.indexOf('.');
@@ -283,6 +297,10 @@ public class IngestMessage {
       }
     }
     plan.setLabel(clientLabel);
+  }
+
+  private static boolean notBlank(@Nullable String value) {
+    return value != null && !value.isBlank();
   }
 
   private Map<String, String> parseTags(@Nullable String tagsJson) {

@@ -79,6 +79,22 @@ class QueryPlanLoggerTest {
   }
 
   @Test
+  void format_prefersExplicitKindAndType() {
+    var logger = new QueryPlanLogger(true, false);
+    var req = sampleRequest();
+    var p = req.plans.get(0);
+    p.kind = "orm";
+    p.type = "Customer";
+    p.label = "Customer.findList";
+    String line = logger.format(req, p);
+    assertThat(line)
+      .contains("name=\"ebean.query\"")
+      .contains("kind=\"orm\"")
+      .contains("type=\"Customer\"")
+      .contains("label=\"Customer.findList\"");
+  }
+
+  @Test
   void format_handlesNullLabelAndEmptyBind() {
     var logger = new QueryPlanLogger(true, true);
     var req = sampleRequest();

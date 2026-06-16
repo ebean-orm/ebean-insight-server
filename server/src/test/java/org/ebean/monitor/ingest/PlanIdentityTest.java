@@ -100,4 +100,23 @@ class PlanIdentityTest {
     assertThat(plan.type()).isNull();
     assertThat(plan.label()).isEqualTo("Foo.find");
   }
+
+  @Test
+  void explicitClientIdentityWhenNoMetric() {
+    String appName = "pit-explicit-" + System.nanoTime();
+    String hash = "pit-h3-" + System.nanoTime();
+    app(appName);
+
+    QueryPlanRequest r = req(appName, hash, "Customer.findList");
+    r.plans.get(0).kind = "orm";
+    r.plans.get(0).type = "Customer";
+    ingest().ingestQueryPlans(r);
+
+    DQueryPlan plan = planFor(hash);
+    assertThat(plan).isNotNull();
+    assertThat(plan.name()).isEqualTo("ebean.query");
+    assertThat(plan.kind()).isEqualTo("orm");
+    assertThat(plan.type()).isEqualTo("Customer");
+    assertThat(plan.label()).isEqualTo("Customer.findList");
+  }
 }

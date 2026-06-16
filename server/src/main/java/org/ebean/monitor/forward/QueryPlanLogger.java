@@ -53,15 +53,18 @@ public final class QueryPlanLogger {
 
   // package-private for tests
   String format(QueryPlanRequest req, QueryPlanRequest.QPlan p) {
-    final String flat = p.label == null ? "" : p.label;
-    String kind = "";
-    String label = flat;
-    final int dot = flat.indexOf('.');
-    if (dot > 0) {
-      final String prefix = flat.substring(0, dot);
-      if (prefix.equals("orm") || prefix.equals("dto") || prefix.equals("sql")) {
-        kind = prefix;
-        label = flat.substring(dot + 1);
+    String kind = p.kind == null ? "" : p.kind;
+    String type = p.type == null ? "" : p.type;
+    String label = p.label == null ? "" : p.label;
+    if (kind.isEmpty()) {
+      // legacy client: split a known prefix off the flat label
+      final int dot = label.indexOf('.');
+      if (dot > 0) {
+        final String prefix = label.substring(0, dot);
+        if (prefix.equals("orm") || prefix.equals("dto") || prefix.equals("sql")) {
+          kind = prefix;
+          label = label.substring(dot + 1);
+        }
       }
     }
     var sb = new StringBuilder(512);
@@ -73,6 +76,7 @@ public final class QueryPlanLogger {
       .append(" queryTimeMicros=").append(p.queryTimeMicros)
       .append(" name=\"ebean.query\"")
       .append(" kind=\"").append(kind).append('"')
+      .append(" type=\"").append(type).append('"')
       .append(" label=\"").append(label).append('"')
       .append(" whenCaptured=").append(p.whenCaptured)
       .append('\n').append("sql: ").append(p.sql);
