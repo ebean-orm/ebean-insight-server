@@ -58,11 +58,11 @@ class MetricCommandsParseTest {
   @Test
   void changes_parsesInteractiveAndFilters() {
     var cmd = CommandLine.populateCommand(new ChangesCommand(),
-        "--app", "myapp", "--env", "test", "--type", "CHANGED", "--hash", "h1", "-i");
+        "--app", "myapp", "--env", "test", "--change-type", "CHANGED", "--hash", "h1", "-i");
     assertThat(cmd.interactive).isTrue();
     assertThat(cmd.app).isEqualTo("myapp");
     assertThat(cmd.env).isEqualTo("test");
-    assertThat(cmd.type).isEqualTo("CHANGED");
+    assertThat(cmd.changeType).isEqualTo("CHANGED");
     assertThat(cmd.hash).isEqualTo("h1");
     assertThat(CommandLine.populateCommand(new ChangesCommand()).interactive).isFalse();
   }

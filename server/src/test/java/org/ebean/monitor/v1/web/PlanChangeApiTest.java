@@ -70,6 +70,8 @@ class PlanChangeApiTest {
                                   DQueryPlan from, DQueryPlan to, Instant detectedAt) {
     DQueryPlanChange c = new DQueryPlanChange(app, env, hash, to);
     c.setLabel("orm.Foo.find");
+    c.setKind("orm");
+    c.setType("Foo");
     c.setChangeType(type);
     c.setFromPlan(from);
     c.setFromShapeHash(from == null ? null : from.planShapeHash());
@@ -102,25 +104,33 @@ class PlanChangeApiTest {
     change(app, dev, h2, ChangeType.FIRST, null, p2a, BASE.plusSeconds(35));
 
     // all events for this app, newest detection first
-    List<PlanChange> all = service.listPlanChanges(app.getName(), null, null, null, null, null, 50);
+    List<PlanChange> all = service.listPlanChanges(app.getName(), null, null, null, null, null, null, null, null, 50);
     assertThat(all).hasSize(3);
     assertThat(all.get(0).detectedAt()).isEqualTo(BASE.plusSeconds(65)); // CHANGED on h1
     assertThat(all.get(1).detectedAt()).isEqualTo(BASE.plusSeconds(35)); // FIRST on h2
     assertThat(all.get(2).detectedAt()).isEqualTo(BASE.plusSeconds(5));  // FIRST on h1
 
     // env filter
-    List<PlanChange> prodOnly = service.listPlanChanges(app.getName(), "prod", null, null, null, null, 50);
+    List<PlanChange> prodOnly = service.listPlanChanges(app.getName(), "prod", null, null, null, null, null, null, null, 50);
     assertThat(prodOnly).hasSize(2);
     assertThat(prodOnly).allMatch(c -> c.envName().equals("prod"));
 
     // hash filter
-    List<PlanChange> hash1 = service.listPlanChanges(app.getName(), null, h1, null, null, null, 50);
+    List<PlanChange> hash1 = service.listPlanChanges(app.getName(), null, h1, null, null, null, null, null, null, 50);
     assertThat(hash1).hasSize(2);
     assertThat(hash1).allMatch(c -> c.hash().equals(h1));
 
     // changeType filter (case-insensitive)
-    List<PlanChange> changedOnly = service.listPlanChanges(app.getName(), null, null, "changed", null, null, 50);
+    List<PlanChange> changedOnly = service.listPlanChanges(app.getName(), null, null, "changed", null, null, null, null, null, 50);
     assertThat(changedOnly).hasSize(1);
+
+    // label / kind / type tag filters
+    assertThat(service.listPlanChanges(app.getName(), null, null, null, "orm.Foo.find", null, null, null, null, 50)).hasSize(3);
+    assertThat(service.listPlanChanges(app.getName(), null, null, null, null, "orm", null, null, null, 50)).hasSize(3);
+    assertThat(service.listPlanChanges(app.getName(), null, null, null, null, null, "Foo", null, null, 50)).hasSize(3);
+    assertThat(service.listPlanChanges(app.getName(), null, null, null, "no-match", null, null, null, null, 50)).isEmpty();
+    assertThat(service.listPlanChanges(app.getName(), null, null, null, null, "no-match", null, null, null, 50)).isEmpty();
+    assertThat(service.listPlanChanges(app.getName(), null, null, null, null, null, "no-match", null, null, 50)).isEmpty();
     PlanChange c = changedOnly.get(0);
     assertThat(c.changeType()).isEqualTo("CHANGED");
     assertThat(c.id()).isEqualTo((long) changed.getId());
@@ -133,7 +143,7 @@ class PlanChangeApiTest {
     assertThat(c.algo()).isEqualTo(1);
 
     // limit
-    assertThat(service.listPlanChanges(app.getName(), null, null, null, null, null, 1)).hasSize(1);
+    assertThat(service.listPlanChanges(app.getName(), null, null, null, null, null, null, null, null, 1)).hasSize(1);
   }
 
   @Test
@@ -145,7 +155,7 @@ class PlanChangeApiTest {
     DQueryPlan p = plan(app, prod, h, "AAA", 80, BASE);
     change(app, prod, h, ChangeType.FIRST, null, p, BASE.plusSeconds(5));
 
-    List<PlanChange> first = service.listPlanChanges(app.getName(), null, null, "FIRST", null, null, 50);
+    List<PlanChange> first = service.listPlanChanges(app.getName(), null, null, "FIRST", null, null, null, null, null, 50);
     assertThat(first).hasSize(1);
     PlanChange c = first.get(0);
     assertThat(c.changeType()).isEqualTo("FIRST");
@@ -157,13 +167,13 @@ class PlanChangeApiTest {
 
   @Test
   void unknownApp_returnsEmpty() {
-    assertThat(service.listPlanChanges("no-such-app-" + System.nanoTime(), null, null, null, null, null, 50))
+    assertThat(service.listPlanChanges("no-such-app-" + System.nanoTime(), null, null, null, null, null, null, null, null, 50))
       .isEmpty();
   }
 
   @Test
   void invalidChangeType_throwsBadRequest() {
-    assertThatThrownBy(() -> service.listPlanChanges(null, null, null, "BOGUS", null, null, 50))
+    assertThatThrownBy(() -> service.listPlanChanges(null, null, null, "BOGUS", null, null, null, null, null, 50))
       .isInstanceOf(BadRequestException.class);
   }
 

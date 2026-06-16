@@ -164,8 +164,8 @@ useful on its own.
 | `plan` | Fetch a single plan (sql + bind + plan text) | `id` |
 | `missing-plans` | Plan-capable metrics with no recent plan | `app?`, `env?` |
 | `capture` | **Write op:** request a fresh plan capture | `app`, `hash`, `env` |
-| `pending` | List requested captures not yet returned | `app?`, `env?` |
-| `changes` | List detected plan-shape changes (FIRST/CHANGED), newest first | `app?`, `env?`, `hash?`, `changeType?`, `sinceMinutes?`, `sinceHours?`, `limit?` |
+| `pending` | List requested captures not yet returned | `app?`, `env?`, `hash?`, `label?` |
+| `changes` | List detected plan-shape changes (FIRST/CHANGED), newest first | `app?`, `env?`, `hash?`, `changeType?`, `label?`, `kind?`, `type?`, `sinceMinutes?`, `sinceHours?`, `limit?` |
 | `change` | Fetch one plan-change with full from/to plans | `id` |
 
 Tool descriptions explicitly call out `capture` as a write operation that

@@ -35,13 +35,13 @@ public final class V1PlansController implements PlansApi {
   }
 
   @Override
-  public List<PendingPlan> listPendingPlans(String app, String env) {
-    return service.listPendingPlans(app, env);
+  public List<PendingPlan> listPendingPlans(String app, String env, String hash, String label) {
+    return service.listPendingPlans(app, env, hash, label);
   }
 
   @Override
-  public List<PlanChange> listPlanChanges(String app, String env, String hash, String changeType, Long sinceMinutes, Long sinceHours, Integer limit) {
-    return service.listPlanChanges(app, env, hash, changeType, sinceMinutes, sinceHours, limit);
+  public List<PlanChange> listPlanChanges(String app, String env, String hash, String changeType, String label, String kind, String type, Long sinceMinutes, Long sinceHours, Integer limit) {
+    return service.listPlanChanges(app, env, hash, changeType, label, kind, type, sinceMinutes, sinceHours, limit);
   }
 
   @Override

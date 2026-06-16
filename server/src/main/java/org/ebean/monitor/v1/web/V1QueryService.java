@@ -555,28 +555,33 @@ public final class V1QueryService {
                                                   @Nullable Long sinceMinutes, @Nullable Long sinceHours,
                                                   @Nullable Long olderThanMinutes,
                                                   @Nullable Long olderThanHours,
-                                                  @Nullable Integer limit) {
+                                                  @Nullable Integer limit, @Nullable String env) {
     final DApp app = findApp(appName);
     if (app == null) {
       return List.of();
     }
     return runMissingPlansQuery(app, orderBy, sinceMinutes, sinceHours,
-      olderThanMinutes, olderThanHours, clampLimit(limit));
+      olderThanMinutes, olderThanHours, env, clampLimit(limit));
   }
 
   public List<MissingPlanMetric> topMissingPlans(@Nullable String orderBy,
                                                  @Nullable Long sinceMinutes, @Nullable Long sinceHours,
                                                  @Nullable Long olderThanMinutes,
                                                  @Nullable Long olderThanHours,
-                                                 @Nullable Integer limit) {
+                                                 @Nullable Integer limit, @Nullable String env) {
     return runMissingPlansQuery(null, orderBy, sinceMinutes, sinceHours,
-      olderThanMinutes, olderThanHours, clampLimit(limit));
+      olderThanMinutes, olderThanHours, env, clampLimit(limit));
   }
 
   private List<MissingPlanMetric> runMissingPlansQuery(@Nullable DApp app, @Nullable String orderBy,
                                                        @Nullable Long sinceMinutes, @Nullable Long sinceHours,
                                                        @Nullable Long olderThanMinutes,
-                                                       @Nullable Long olderThanHours, int limit) {
+                                                       @Nullable Long olderThanHours,
+                                                       @Nullable String env, int limit) {
+    final Integer envId = resolveEnvId(env);
+    if (envFilterMisses(env, envId)) {
+      return List.of();
+    }
     final String sortKey = resolveOrderBy(orderBy);
     final TimeWindow costWindow = TimeWindow.of(sinceMinutes, sinceHours, DEFAULT_TOP_WINDOW_MINUTES);
     final TimeWindow freshness = TimeWindow.of(olderThanMinutes, olderThanHours, 0L);
@@ -598,7 +603,10 @@ public final class V1QueryService {
         coalesce(max(t.max), 0)   as agg_max
       from ebean_insight.app_metric m
       join ebean_insight.app a on a.id = m.app_id
-      left join %s t on t.metric_id = m.id and t.event_time > :from
+      left join %s t on t.metric_id = m.id and t.event_time > :from"""
+      + (envId == null ? "" : " and t.env_id = :envId")
+      + """
+
       left join (
         select metric_id,
                max(when_captured) as last_captured,
@@ -630,6 +638,9 @@ public final class V1QueryService {
     }
     if (hasFreshness) {
       query.setParameter("threshold", freshness.from());
+    }
+    if (envId != null) {
+      query.setParameter("envId", envId);
     }
     return query
       .mapTo((rs, _) -> toMissingPlanMetric(rs, minutes))
@@ -727,12 +738,15 @@ public final class V1QueryService {
       .save();
   }
 
-  public List<PendingPlan> listPendingPlans(@Nullable String app, @Nullable String env) {
+  public List<PendingPlan> listPendingPlans(@Nullable String app, @Nullable String env,
+                                            @Nullable String hash, @Nullable String label) {
     final Instant from = Instant.now().minus(Duration.ofMinutes(PENDING_STALE_MINUTES));
     final QDCaptureRequest q = new QDCaptureRequest()
       .collectedAt.isNull()
       .requestedAt.gt(from)
-      .app.name.eqIfNotBlank(app);
+      .app.name.eqIfNotBlank(app)
+      .hash.eqIfNotBlank(hash)
+      .label.eqIfNotBlank(label);
     if (env != null && !env.isBlank()) {
       // include "any environment" requests (env is null) when filtering by env,
       // since such a request may yet be collected in the requested environment
@@ -758,9 +772,11 @@ public final class V1QueryService {
 
   public List<PlanChange> listPlanChanges(@Nullable String app, @Nullable String env,
                                           @Nullable String hash, @Nullable String changeType,
+                                          @Nullable String label, @Nullable String kind,
+                                          @Nullable String type,
                                           @Nullable Long sinceMinutes, @Nullable Long sinceHours,
                                           @Nullable Integer limit) {
-    final DQueryPlanChange.ChangeType type = parseChangeType(changeType);
+    final DQueryPlanChange.ChangeType ct = parseChangeType(changeType);
     final TimeWindow window = TimeWindow.of(sinceMinutes, sinceHours, 0L);
     final DApp resolved;
     if (app != null && !app.isBlank()) {
@@ -771,21 +787,17 @@ public final class V1QueryService {
     } else {
       resolved = null;
     }
-    final QDQueryPlanChange q = new QDQueryPlanChange()
+    return new QDQueryPlanChange()
       .app.fetch()
-      .env.fetch();
-    if (resolved != null) {
-      q.app.eq(resolved);
-    }
-    q.env.name.eqIfNotBlank(env);
-    q.hash.eqIfNotBlank(hash);
-    if (type != null) {
-      q.changeType.eq(type);
-    }
-    if (window.hasFrom()) {
-      q.detectedAt.gt(window.from());
-    }
-    return q
+      .env.fetch()
+      .app.eqIfPresent(resolved)
+      .env.name.eqIfNotBlank(env)
+      .hash.eqIfNotBlank(hash)
+      .label.eqIfNotBlank(label)
+      .kind.eqIfNotBlank(kind)
+      .type.eqIfNotBlank(type)
+      .changeType.eqIfPresent(ct)
+      .detectedAt.gtIfPresent(window.from())
       .orderBy().detectedAt.desc().id.desc()
       .setMaxRows(clampLimit(limit))
       .findList()
@@ -842,19 +854,14 @@ public final class V1QueryService {
                                                      @Nullable String label, @Nullable String hash,
                                                      @Nullable String kind, @Nullable String type,
                                                      TimeWindow window, int limit) {
-    final QDQueryPlan q = new QDQueryPlan();
-    if (app != null) {
-      q.app.eq(app);
-    }
-    q.env.name.eqIfNotBlank(env);
-    q.label.eqIfNotBlank(label);
-    q.hash.eqIfNotBlank(hash);
-    q.kind.eqIfNotBlank(kind);
-    q.type.eqIfNotBlank(type);
-    if (window.hasFrom()) {
-      q.whenCreated.gt(window.from());
-    }
-    final List<DQueryPlan> plans = q
+    final List<DQueryPlan> plans = new QDQueryPlan()
+      .app.eqIfPresent(app)
+      .env.name.eqIfNotBlank(env)
+      .label.eqIfNotBlank(label)
+      .hash.eqIfNotBlank(hash)
+      .kind.eqIfNotBlank(kind)
+      .type.eqIfNotBlank(type)
+      .whenCreated.gtIfPresent(window.from())
       .orderBy().whenCreated.desc()
       .setMaxRows(limit)
       .findList();

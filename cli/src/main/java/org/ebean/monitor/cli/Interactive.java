@@ -628,7 +628,7 @@ final class Interactive {
   private void showChanges(Row row) {
     try {
       List<PlanChange> changes =
-          insight.plans.listPlanChanges(row.app(), env, row.hash(), null, null, null, 10);
+          insight.plans.listPlanChanges(row.app(), env, row.hash(), null, null, null, null, null, null, 10);
       if (changes.isEmpty()) {
         System.out.println("No plan-shape changes recorded for this hash"
             + (env == null ? "" : " (env " + env + ")") + ".");

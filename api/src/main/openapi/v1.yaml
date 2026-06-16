@@ -236,6 +236,7 @@ paths:
         - $ref: '#/components/parameters/OlderThanMinutes'
         - $ref: '#/components/parameters/OlderThanHours'
         - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/EnvQuery'
       responses:
         '200':
           description: Missing plans
@@ -337,7 +338,7 @@ paths:
       summary: In-flight plan captures (requested but not yet collected)
       description: |
         Returns query-plan capture requests that have been made but whose plan
-        has not yet been ingested, optionally filtered by app/env.
+        has not yet been ingested, optionally filtered by app/env/hash/label.
 
         Requests are tracked durably on the server: each is recorded when made
         and cleared once the matching plan is ingested, so this view survives
@@ -350,6 +351,14 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/EnvQuery'
+        - name: hash
+          in: query
+          schema:
+            type: string
+        - name: label
+          in: query
+          schema:
+            type: string
       responses:
         '200':
           description: Pending captures
@@ -384,6 +393,9 @@ paths:
           schema:
             type: string
         - $ref: '#/components/parameters/ChangeTypeQuery'
+        - $ref: '#/components/parameters/LabelTag'
+        - $ref: '#/components/parameters/KindTag'
+        - $ref: '#/components/parameters/TypeTag'
         - $ref: '#/components/parameters/SinceMinutes'
         - $ref: '#/components/parameters/SinceHours'
         - $ref: '#/components/parameters/Limit'
@@ -476,6 +488,7 @@ paths:
         - $ref: '#/components/parameters/OlderThanMinutes'
         - $ref: '#/components/parameters/OlderThanHours'
         - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/EnvQuery'
       responses:
         '200':
           description: Missing plans

@@ -22,12 +22,16 @@ class ChangeCommandsTest {
   @Test
   void changes_parsesOptions() {
     var cmd = CommandLine.populateCommand(new ChangesCommand(),
-        "--app", "myapp", "--env", "prod", "--hash", "abc", "--type", "CHANGED",
+        "--app", "myapp", "--env", "prod", "--hash", "abc", "--change-type", "CHANGED",
+        "--label", "Customer.findList", "--kind", "orm", "--type", "Customer",
         "--since-hours", "24", "-n", "5");
     assertThat(cmd.app).isEqualTo("myapp");
     assertThat(cmd.env).isEqualTo("prod");
     assertThat(cmd.hash).isEqualTo("abc");
-    assertThat(cmd.type).isEqualTo("CHANGED");
+    assertThat(cmd.changeType).isEqualTo("CHANGED");
+    assertThat(cmd.label).isEqualTo("Customer.findList");
+    assertThat(cmd.kind).isEqualTo("orm");
+    assertThat(cmd.type).isEqualTo("Customer");
     assertThat(cmd.sinceHours).isEqualTo(24L);
     assertThat(cmd.limit).isEqualTo(5);
   }
@@ -36,7 +40,7 @@ class ChangeCommandsTest {
   void changes_defaults() {
     var cmd = CommandLine.populateCommand(new ChangesCommand());
     assertThat(cmd.app).isNull();
-    assertThat(cmd.type).isNull();
+    assertThat(cmd.changeType).isNull();
     assertThat(cmd.limit).isEqualTo(20);
   }
 

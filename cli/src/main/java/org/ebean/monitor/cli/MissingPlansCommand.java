@@ -72,7 +72,8 @@ final class MissingPlansCommand implements Callable<Integer> {
   boolean yes;
 
   @Option(names = "--env",
-      description = "Environment to target with --capture (falls back to the persisted 'env' config).")
+      description = "Scope the cost ranking to one environment, and target it with --capture "
+          + "(falls back to the persisted 'env' config).")
   @Nullable String env;
 
   @Option(names = {"-i", "--interactive"},
@@ -96,8 +97,8 @@ final class MissingPlansCommand implements Callable<Integer> {
     final String orderBy = by.name();
     try (Insight insight = Insight.open(conn)) {
       java.util.function.Function<String, List<MissingPlanMetric>> fetch = ob -> (app == null)
-          ? insight.metrics.topMissingPlans(ob, sinceMinutes, sinceHours, olderThanMinutes, olderThanHours, limit)
-          : insight.metrics.listMissingPlans(app, ob, sinceMinutes, sinceHours, olderThanMinutes, olderThanHours, limit);
+          ? insight.metrics.topMissingPlans(ob, sinceMinutes, sinceHours, olderThanMinutes, olderThanHours, limit, env)
+          : insight.metrics.listMissingPlans(app, ob, sinceMinutes, sinceHours, olderThanMinutes, olderThanHours, limit, env);
       List<MissingPlanMetric> rows = fetch.apply(orderBy);
       if (capture) {
         return captureAll(insight, rows);

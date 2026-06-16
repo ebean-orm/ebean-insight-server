@@ -169,7 +169,7 @@ class V1ControllerTest {
     assertThatThrownBy(() -> metricsApi.topAppMetrics(APP, "hash", null, null, null, null, null, 60L, 1L, null, null, null))
       .isInstanceOfSatisfying(HttpException.class, e -> assertThat(e.statusCode()).isEqualTo(400));
 
-    final List<MissingPlanMetric> missing = metricsApi.listMissingPlans(APP, null, null, null, null, null, null);
+    final List<MissingPlanMetric> missing = metricsApi.listMissingPlans(APP, null, null, null, null, null, null, null);
     assertThat(missing).extracting(MissingPlanMetric::label).contains(ORM_LABEL).doesNotContain(PLAIN_LABEL);
     // a plan-capable metric with no executions in the cost window is excluded:
     // a plan cannot be captured for a query that never runs in the window.
@@ -180,9 +180,16 @@ class V1ControllerTest {
       assertThat(m.totalMicros()).isGreaterThanOrEqualTo(0L);
     });
 
-    final List<MissingPlanMetric> missingGlobal = metricsApi.topMissingPlans("total", null, null, null, null, 50);
+    // env-scoped cost ranking: the matching env still surfaces the metric,
+    // an unknown env short-circuits to no rows (parity with top).
+    assertThat(metricsApi.listMissingPlans(APP, null, null, null, null, null, null, ENV))
+        .extracting(MissingPlanMetric::label).contains(ORM_LABEL);
+    assertThat(metricsApi.listMissingPlans(APP, null, null, null, null, null, null, "no-such-env")).isEmpty();
+
+    final List<MissingPlanMetric> missingGlobal = metricsApi.topMissingPlans("total", null, null, null, null, 50, null);
     assertThat(missingGlobal).extracting(MissingPlanMetric::label).contains(ORM_LABEL).doesNotContain(PLAIN_LABEL);
     assertThat(missingGlobal).extracting(MissingPlanMetric::label).doesNotContain(STALE_LABEL);
+    assertThat(metricsApi.topMissingPlans("total", null, null, null, null, 50, "no-such-env")).isEmpty();
 
     final List<TopGroup> globalTop = metricsApi.topMetrics("hash", null, null, null, null, null, null, null, 50, null, null, null);
     assertThat(globalTop).extracting(TopGroup::key).contains(ORM_HASH);
@@ -204,26 +211,31 @@ class V1ControllerTest {
       .isInstanceOfSatisfying(HttpException.class, e -> assertThat(e.statusCode()).isEqualTo(404));
 
     // the capture request above is durably recorded and visible until collected
-    final List<PendingPlan> pendingPlans = plansApi.listPendingPlans(null, null);
+    final List<PendingPlan> pendingPlans = plansApi.listPendingPlans(null, null, null, null);
     assertThat(pendingPlans).extracting(PendingPlan::hash).contains(ORM_HASH);
     assertThat(pendingPlans).filteredOn(p -> ORM_HASH.equals(p.hash()))
       .allSatisfy(p -> {
         assertThat(p.requestedAt()).isNotNull();
         assertThat(p.label()).isEqualTo(ORM_LABEL);
       });
-    assertThat(plansApi.listPendingPlans(APP, ENV)).extracting(PendingPlan::hash).contains(ORM_HASH);
-    assertThat(plansApi.listPendingPlans("no-such-app", null)).isEmpty();
+    assertThat(plansApi.listPendingPlans(APP, ENV, null, null)).extracting(PendingPlan::hash).contains(ORM_HASH);
+    assertThat(plansApi.listPendingPlans("no-such-app", null, null, null)).isEmpty();
+    // hash / label filters
+    assertThat(plansApi.listPendingPlans(null, null, ORM_HASH, null)).extracting(PendingPlan::hash).contains(ORM_HASH);
+    assertThat(plansApi.listPendingPlans(null, null, "no-such-hash", null)).isEmpty();
+    assertThat(plansApi.listPendingPlans(null, null, null, ORM_LABEL)).extracting(PendingPlan::hash).contains(ORM_HASH);
+    assertThat(plansApi.listPendingPlans(null, null, null, "no-such-label")).isEmpty();
 
     // an "any environment" capture (no env) is bucketed as "*" and is visible
     // regardless of env filter, since it may be collected in any environment
     final PendingResponse anyResp = plansApi.requestPlanCapture(APP, ORM_HASH, null);
     assertThat(anyResp.env()).isEqualTo("*");
-    assertThat(plansApi.listPendingPlans(null, null))
+    assertThat(plansApi.listPendingPlans(null, null, null, null))
       .anySatisfy(p -> {
         assertThat(p.hash()).isEqualTo(ORM_HASH);
         assertThat(p.env()).isEqualTo("*");
       });
-    assertThat(plansApi.listPendingPlans(null, "no-such-env"))
+    assertThat(plansApi.listPendingPlans(null, "no-such-env", null, null))
       .extracting(PendingPlan::hash).contains(ORM_HASH);
 
     seedQueryPlan();
@@ -231,7 +243,7 @@ class V1ControllerTest {
 
     // ingesting the plan marks both the env-specific and any-env requests
     // collected (the any-env one having its env filled in), so they drop out
-    assertThat(plansApi.listPendingPlans(null, null)).extracting(PendingPlan::hash).doesNotContain(ORM_HASH);
+    assertThat(plansApi.listPendingPlans(null, null, null, null)).extracting(PendingPlan::hash).doesNotContain(ORM_HASH);
 
     final List<QueryPlanSummary> appPlans = plansApi.listPlans(APP, null, null, null, null, null, null, null, null);
     assertThat(appPlans).extracting(QueryPlanSummary::hash).contains(ORM_HASH);
@@ -259,7 +271,7 @@ class V1ControllerTest {
     assertThatThrownBy(() -> plansApi.getPlan(9999999L))
       .isInstanceOfSatisfying(HttpException.class, e -> assertThat(e.statusCode()).isEqualTo(404));
 
-    final List<MissingPlanMetric> missingAfter = metricsApi.listMissingPlans(APP, null, null, null, null, null, null);
+    final List<MissingPlanMetric> missingAfter = metricsApi.listMissingPlans(APP, null, null, null, null, null, null, null);
     assertThat(missingAfter).extracting(MissingPlanMetric::label).doesNotContain(ORM_LABEL);
   }
 

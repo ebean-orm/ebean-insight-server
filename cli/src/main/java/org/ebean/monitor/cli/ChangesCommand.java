@@ -19,9 +19,11 @@ import picocli.CommandLine.Option;
     footer = {
         "  insight changes                              # most recent shape changes, all apps",
         "  insight changes --app myapp --env prod       # scope to one app/env",
-        "  insight changes --type CHANGED               # only shape changes (exclude first-seen)",
-        "  insight changes --type FIRST                 # only first-observed shapes",
+        "  insight changes --change-type CHANGED        # only shape changes (exclude first-seen)",
+        "  insight changes --change-type FIRST          # only first-observed shapes",
         "  insight changes --hash <hash>                # one query's change history",
+        "  insight changes --label Customer.findList    # filter by metric label",
+        "  insight changes --kind orm --type Customer   # filter by metric kind / bean type",
         "  insight changes --since-hours 24             # detected in the last 24h",
         "  insight changes -i                           # interactive: pick a change, diff it, drill into the query",
         "  insight plan <id>                            # inspect a plan referenced by a change"
@@ -43,7 +45,16 @@ final class ChangesCommand implements Callable<Integer> {
   @Option(names = "--hash", description = "Filter by plan hash.")
   @Nullable String hash;
 
-  @Option(names = "--type", description = "Filter by change type: FIRST or CHANGED.")
+  @Option(names = "--change-type", description = "Filter by change type: FIRST or CHANGED.")
+  @Nullable String changeType;
+
+  @Option(names = "--label", description = "Filter by metric label (e.g. Customer.findList).")
+  @Nullable String label;
+
+  @Option(names = "--kind", description = "Filter by metric kind tag (e.g. orm, dto, sql).")
+  @Nullable String kind;
+
+  @Option(names = "--type", description = "Filter by metric type tag (e.g. a bean type like Customer).")
   @Nullable String type;
 
   @Option(names = "--since-minutes", description = "Only changes detected within the last N minutes.")
@@ -63,7 +74,7 @@ final class ChangesCommand implements Callable<Integer> {
   public Integer call() {
     try (Insight insight = Insight.open(conn)) {
       List<PlanChange> changes =
-          insight.plans.listPlanChanges(app, env, hash, type, sinceMinutes, sinceHours, limit);
+          insight.plans.listPlanChanges(app, env, hash, changeType, label, kind, type, sinceMinutes, sinceHours, limit);
       if (out.json()) {
         out.printJsonList(PlanChange.class, changes);
         return 0;

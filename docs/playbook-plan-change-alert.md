@@ -15,11 +15,11 @@ the **MCP tool**, and the **raw HTTP** call. `$BASE` is the server base URL;
 
 ```bash
 # CLI — newest first; filter by app/env/type, or by one query's history (--hash)
-insight changes --type CHANGED --since-hours 24 -n 20
+insight changes --change-type CHANGED --since-hours 24 -n 20
 insight changes --app $APP --env $ENV --hash $HASH
 ```
 
-> **Interactive (CLI):** `insight changes --type CHANGED -i` walks the whole
+> **Interactive (CLI):** `insight changes --change-type CHANGED -i` walks the whole
 > playbook in one session — pick a change to see its from/to diff (step 2), then
 > press **d** to drill into that query (sql/plan/capture/trend), covering step 3.
 
@@ -86,7 +86,7 @@ MCP `metric(app=$APP, hash=$HASH)`).
 ## TL;DR
 
 ```
-changes (--type CHANGED)
+changes (--change-type CHANGED)
   → change <id>            (before/after plans)
   → stats / trend          (did it hurt, around the change time?)
   → metric                 (SQL + origin, if you need to fix it)

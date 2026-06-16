@@ -26,6 +26,8 @@ import picocli.CommandLine.Option;
     footer = {
         "  insight pending",
         "  insight pending --app myapp --env test",
+        "  insight pending --hash <hash>                # one query's in-flight capture",
+        "  insight pending --label Customer.findList    # filter by metric label",
         "  # right after a bulk request, confirm it is in flight:",
         "  insight missing-plans --app myapp --env test -n 10 --capture --yes",
         "  insight pending --app myapp"
@@ -41,10 +43,16 @@ final class PendingCommand implements Callable<Integer> {
   @Option(names = "--env", description = "Filter by environment name.")
   @Nullable String env;
 
+  @Option(names = "--hash", description = "Filter by plan hash.")
+  @Nullable String hash;
+
+  @Option(names = "--label", description = "Filter by metric label (e.g. Customer.findList).")
+  @Nullable String label;
+
   @Override
   public Integer call() {
     try (Insight insight = Insight.open(conn)) {
-      List<PendingPlan> pending = insight.plans.listPendingPlans(app, env);
+      List<PendingPlan> pending = insight.plans.listPendingPlans(app, env, hash, label);
       if (out.json()) {
         out.printJsonList(PendingPlan.class, pending);
         return 0;

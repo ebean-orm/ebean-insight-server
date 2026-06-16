@@ -176,21 +176,23 @@ class InsightToolsTest {
   void pending_passesAppEnv() {
     Map<String, Object> result = tools.call("pending", Map.of("app", "central-access", "env", "test"));
     assertThat(result.get("isError")).isEqualTo(false);
-    assertThat(apis.args("listPendingPlans")).containsExactly("central-access", "test");
+    assertThat(apis.args("listPendingPlans")).containsExactly("central-access", "test", null, null);
   }
 
   @Test
   void pending_noArgs_passesNulls() {
     tools.call("pending", Map.of());
-    assertThat(apis.args("listPendingPlans")).containsExactly(null, null);
+    assertThat(apis.args("listPendingPlans")).containsExactly(null, null, null, null);
   }
 
   @Test
   void changes_passesAllFilters() {
     tools.call("changes", Map.of("app", "central-access", "env", "test", "hash", "h1",
-        "changeType", "CHANGED", "sinceHours", 24, "limit", 10));
+        "changeType", "CHANGED", "label", "Customer.findList", "kind", "orm", "type", "Customer",
+        "sinceHours", 24, "limit", 10));
     assertThat(apis.args("listPlanChanges"))
-        .containsExactly("central-access", "test", "h1", "CHANGED", null, 24L, 10);
+        .containsExactly("central-access", "test", "h1", "CHANGED",
+            "Customer.findList", "orm", "Customer", null, 24L, 10);
   }
 
   @Test

@@ -196,17 +196,18 @@ public class InsightTools {
             .prop("sinceHours", "integer", "Window size in hours.")
             .prop("olderThanMinutes", "integer", "Only metrics whose last plan is older than N minutes (or never).")
             .prop("olderThanHours", "integer", "Only metrics whose last plan is older than N hours (or never).")
+            .prop("env", "string", "Scope the cost ranking to one environment.")
             .prop("limit", "integer", "Maximum rows."),
         a -> {
           String app = str(a, "app");
           if (app != null && !app.isBlank()) {
             return missingList.toJson(metricsApi.listMissingPlans(app, str(a, "orderBy"),
                 lng(a, "sinceMinutes"), lng(a, "sinceHours"),
-                lng(a, "olderThanMinutes"), lng(a, "olderThanHours"), intg(a, "limit")));
+                lng(a, "olderThanMinutes"), lng(a, "olderThanHours"), intg(a, "limit"), str(a, "env")));
           }
           return missingList.toJson(metricsApi.topMissingPlans(str(a, "orderBy"),
               lng(a, "sinceMinutes"), lng(a, "sinceHours"),
-              lng(a, "olderThanMinutes"), lng(a, "olderThanHours"), intg(a, "limit")));
+              lng(a, "olderThanMinutes"), lng(a, "olderThanHours"), intg(a, "limit"), str(a, "env")));
         });
 
     add("capture", "Request a fresh query-plan capture for a metric. "
@@ -224,8 +225,11 @@ public class InsightTools {
             + "Use after 'capture' to see in-flight requests; once returned they appear in 'plans'.",
         new Schema()
             .prop("app", "string", "Filter by application.")
-            .prop("env", "string", "Filter by environment."),
-        a -> pendingList.toJson(plansApi.listPendingPlans(str(a, "app"), str(a, "env"))));
+            .prop("env", "string", "Filter by environment.")
+            .prop("hash", "string", "Filter by plan hash.")
+            .prop("label", "string", "Filter by metric label (e.g. Customer.findList)."),
+        a -> pendingList.toJson(plansApi.listPendingPlans(
+            str(a, "app"), str(a, "env"), str(a, "hash"), str(a, "label"))));
 
     add("changes", "List recently detected query-plan shape changes (plan-shape change events), "
             + "newest first. A change is FIRST (first observed shape for a query) or CHANGED "
@@ -235,11 +239,15 @@ public class InsightTools {
             .prop("env", "string", "Filter by environment.")
             .prop("hash", "string", "Filter by plan hash (one query's change history).")
             .prop("changeType", "string", "Filter by change type: FIRST or CHANGED.")
+            .prop("label", "string", "Filter by metric label (e.g. Customer.findList).")
+            .prop("kind", "string", "Filter by metric kind tag (e.g. orm, dto, sql).")
+            .prop("type", "string", "Filter by metric type tag (e.g. a bean type like Customer).")
             .prop("sinceMinutes", "integer", "Only changes detected within the last N minutes.")
             .prop("sinceHours", "integer", "Only changes detected within the last N hours.")
             .prop("limit", "integer", "Maximum rows."),
         a -> planChangeList.toJson(plansApi.listPlanChanges(
             str(a, "app"), str(a, "env"), str(a, "hash"), str(a, "changeType"),
+            str(a, "label"), str(a, "kind"), str(a, "type"),
             lng(a, "sinceMinutes"), lng(a, "sinceHours"), intg(a, "limit"))));
 
     add("change", "Fetch a single plan-change event by id, including the full from/to query plans "

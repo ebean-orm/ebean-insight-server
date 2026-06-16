@@ -44,8 +44,8 @@ public final class V1MetricsController implements MetricsApi {
   }
 
   @Override
-  public List<MissingPlanMetric> listMissingPlans(String app, String orderBy, Long sinceMinutes, Long sinceHours, Long olderThanMinutes, Long olderThanHours, Integer limit) {
-    return service.listMissingPlans(app, orderBy, sinceMinutes, sinceHours, olderThanMinutes, olderThanHours, limit);
+  public List<MissingPlanMetric> listMissingPlans(String app, String orderBy, Long sinceMinutes, Long sinceHours, Long olderThanMinutes, Long olderThanHours, Integer limit, String env) {
+    return service.listMissingPlans(app, orderBy, sinceMinutes, sinceHours, olderThanMinutes, olderThanHours, limit, env);
   }
 
   @Override
@@ -54,7 +54,7 @@ public final class V1MetricsController implements MetricsApi {
   }
 
   @Override
-  public List<MissingPlanMetric> topMissingPlans(String orderBy, Long sinceMinutes, Long sinceHours, Long olderThanMinutes, Long olderThanHours, Integer limit) {
-    return service.topMissingPlans(orderBy, sinceMinutes, sinceHours, olderThanMinutes, olderThanHours, limit);
+  public List<MissingPlanMetric> topMissingPlans(String orderBy, Long sinceMinutes, Long sinceHours, Long olderThanMinutes, Long olderThanHours, Integer limit, String env) {
+    return service.topMissingPlans(orderBy, sinceMinutes, sinceHours, olderThanMinutes, olderThanHours, limit, env);
   }
 }
