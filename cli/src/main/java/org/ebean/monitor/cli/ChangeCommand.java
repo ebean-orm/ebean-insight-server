@@ -20,7 +20,7 @@ import picocli.CommandLine.Parameters;
         "  insight change 123           # summary + unified diff of from/to EXPLAIN",
         "  insight change 123 --raw     # to-plan EXPLAIN text only",
         "  insight change 123 -o json   # full from/to plans as JSON",
-        "  # find a change id first:  insight changes --type CHANGED"
+        "  # find a change id first:  insight changes --change-type CHANGED"
     })
 final class ChangeCommand implements Callable<Integer> {
 
