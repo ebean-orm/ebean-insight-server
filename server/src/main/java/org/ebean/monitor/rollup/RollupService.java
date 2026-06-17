@@ -35,9 +35,11 @@ public class RollupService implements Runnable {
   private boolean active;
 
   private final Database database;
+  private final RollupPlanTrigger rollupPlanTrigger;
 
-  public RollupService(Database database) {
+  public RollupService(Database database, RollupPlanTrigger rollupPlanTrigger) {
     this.database = database;
+    this.rollupPlanTrigger = rollupPlanTrigger;
   }
 
   @PostConstruct
@@ -98,6 +100,7 @@ public class RollupService implements Runnable {
     if (lastRollupTime == null || lastRollupTime.isBefore(currentRollupTime)) {
       final Rollup rollup = new Rollup(database, currentRollupTime);
       rollup.rollup();
+      rollupPlanTrigger.onRollup(currentRollupTime);
     } else {
       log.info("skipping already existing rollup");
     }

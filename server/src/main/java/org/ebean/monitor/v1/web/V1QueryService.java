@@ -28,6 +28,7 @@ import org.ebean.monitor.v1.model.Env;
 import org.ebean.monitor.v1.model.MetricTimeBucket;
 import org.ebean.monitor.v1.model.MetricTimeseries;
 import org.ebean.monitor.v1.model.MissingPlanMetric;
+import org.ebean.monitor.rollup.RegressionPlanMetric;
 import org.ebean.monitor.v1.model.PendingResponse;
 import org.ebean.monitor.v1.model.PendingPlan;
 import org.ebean.monitor.v1.model.PlanChange;
@@ -670,6 +671,75 @@ public final class V1QueryService {
   }
 
   // ---------------------------------------------------------------------------
+  // Regression plan detection
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Returns plan-capable metrics whose mean execution time over the last
+   * {@code recentHours} hours has regressed by at least {@code ratio} times
+   * compared to their mean over the prior {@code baselineDays} days.
+   *
+   * <p>A minimum baseline mean of {@code minMicros} prevents noise from very
+   * fast queries with large percentage swings. A minimum of {@code minCount}
+   * calls in both windows filters single-execution spikes.
+   */
+  public List<RegressionPlanMetric> topRegressionPlans(int recentHours, int baselineDays,
+                                                       double ratio, long minMicros,
+                                                       int minCount, int limit) {
+    final Instant now = Instant.now();
+    final Instant recentFrom = now.minus(Duration.ofHours(recentHours));
+    final Instant baselineFrom = recentFrom.minus(Duration.ofDays(baselineDays));
+    final String sql = """
+      WITH recent AS (
+        SELECT metric_id,
+               SUM(total) / NULLIF(SUM(count), 0) AS mean
+        FROM ebean_insight.timed_m60
+        WHERE event_time > :recentFrom
+        GROUP BY metric_id
+        HAVING SUM(count) >= :minCount
+      ),
+      baseline AS (
+        SELECT metric_id,
+               SUM(total) / NULLIF(SUM(count), 0) AS mean
+        FROM ebean_insight.timed_m60
+        WHERE event_time > :baselineFrom AND event_time <= :recentFrom
+        GROUP BY metric_id
+        HAVING SUM(count) >= :minCount
+      )
+      SELECT m.id              AS metric_id,
+             a.name            AS app_name,
+             COALESCE(m.tags ->> 'label', m.name) AS label,
+             m.key             AS key,
+             r.mean            AS recent_mean,
+             b.mean            AS baseline_mean
+      FROM recent r
+      JOIN baseline b ON b.metric_id = r.metric_id
+      JOIN ebean_insight.app_metric m ON m.id = r.metric_id
+      JOIN ebean_insight.app a ON a.id = m.app_id
+      WHERE m.plan_capable = true
+        AND b.mean > :minMicros
+        AND r.mean > b.mean * :ratio
+      ORDER BY (r.mean::double precision / NULLIF(b.mean, 1)) DESC, m.name ASC
+      LIMIT :limit
+      """;
+    return DB.sqlQuery(sql)
+      .setParameter("recentFrom", recentFrom)
+      .setParameter("baselineFrom", baselineFrom)
+      .setParameter("minCount", minCount)
+      .setParameter("minMicros", minMicros)
+      .setParameter("ratio", ratio)
+      .setParameter("limit", limit)
+      .mapTo((rs, _) -> new RegressionPlanMetric(
+        rs.getString("app_name"),
+        rs.getString("key"),
+        rs.getString("label"),
+        rs.getLong("recent_mean"),
+        rs.getLong("baseline_mean")
+      ))
+      .findList();
+  }
+
+  // ---------------------------------------------------------------------------
   // Plans
   // ---------------------------------------------------------------------------
 
@@ -734,6 +804,24 @@ public final class V1QueryService {
     new DCaptureRequest(app, metric.getKey())
       .setEnv(envName == null ? null : findOrCreateEnv(envName))
       .setLabel(metric.getName())
+      .setRequestedAt(Instant.now())
+      .save();
+  }
+
+  /**
+   * Push and record a capture request from an internal trigger (e.g. rollup-based
+   * auto-capture). Bypasses HTTP-layer validation; the caller must have already
+   * determined the metric is plan-capable. Uses {@code ANY_ENV}: delivered to
+   * whichever forwarder polls first, regardless of environment.
+   */
+  public void autoPushCapture(String appName, String metricKey, String metricLabel) {
+    final DApp app = findApp(appName);
+    if (app == null) {
+      return;
+    }
+    messageService.pushMessage(appName, MessageService.ANY_ENV, "qp:" + metricKey);
+    new DCaptureRequest(app, metricKey)
+      .setLabel(metricLabel)
       .setRequestedAt(Instant.now())
       .save();
   }
