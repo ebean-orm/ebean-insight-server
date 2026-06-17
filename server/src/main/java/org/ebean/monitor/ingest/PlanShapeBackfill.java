@@ -27,7 +27,7 @@ public class PlanShapeBackfill {
 
   private final Database database;
 
-  PlanShapeBackfill(Database database) {
+  public PlanShapeBackfill(Database database) {
     this.database = database;
   }
 
