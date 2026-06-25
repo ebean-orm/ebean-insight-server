@@ -20,7 +20,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.compiler.release>25</maven.compiler.release>
 
-    <ebean.version>17.8.0</ebean.version>
+    <ebean.version>19.0.0</ebean.version>
     <avaje-inject.version>12.5</avaje-inject.version>
     <avaje-http.version>3.9</avaje-http.version>
     <avaje-jex.version>3.5</avaje-jex.version>
