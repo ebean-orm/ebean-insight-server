@@ -2,9 +2,6 @@ package org.ebean.monitor.ingest;
 
 import io.ebean.Database;
 import io.avaje.config.Config;
-import io.avaje.jsonb.JsonType;
-import io.avaje.jsonb.Jsonb;
-import io.avaje.jsonb.Types;
 import org.ebean.monitor.api.MetricRequest;
 
 import jakarta.inject.Singleton;
@@ -44,15 +41,13 @@ public class IngestMessage {
   private final Database database;
   private final ProcessHeader lookup;
   private final ProcessMetrics lookupMetrics;
-  private final JsonType<Map<String, String>> tagsType;
   private final boolean changeEnabled;
   private final boolean firstObserved;
 
-  IngestMessage(Database database, ProcessHeader lookup, ProcessMetrics lookupMetrics, Jsonb jsonb) {
+  IngestMessage(Database database, ProcessHeader lookup, ProcessMetrics lookupMetrics) {
     this.database = database;
     this.lookup = lookup;
     this.lookupMetrics = lookupMetrics;
-    this.tagsType = jsonb.type(Types.mapOf(String.class));
     final boolean storePlans = Config.getBool("plans.store.enabled", Config.getBool("metrics.store.enabled", true));
     this.changeEnabled = Config.getBool("plans.change.enabled", storePlans);
     this.firstObserved = Config.getBool("plans.change.firstObserved", true);
@@ -263,7 +258,10 @@ public class IngestMessage {
    */
   private void applyIdentity(DQueryPlan plan, @Nullable DAppMetric metric, QueryPlanRequest.QPlan req) {
     if (metric != null) {
-      final Map<String, String> tags = parseTags(metric.getTags());
+      Map<String, String> tags = metric.getTags();
+      if (tags == null) {
+        tags = Map.of();
+      }
       final String label = tags.get("label");
       plan.setName(metric.getName())
         .setKind(tags.get("kind"))
@@ -301,13 +299,5 @@ public class IngestMessage {
 
   private static boolean notBlank(@Nullable String value) {
     return value != null && !value.isBlank();
-  }
-
-  private Map<String, String> parseTags(@Nullable String tagsJson) {
-    if (tagsJson == null || tagsJson.isBlank()) {
-      return Map.of();
-    }
-    final Map<String, String> tags = tagsType.fromJson(tagsJson);
-    return tags != null ? tags : Map.of();
   }
 }

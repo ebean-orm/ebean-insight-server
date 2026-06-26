@@ -14,7 +14,7 @@ class PlanCapableTest {
   }
 
   private boolean v2(String kind, String label) {
-    Map<String, Object> tags = new LinkedHashMap<>();
+    Map<String, String> tags = new LinkedHashMap<>();
     if (kind != null) {
       tags.put("kind", kind);
     }

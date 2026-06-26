@@ -16,11 +16,11 @@ final class PlanCapable {
   private PlanCapable() {
   }
 
-  static boolean derive(String name, Map<String, Object> tags) {
+  static boolean derive(String name, Map<String, String> tags) {
     if (tags != null && !tags.isEmpty()) {
-      final Object kind = tags.get("kind");
-      final Object labelValue = tags.get("label");
-      final String label = labelValue == null ? "" : labelValue.toString();
+      final String kind = tags.get("kind");
+      final String labelValue = tags.get("label");
+      final String label = labelValue == null ? "" : labelValue;
       if ("orm".equals(kind)) {
         return !label.startsWith("update.");
       }

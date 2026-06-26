@@ -19,7 +19,7 @@ public class IngestMain {
 
     ProcessHeader header = new ProcessHeader();
     ProcessMetrics lookupMetrics = new ProcessMetrics();
-    IngestMessage ingest = new IngestMessage(db, header, lookupMetrics, io.avaje.jsonb.Jsonb.instance());
+    IngestMessage ingest = new IngestMessage(db, header, lookupMetrics);
 
     ingest.ingest(req("/example2/ats-1.json"));
     ingest.ingest(req("/example2/ats-1b.json"));

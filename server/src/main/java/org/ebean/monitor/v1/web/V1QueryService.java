@@ -3,9 +3,6 @@ package org.ebean.monitor.v1.web;
 import io.avaje.inject.Component;
 import io.avaje.jex.http.BadRequestException;
 import io.avaje.jex.http.NotFoundException;
-import io.avaje.jsonb.JsonType;
-import io.avaje.jsonb.Jsonb;
-import io.avaje.jsonb.Types;
 import io.ebean.DB;
 import io.ebean.SqlQuery;
 import org.ebean.monitor.domain.DApp;
@@ -101,11 +98,9 @@ public final class V1QueryService {
   private static final long PENDING_STALE_MINUTES = 15L;
 
   private final MessageService messageService;
-  private final JsonType<Map<String, String>> tagsType;
 
-  public V1QueryService(MessageService messageService, Jsonb jsonb) {
+  public V1QueryService(MessageService messageService) {
     this.messageService = messageService;
-    this.tagsType = jsonb.type(Types.mapOf(String.class));
   }
 
   // ---------------------------------------------------------------------------
@@ -1188,8 +1183,7 @@ public final class V1QueryService {
   }
 
   /** Display label: the {@code label} tag when present, otherwise the family name. */
-  String displayLabel(String name, @Nullable String tagsJson) {
-    final Map<String, String> tags = tagsToStringMap(tagsJson);
+  String displayLabel(String name, @Nullable Map<String, String> tags) {
     if (tags != null) {
       final String label = tags.get("label");
       if (label != null) {
@@ -1200,11 +1194,7 @@ public final class V1QueryService {
   }
 
   @Nullable
-  Map<String, String> tagsToStringMap(@Nullable String tagsJson) {
-    if (tagsJson == null || tagsJson.isEmpty()) {
-      return null;
-    }
-    final Map<String, String> tags = tagsType.fromJson(tagsJson);
+  Map<String, String> tagsToStringMap(@Nullable Map<String, String> tags) {
     return tags == null || tags.isEmpty() ? null : tags;
   }
 

@@ -16,11 +16,11 @@ final class TagString {
   /**
    * Parse the canonical tag string into an ordered map, or null when blank.
    */
-  static Map<String, Object> parse(String tags) {
+  static Map<String, String> parse(String tags) {
     if (tags == null || tags.isEmpty()) {
       return null;
     }
-    Map<String, Object> map = new LinkedHashMap<>();
+    Map<String, String> map = new LinkedHashMap<>();
     for (String pair : tags.split(",")) {
       if (pair.isEmpty()) {
         continue;

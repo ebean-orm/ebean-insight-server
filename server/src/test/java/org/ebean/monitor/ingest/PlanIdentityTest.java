@@ -14,6 +14,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -32,7 +33,7 @@ class PlanIdentityTest {
   }
 
   private IngestMessage ingest() {
-    return new IngestMessage(database, new ProcessHeader(), new ProcessMetrics(), io.avaje.jsonb.Jsonb.instance());
+    return new IngestMessage(database, new ProcessHeader(), new ProcessMetrics());
   }
 
   private DApp app(String name) {
@@ -80,7 +81,7 @@ class PlanIdentityTest {
     String appName = "pit-metric-" + System.nanoTime();
     String hash = "pit-h-" + System.nanoTime();
     DApp app = app(appName);
-    String tags = "{\"kind\":\"orm\",\"type\":\"Customer\",\"label\":\"Customer.findList\"}";
+    Map<String, String> tags = Map.of("kind", "orm", "type", "Customer", "label", "Customer.findList");
     database.save(new DAppMetric(app, hash, "ebean.query", tags, true));
 
     ingest().ingestQueryPlans(req(appName, hash, "orm.ignored.flat"));

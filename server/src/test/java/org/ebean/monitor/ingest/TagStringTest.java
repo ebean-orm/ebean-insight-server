@@ -11,7 +11,7 @@ class TagStringTest {
 
   @Test
   void parsesCanonicalString() {
-    Map<String, Object> map = TagString.parse("kind:orm,label:Customer.findList,type:Customer");
+    Map<String, String> map = TagString.parse("kind:orm,label:Customer.findList,type:Customer");
     assertThat(map).containsExactly(
       entry("kind", "orm"),
       entry("label", "Customer.findList"),
@@ -27,7 +27,7 @@ class TagStringTest {
   @Test
   void valueWithColonKeepsRemainder() {
     // only the first ':' separates key from value
-    Map<String, Object> map = TagString.parse("label:Foo:Bar");
+    Map<String, String> map = TagString.parse("label:Foo:Bar");
     assertThat(map).containsExactly(entry("label", "Foo:Bar"));
   }
 }
