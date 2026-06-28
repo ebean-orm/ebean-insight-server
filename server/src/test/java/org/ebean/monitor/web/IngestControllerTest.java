@@ -7,6 +7,7 @@ import org.ebean.monitor.domain.DApp;
 import org.ebean.monitor.domain.DAppMetric;
 import org.ebean.monitor.domain.DEnv;
 import org.ebean.monitor.domain.DQueryPlan;
+import org.ebean.monitor.domain.query.QDAppMetric;
 import org.ebean.monitor.domain.query.QDQueryPlan;
 import org.ebean.monitor.v1.model.App;
 import org.ebean.monitor.v1.model.Env;
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.Test;
 
 import java.net.http.HttpResponse;
 import java.util.List;
+import java.util.function.BooleanSupplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.ebean.monitor.ResourceHelp.read;
@@ -31,33 +33,29 @@ class IngestControllerTest {
     final String bodyB = read("/request/req-3b.json");
     final String bodyC = read("/request/req-3c.json");
 
-      System.out.println("---------------- ingesting");
-      ingest(bodyA);
-      ingest(bodyB);
-      ingest(bodyC);
+    ingest(bodyA);
+    ingest(bodyB);
+    ingest(bodyC);
 
-      System.out.println("---------------- sleeping");
-      // allow queue consumer to process
-      Thread.sleep(500);
+    awaitAppMetric("int1", "OrderDao.findOrdersForPublishing");
 
-      var envNames = DEnv.find.findAll().stream().map(Env::name).toList();
-      assertThat(envNames).contains("dev1");
+    var envNames = DEnv.find.findAll().stream().map(Env::name).toList();
+    assertThat(envNames).contains("dev1");
 
-      var apps = DApp.find.findAll();
-      assertThat(apps).extracting(App::name).contains("int1");
-      final App app1 = apps.stream()
-        .filter(a -> a.name().equals("int1"))
-        .findFirst()
-        .orElseThrow();
+    var apps = DApp.find.findAll();
+    assertThat(apps).extracting(App::name).contains("int1");
+    final App app1 = apps.stream()
+      .filter(a -> a.name().equals("int1"))
+      .findFirst()
+      .orElseThrow();
 
-      var appMetrics = DAppMetric.find.byApp(DApp.find.ref(app1.id()));
-      assertThat(appMetrics)
-        .extracting(DAppMetric::getName)
-        .contains("OrderDao.findOrdersForPublishing");
+    var appMetrics = DAppMetric.find.byApp(DApp.find.ref(app1.id()));
+    assertThat(appMetrics)
+      .extracting(DAppMetric::getName)
+      .contains("OrderDao.findOrdersForPublishing");
 
-      ingestQueryPlan();
-      // allow queue consumer to process
-      Thread.sleep(500);
+    ingestQueryPlan();
+    awaitQueryPlan("8a519a4c120289bd505a4a79c27f2895");
 
     List<DQueryPlan> plans = new QDQueryPlan()
       .hash.eq("8a519a4c120289bd505a4a79c27f2895")
@@ -89,5 +87,36 @@ class IngestControllerTest {
       .asString();
 
     assertThat(hres.statusCode()).isEqualTo(204);
+  }
+
+  /**
+   * Wait until the named app metric has been persisted. Ingest is async (background
+   * queue consumer), so polling is deterministic where a fixed sleep races the
+   * consumer under load.
+   */
+  private void awaitAppMetric(String appName, String metricName) {
+    await("app metric '" + metricName + "' for app '" + appName + "'",
+      () -> new QDAppMetric().app.name.eq(appName).name.eq(metricName).findCount() >= 1);
+  }
+
+  /** Wait until a query plan with the given hash has been persisted. */
+  private void awaitQueryPlan(String hash) {
+    await("query_plan with hash '" + hash + "'",
+      () -> new QDQueryPlan().hash.eq(hash).findCount() >= 1);
+  }
+
+  private void await(String desc, BooleanSupplier condition) {
+    for (int i = 0; i < 200; i++) {
+      if (condition.getAsBoolean()) {
+        return;
+      }
+      try {
+        Thread.sleep(25);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        return;
+      }
+    }
+    throw new AssertionError("Timed out waiting for " + desc);
   }
 }

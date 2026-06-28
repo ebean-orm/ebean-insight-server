@@ -5,6 +5,7 @@ import io.avaje.http.client.HttpException;
 import io.avaje.inject.test.InjectTest;
 import io.ebean.Database;
 import jakarta.inject.Inject;
+import org.ebean.monitor.domain.query.QDQueryPlan;
 import org.ebean.monitor.domain.query.QDTimedEntry;
 import org.ebean.monitor.rollup.Rollup;
 import org.ebean.monitor.v1.AppsApi;
@@ -30,6 +31,7 @@ import java.net.http.HttpResponse;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.function.BooleanSupplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -58,10 +60,12 @@ class V1ControllerTest {
   private final Instant staleMinute = eventMinute.minus(120, ChronoUnit.MINUTES);
 
   @Test
-  void v1Endpoints() throws InterruptedException {
+  void v1Endpoints() {
     seedMetrics();
     seedStaleMetric();
-    Thread.sleep(500);
+    awaitTimedEntries(APP, ORM_LABEL, 1);
+    awaitTimedEntries(APP, PLAIN_LABEL, 1);
+    awaitTimedEntries(APP, STALE_LABEL, 1);
     rollup();
     rollupStale();
 
@@ -240,7 +244,7 @@ class V1ControllerTest {
       .extracting(PendingPlan::hash).contains(ORM_HASH);
 
     seedQueryPlan();
-    Thread.sleep(500);
+    awaitQueryPlan(ORM_HASH);
 
     // ingesting the plan marks both the env-specific and any-env requests
     // collected (the any-env one having its env filled in), so they drop out
@@ -281,17 +285,13 @@ class V1ControllerTest {
   }
 
   /**
-   * Wait until at least {@code expected} {@code timed_entry} rows have been
-   * persisted for metrics with the given name. Ingest is processed asynchronously
-   * by a background queue consumer, so polling the resulting rows is deterministic
+   * Poll until {@code condition} holds. Ingest is processed asynchronously by a
+   * background queue consumer, so polling the resulting rows is deterministic
    * where a fixed sleep races the consumer under load.
    */
-  private void awaitTimedEntries(String metricName, int expected) {
+  private void await(String desc, BooleanSupplier condition) {
     for (int i = 0; i < 200; i++) {
-      final int count = new QDTimedEntry(database)
-        .metric.name.eq(metricName)
-        .findCount();
-      if (count >= expected) {
+      if (condition.getAsBoolean()) {
         return;
       }
       try {
@@ -301,8 +301,28 @@ class V1ControllerTest {
         return;
       }
     }
-    throw new AssertionError("Timed out waiting for " + expected
-      + " timed_entry rows for metric '" + metricName + "'");
+    throw new AssertionError("Timed out waiting for " + desc);
+  }
+
+  /** Wait until at least {@code expected} timed entries exist for the metric name. */
+  private void awaitTimedEntries(String metricName, int expected) {
+    await(expected + " timed_entry rows for metric '" + metricName + "'",
+      () -> new QDTimedEntry(database).metric.name.eq(metricName).findCount() >= expected);
+  }
+
+  /** Wait until at least {@code expected} timed entries exist for the app + metric name. */
+  private void awaitTimedEntries(String app, String metricName, int expected) {
+    await(expected + " timed_entry rows for app '" + app + "' metric '" + metricName + "'",
+      () -> new QDTimedEntry(database)
+        .metric.app.name.eq(app)
+        .metric.name.eq(metricName)
+        .findCount() >= expected);
+  }
+
+  /** Wait until a query plan with the given hash has been persisted. */
+  private void awaitQueryPlan(String hash) {
+    await("query_plan with hash '" + hash + "'",
+      () -> new QDQueryPlan(database).hash.eq(hash).findCount() >= 1);
   }
 
   private void rollupStale() {

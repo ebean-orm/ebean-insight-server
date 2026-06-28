@@ -4,6 +4,7 @@ import io.avaje.http.client.HttpClient;
 import io.avaje.inject.test.InjectTest;
 import io.ebean.Database;
 import jakarta.inject.Inject;
+import org.ebean.monitor.domain.query.QDTimedEntry;
 import org.ebean.monitor.rollup.Rollup;
 import org.ebean.monitor.v1.MetricsApi;
 import org.ebean.monitor.v1.model.TopGroup;
@@ -36,9 +37,9 @@ class TopGroupQueryTest {
   private final Instant eventMinute = Instant.now().truncatedTo(ChronoUnit.MINUTES);
 
   @Test
-  void topGroupingLevels() throws InterruptedException {
+  void topGroupingLevels() {
     seedV2();
-    Thread.sleep(500);
+    awaitTimedEntries(APP, "ebean.query", 3);
     new Rollup(database, eventMinute).rollup();
 
     final MetricsApi metrics = httpClient.create(MetricsApi.class);
@@ -115,5 +116,30 @@ class TopGroupQueryTest {
       .POST()
       .asString();
     assertThat(res.statusCode()).isEqualTo(204);
+  }
+
+  /**
+   * Wait until at least {@code expected} timed entries exist for the app + metric
+   * name. Ingest is async (background queue consumer), so polling is deterministic
+   * where a fixed sleep races the consumer under load.
+   */
+  private void awaitTimedEntries(String app, String metricName, int expected) {
+    for (int i = 0; i < 200; i++) {
+      final int count = new QDTimedEntry(database)
+        .metric.app.name.eq(app)
+        .metric.name.eq(metricName)
+        .findCount();
+      if (count >= expected) {
+        return;
+      }
+      try {
+        Thread.sleep(25);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        return;
+      }
+    }
+    throw new AssertionError("Timed out waiting for " + expected
+      + " timed_entry rows for app '" + app + "' metric '" + metricName + "'");
   }
 }
