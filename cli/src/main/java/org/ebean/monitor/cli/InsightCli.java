@@ -65,6 +65,9 @@ public final class InsightCli implements Runnable {
   }
 
   public static void main(String[] args) {
+    // Captured query plans (SQL + binds + EXPLAIN) can exceed avaje-jsonb's default
+    // 50k char string-buffer limit; raise it before any HTTP/JSON parsing.
+    System.setProperty("jsonb.parserMaxStringBuffer", "2000000");
     int exitCode = new CommandLine(new InsightCli())
         .setExecutionExceptionHandler((ex, commandLine, parseResult) -> {
           if (ex instanceof CliException) {

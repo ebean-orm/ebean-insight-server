@@ -13,6 +13,9 @@ import io.avaje.jex.AvajeJex;
 public class MCPApplication {
 
   public static void main(String[] args) {
+    // set before AvajeJex.start() triggers DI wiring of the Jsonb bean; captured
+    // query plans can exceed avaje-jsonb's default 50k char string-buffer limit
+    System.setProperty("jsonb.parserMaxStringBuffer", "2000000");
     AvajeJex.start();
   }
 }
