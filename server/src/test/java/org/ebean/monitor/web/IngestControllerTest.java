@@ -45,7 +45,10 @@ class IngestControllerTest {
 
       var apps = DApp.find.findAll();
       assertThat(apps).extracting(App::name).contains("int1");
-      final App app1 = apps.getFirst();
+      final App app1 = apps.stream()
+        .filter(a -> a.name().equals("int1"))
+        .findFirst()
+        .orElseThrow();
 
       var appMetrics = DAppMetric.find.byApp(DApp.find.ref(app1.id()));
       assertThat(appMetrics)
