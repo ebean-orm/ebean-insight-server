@@ -5,6 +5,7 @@ import io.avaje.http.client.HttpException;
 import io.avaje.inject.test.InjectTest;
 import io.ebean.Database;
 import jakarta.inject.Inject;
+import org.ebean.monitor.domain.query.QDTimedEntry;
 import org.ebean.monitor.rollup.Rollup;
 import org.ebean.monitor.v1.AppsApi;
 import org.ebean.monitor.v1.EnvsApi;
@@ -279,6 +280,31 @@ class V1ControllerTest {
     new Rollup(database, eventMinute).rollup();
   }
 
+  /**
+   * Wait until at least {@code expected} {@code timed_entry} rows have been
+   * persisted for metrics with the given name. Ingest is processed asynchronously
+   * by a background queue consumer, so polling the resulting rows is deterministic
+   * where a fixed sleep races the consumer under load.
+   */
+  private void awaitTimedEntries(String metricName, int expected) {
+    for (int i = 0; i < 200; i++) {
+      final int count = new QDTimedEntry(database)
+        .metric.name.eq(metricName)
+        .findCount();
+      if (count >= expected) {
+        return;
+      }
+      try {
+        Thread.sleep(25);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        return;
+      }
+    }
+    throw new AssertionError("Timed out waiting for " + expected
+      + " timed_entry rows for metric '" + metricName + "'");
+  }
+
   private void rollupStale() {
     new Rollup(database, staleMinute).rollup();
   }
@@ -373,7 +399,10 @@ class V1ControllerTest {
     final String sharedName = "shared.txn.perapptest";
     seedSharedMetric("perapp-a", sharedName, "perapphasha000000000000000000001", 4, 400);
     seedSharedMetric("perapp-b", sharedName, "perapphashb000000000000000000001", 6, 600);
-    Thread.sleep(200);
+    // ingest is async (queue + background consumer); wait until both metrics'
+    // timed entries are persisted before rolling up, otherwise the rollup (and
+    // the per-app assertion below) can race the consumer under CI load.
+    awaitTimedEntries(sharedName, 2);
     rollup();
 
     final MetricsApi metricsApi = httpClient.create(MetricsApi.class);
