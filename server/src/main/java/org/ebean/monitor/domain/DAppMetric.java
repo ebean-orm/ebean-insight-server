@@ -6,6 +6,7 @@ import io.ebean.annotation.DbJsonB;
 import io.ebean.annotation.Identity;
 import io.ebean.annotation.Index;
 import io.ebean.annotation.Length;
+import io.ebean.annotation.MutationDetection;
 import io.ebean.annotation.NotNull;
 import org.ebean.monitor.domain.finder.DAppMetricFinder;
 
@@ -91,7 +92,7 @@ public class DAppMetric extends BaseDomain {
    * mapped by Ebean as a {@code Map<String,String>}. Null for legacy v1 metrics. Set once at
    * metric creation.
    */
-  @DbJsonB
+  @DbJsonB(mutationDetection = MutationDetection.NONE)
   private Map<String, String> tags;
 
   public DAppMetric(DApp app, String key, String name, Map<String, String> tags, boolean planCapable) {
