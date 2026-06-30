@@ -70,6 +70,7 @@
               <generateRecordBuilders>true</generateRecordBuilders>
               <generateClientAnnotations>false</generateClientAnnotations>
               <dateTimeType>INSTANT</dateTimeType>
+              <nullableAnnotation>NONE</nullableAnnotation>
             </configuration>
           </execution>
         </executions>
