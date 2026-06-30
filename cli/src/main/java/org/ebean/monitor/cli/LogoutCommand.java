@@ -11,7 +11,7 @@ final class LogoutCommand implements Callable<Integer> {
 
   @Override
   public Integer call() {
-    TokenStore store = new TokenStore();
+    TokenStore store = TokenStore.forActiveProfile();
     boolean removed = store.clear();
     System.out.println(removed
         ? "Logged out. Removed " + store.file()

@@ -25,7 +25,7 @@ final class AuthSession {
   private final Function<AuthConfig, CognitoOidc> oidcFactory;
 
   AuthSession() {
-    this(new TokenStore(), new AuthConfig());
+    this(TokenStore.forActiveProfile(), new AuthConfig());
   }
 
   AuthSession(TokenStore store, AuthConfig authConfig) {

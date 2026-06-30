@@ -181,11 +181,33 @@ skips the native build during development.
 
 ## First-run setup
 
-Once `insight --version` works, point the CLI at your server. Two ways:
+Once `insight --version` works, point the CLI at your server.
 
-### Via Kubernetes port-forward (default, recommended)
+### Via a static URL + OAuth2 login (recommended)
 
-Persist your cluster target once so every command picks it up automatically:
+Persist the server URL and Cognito auth settings once, then log in:
+
+```bash
+insight config set url       https://<insight-host>
+insight config set auth-client-id  <public-app-client-id>
+insight config set auth-domain     https://<pool>.auth.<region>.amazoncognito.com
+insight config set auth-scope      openid
+insight login                # opens browser; caches a bearer token
+insight envs                 # smoke test
+```
+
+`insight login` runs the OAuth2 Authorization-Code + PKCE flow and caches a
+bearer token in `~/.insight/token.json`.  Subsequent commands load that token
+and silently refresh it when it expires.  Re-run `insight login` if you are
+ever prompted again.
+
+See the [Authentication](../cli/README.md#authentication) section of the CLI
+README for the full auth option reference.
+
+### Via Kubernetes port-forward
+
+If the server is only reachable inside the cluster (no Ingress), the CLI can
+open a `kubectl port-forward` for you.  Persist your cluster target once:
 
 ```bash
 insight config set namespace ebean-insight
@@ -197,17 +219,6 @@ insight envs                                # smoke test
 This requires the RBAC verbs documented in
 [`install-server.md`](install-server.md#rbac-for-cli-users-port-forward-auth)
 (`pods/portforward` in the target namespace).
-
-### Via a static URL (Ingress, port-forward you manage yourself)
-
-```bash
-insight envs --url https://insight.example.com
-```
-
-If the server has JWT auth enabled (`insight.auth.enabled=true`), authenticate
-first with `insight login` (OAuth2 / Cognito) — the CLI then sends
-`Authorization: Bearer <token>` on every request. See the
-[Authentication](../cli/README.md#authentication) section of the CLI README.
 
 For both modes, see [`cli/README.md`](../cli/README.md) for the full command
 reference, daemon mode (`insight forward`), JSON output, and config

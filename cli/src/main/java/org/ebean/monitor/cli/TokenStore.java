@@ -11,6 +11,7 @@ import java.util.Set;
 
 import io.avaje.jsonb.JsonType;
 import io.avaje.jsonb.Jsonb;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Reads and writes the cached OAuth2 tokens in {@code ~/.insight/token.json}.
@@ -32,9 +33,23 @@ final class TokenStore {
     this.type = Jsonb.builder().build().type(TokenData.class);
   }
 
+  /** Token store for the currently active profile, or the default when none is active. */
+  static TokenStore forActiveProfile() {
+    String profile = new InsightConfig().activeProfile();
+    return new TokenStore(tokenFile(profile));
+  }
+
   static Path defaultFile() {
+    return tokenFile(null);
+  }
+
+  /** Token file path for the given profile name (null = default). */
+  static Path tokenFile(@Nullable String profileName) {
     String home = System.getProperty("user.home", ".");
-    return Path.of(home, ".insight", "token.json");
+    if (profileName == null || profileName.isBlank()) {
+      return Path.of(home, ".insight", "token.json");
+    }
+    return Path.of(home, ".insight", "token-" + profileName + ".json");
   }
 
   Path file() {

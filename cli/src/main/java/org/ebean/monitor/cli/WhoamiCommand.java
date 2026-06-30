@@ -34,7 +34,7 @@ final class WhoamiCommand implements Callable<Integer> {
 
   @Override
   public Integer call() {
-    Optional<TokenData> cached = new TokenStore().load();
+    Optional<TokenData> cached = TokenStore.forActiveProfile().load();
     if (cached.isEmpty()) {
       if (out.json()) {
         System.out.println("null");

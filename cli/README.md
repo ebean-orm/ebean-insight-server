@@ -48,11 +48,11 @@ to pass it every time. Explicit flags always override the stored value, which in
 turn overrides the built-in default. Manage it with `insight config`:
 
 ```bash
-insight config set namespace dev-core
-insight config set service ebean-insight
+insight config set url https://insight.example.com
+insight config set auth-client-id <id>
 insight config list
-insight config get namespace
-insight config unset service
+insight config get url
+insight config unset url
 insight config path                 # prints the file location
 ```
 
@@ -60,7 +60,7 @@ Persistable keys: `url`, `namespace`, `service`, `target-port`, `local-port`,
 `context`, `ready-timeout`, `output`, `auth-domain`,
 `auth-user-pool-id`, `auth-client-id`, `auth-scope`, `auth-redirect-port`.
 
-Resolution precedence for every option: **explicit flag → config file →
+Resolution precedence for every option: **explicit flag → active profile → base config →
 built-in default** (the built-in default only exists for non-identifying values
 such as `target-port`). For example, set JSON as your default output format:
 
@@ -68,6 +68,43 @@ such as `target-port`). For example, set JSON as your default output format:
 insight config set output json     # every command now defaults to -o json
 insight envs                       # JSON
 insight envs -o text               # flag still overrides to plain text
+```
+
+## Profiles
+
+When you need to switch between targets (e.g. prod vs test, or APAC vs NA),
+use named profiles. Each profile is a `.properties` file in
+`~/.insight/profiles/` and an associated token file `~/.insight/token-<name>.json`.
+The active profile's settings are merged over the base config at runtime.
+
+```bash
+# Create profiles by setting keys with --profile
+insight config set --profile apac-prod url            https://insight-apac.example.com
+insight config set --profile apac-prod auth-client-id <prod-client-id>
+insight config set --profile apac-prod auth-domain    https://prod.auth.ap-southeast-2.amazoncognito.com
+insight config set --profile apac-prod auth-scope     openid
+
+insight config set --profile apac-test url            https://insight-apac-test.example.com
+insight config set --profile apac-test auth-client-id <test-client-id>
+insight config set --profile apac-test auth-domain    https://test.auth.ap-southeast-2.amazoncognito.com
+insight config set --profile apac-test auth-scope     openid
+
+# List and switch profiles
+insight config profiles          # list all profiles (* = active)
+insight config use apac-prod     # activate a profile
+insight config which             # show the active profile
+insight config use --none        # go back to base config
+
+# Each profile needs its own login (tokens are stored per-profile)
+insight config use apac-prod && insight login
+insight config use apac-test && insight login
+```
+
+Global preferences (like `output=json`) live in the base config and apply to
+all profiles — set them without `--profile`:
+
+```bash
+insight config set output json
 ```
 
 ## Authentication
@@ -96,12 +133,12 @@ client secret). The redirect port must match a callback URL registered on the
 app client (`http://localhost:<port>/callback`):
 
 ```bash
-insight config set auth-domain https://<your>.auth.<region>.amazoncognito.com
+insight config set auth-domain    https://<your>.auth.<region>.amazoncognito.com
 # or derive the domain from the user pool id instead:
 #   insight config set auth-user-pool-id <region>_<poolId>
 insight config set auth-client-id <public-app-client-id>
-insight config set auth-scope insight/read          # optional (default default/default)
-insight config set auth-redirect-port 9876          # optional (default 9876)
+insight config set auth-scope     openid                 # scope(s); default is default/default
+insight config set auth-redirect-port 9876               # optional (default 9876)
 ```
 
 Then:
@@ -173,7 +210,7 @@ per-command forward.
 | `insight changes [--app] [--env] [--hash] [--change-type FIRST\|CHANGED] [--label] [--kind] [--type] [--since-minutes N \| --since-hours N] [-n/--limit N] [-i]` | List recent plan-shape change events (newest first). `--change-type` selects FIRST/CHANGED; `--label`/`--kind`/`--type` filter by the metric's tags. `-i` drives an interactive drill-down: pick a change to diff, then drill into the query (sql/plan/capture/trend). |
 | `insight change <id> [--raw]` | Show one plan-change event: from/to plans and a unified EXPLAIN diff. `--raw` prints only the to-plan EXPLAIN text. |
 | `insight capture [<app>] [<hash>...] [--app] [--hash] [--stdin] [--env]` | Request a fresh plan capture for one or more metric hashes (space or comma separated). `--app`/`--hash` are flag-form alternatives to the positionals; `--stdin` reads additional whitespace/comma/newline-separated hashes from standard input. |
-| `insight config <set\|get\|unset\|list\|path>` | Manage persisted settings in `~/.insight/config.properties`. |
+| `insight config <set\|get\|unset\|list\|path\|use\|profiles\|which>` | Manage persisted settings. `use <name>` activates a profile; `use --none` deactivates; `profiles` lists available; `which` shows the active one. |
 | `insight login [--timeout-seconds N]` | Authenticate via Cognito (OAuth2 + PKCE) and cache the bearer token. |
 | `insight whoami` | Show the cached login identity and token expiry. |
 | `insight logout` | Remove the cached bearer token. |
@@ -207,15 +244,29 @@ when piping into a pager that interprets ANSI).
 
 ### 0. One-time setup — persist your target
 
+**Static URL + OAuth2 (recommended):**
+
 ```bash
-insight config set namespace dev-core
-insight config set service ebean-insight
-insight config set context <nonprod-kube-context>   # the core_nonprod EKS context
-insight config set output json                       # optional: default to JSON
-insight config list
+insight config set url            https://<insight-host>
+insight config set auth-client-id <public-app-client-id>
+insight config set auth-domain    https://<pool>.auth.<region>.amazoncognito.com
+insight config set auth-scope     openid
+insight login                     # opens browser; caches a bearer token
+insight config set output json    # optional: default to JSON
+insight envs                      # smoke test
 ```
 
-With these persisted, every command below "just works" without connection flags.
+**Kubernetes port-forward (cluster-internal servers):**
+
+```bash
+insight config set namespace ebean-insight
+insight config set service   ebean-insight
+insight config set context   <kube-context>            # optional
+insight config set output    json                      # optional
+insight envs                                           # smoke test
+```
+
+With any of these persisted, every command below "just works" without connection flags.
 
 ### 1. See what's reporting
 

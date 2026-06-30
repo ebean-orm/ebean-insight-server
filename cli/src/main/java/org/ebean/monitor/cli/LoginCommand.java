@@ -83,7 +83,7 @@ final class LoginCommand implements Callable<Integer> {
           now + tokens.expiresIn(),
           now);
 
-      TokenStore store = new TokenStore();
+      TokenStore store = TokenStore.forActiveProfile();
       store.save(data);
 
       System.out.println("Logged in. Token cached at " + store.file());
