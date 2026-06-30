@@ -421,7 +421,10 @@ final class Interactive {
     for (int i : indices) {
       Row row = rows.get(i - 1);
       String status;
-      if (mode == Mode.TOP && !row.planCapable()) {
+      if (row.hash() == null) {
+        status = "skipped (no hash — use --by hash)";
+        skipped++;
+      } else if (mode == Mode.TOP && !row.planCapable()) {
         status = "skipped (not plan-capable)";
         skipped++;
       } else {
