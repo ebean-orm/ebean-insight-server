@@ -11,6 +11,7 @@ import io.avaje.oauth2.core.pkce.Pkce;
 import io.avaje.oauth2.oidc.cognito.CognitoOidc;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Authenticate via the Cognito Hosted UI using the OAuth2 Authorization-Code
@@ -37,9 +38,13 @@ final class LoginCommand implements Callable<Integer> {
       description = "Seconds to wait for the browser login to complete (default: 300).")
   long timeoutSeconds = 300;
 
+  @Option(names = "--profile", paramLabel = "NAME",
+      description = "Log in for a named profile instead of the active one.")
+  @Nullable String profile;
+
   @Override
   public Integer call() {
-    AuthConfig auth = new AuthConfig();
+    AuthConfig auth = new AuthConfig(profile);
     auth.requireConfigured();
 
     Pkce pkce = Pkce.generate();
@@ -83,7 +88,7 @@ final class LoginCommand implements Callable<Integer> {
           now + tokens.expiresIn(),
           now);
 
-      TokenStore store = TokenStore.forActiveProfile();
+      TokenStore store = TokenStore.forProfile(profile);
       store.save(data);
 
       System.out.println("Logged in. Token cached at " + store.file());

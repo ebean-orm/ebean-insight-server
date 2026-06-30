@@ -7,6 +7,7 @@ import java.util.function.LongSupplier;
 
 import io.avaje.oauth2.core.data.OidcTokens;
 import io.avaje.oauth2.oidc.cognito.CognitoOidc;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Provides the current bearer access token for outgoing requests, performing a
@@ -26,6 +27,10 @@ final class AuthSession {
 
   AuthSession() {
     this(TokenStore.forActiveProfile(), new AuthConfig());
+  }
+
+  AuthSession(@Nullable String explicitProfile) {
+    this(TokenStore.forProfile(explicitProfile), new AuthConfig(explicitProfile));
   }
 
   AuthSession(TokenStore store, AuthConfig authConfig) {

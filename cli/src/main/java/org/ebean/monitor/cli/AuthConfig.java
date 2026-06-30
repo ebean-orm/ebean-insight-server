@@ -35,6 +35,10 @@ final class AuthConfig {
     this(new InsightConfig().load());
   }
 
+  AuthConfig(@Nullable String explicitProfile) {
+    this(new InsightConfig().load(explicitProfile));
+  }
+
   AuthConfig(Properties props) {
     String explicitDomain = trimToNull(props.getProperty("auth-domain"));
     String userPoolId = trimToNull(props.getProperty("auth-user-pool-id"));

@@ -70,7 +70,7 @@ final class Insight implements AutoCloseable {
         .baseUrl(base.toString())
         .bodyAdapter(new JsonbBodyAdapter());
 
-    String bearer = new AuthSession().bearerToken().orElse(null);
+    String bearer = new AuthSession(conn.profile).bearerToken().orElse(null);
     if (bearer != null) {
       builder.requestIntercept(new RequestIntercept() {
         @Override

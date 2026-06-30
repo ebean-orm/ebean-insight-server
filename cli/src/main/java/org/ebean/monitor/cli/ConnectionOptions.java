@@ -15,6 +15,10 @@ import picocli.CommandLine.Option;
  */
 final class ConnectionOptions {
 
+  @Option(names = "--profile", paramLabel = "NAME",
+      description = "Override the active profile for this command.")
+  @Nullable String profile;
+
   @Option(names = "--url",
       description = "Static base URL (e.g. http://localhost:8091). When set, port-forward options are ignored.")
   @Nullable String url;
@@ -54,7 +58,7 @@ final class ConnectionOptions {
   }
 
   void resolve(InsightConfig config) {
-    var props = config.load();
+    var props = config.load(profile);
     if (isBlank(url)) {
       url = props.getProperty("url");
     }

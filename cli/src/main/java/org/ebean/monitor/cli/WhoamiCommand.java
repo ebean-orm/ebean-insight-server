@@ -12,6 +12,7 @@ import io.avaje.oauth2.core.jwt.SignedJwt;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
+import picocli.CommandLine.Option;
 
 /** Show the identity and expiry of the cached bearer token. */
 @Command(name = "whoami", mixinStandardHelpOptions = true,
@@ -32,9 +33,13 @@ final class WhoamiCommand implements Callable<Integer> {
 
   @Mixin OutputOptions out = new OutputOptions();
 
+  @Option(names = "--profile", paramLabel = "NAME",
+      description = "Show the token for a named profile instead of the active one.")
+  @Nullable String profile;
+
   @Override
   public Integer call() {
-    Optional<TokenData> cached = TokenStore.forActiveProfile().load();
+    Optional<TokenData> cached = TokenStore.forProfile(profile).load();
     if (cached.isEmpty()) {
       if (out.json()) {
         System.out.println("null");

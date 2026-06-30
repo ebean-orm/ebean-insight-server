@@ -126,8 +126,18 @@ final class InsightConfig {
    * properties merged on top (profile wins on collision).
    */
   Properties load() {
+    return load(null);
+  }
+
+  /**
+   * Load the effective config, using {@code explicitProfile} when not null,
+   * otherwise falling back to the {@code active-profile} stored in the base config.
+   */
+  Properties load(@Nullable String explicitProfile) {
     Properties base = loadBase();
-    String profileName = base.getProperty(ACTIVE_PROFILE_KEY);
+    String profileName = (explicitProfile != null && !explicitProfile.isBlank())
+        ? explicitProfile.trim()
+        : base.getProperty(ACTIVE_PROFILE_KEY);
     if (profileName != null && !profileName.isBlank()) {
       Path profilePath = instanceProfileFile(profileName.trim());
       if (Files.exists(profilePath)) {

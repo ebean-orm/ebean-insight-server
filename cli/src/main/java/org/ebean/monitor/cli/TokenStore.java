@@ -39,6 +39,14 @@ final class TokenStore {
     return new TokenStore(tokenFile(profile));
   }
 
+  /** Token store for an explicit profile name; falls back to active profile when null. */
+  static TokenStore forProfile(@Nullable String explicitProfile) {
+    if (explicitProfile != null && !explicitProfile.isBlank()) {
+      return new TokenStore(tokenFile(explicitProfile.trim()));
+    }
+    return forActiveProfile();
+  }
+
   static Path defaultFile() {
     return tokenFile(null);
   }
