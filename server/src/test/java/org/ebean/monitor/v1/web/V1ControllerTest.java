@@ -196,12 +196,12 @@ class V1ControllerTest {
     assertThat(missingGlobal).extracting(MissingPlanMetric::label).doesNotContain(STALE_LABEL);
     assertThat(metricsApi.topMissingPlans("total", null, null, null, null, 50, "no-such-env")).isEmpty();
 
-    final List<TopGroup> globalTop = metricsApi.topMetrics("hash", null, null, null, null, null, null, null, 50, null, null, null);
+    final List<TopGroup> globalTop = metricsApi.topMetrics("hash", null, null, null, null, null, null, null, 50, null, null, false);
     assertThat(globalTop).extracting(TopGroup::key).contains(ORM_HASH);
 
-    final List<TopGroup> globalTopEnv = metricsApi.topMetrics("hash", null, null, null, null, null, null, null, 50, null, ENV, null);
+    final List<TopGroup> globalTopEnv = metricsApi.topMetrics("hash", null, null, null, null, null, null, null, 50, null, ENV, false);
     assertThat(globalTopEnv).extracting(TopGroup::key).contains(ORM_HASH);
-    assertThat(metricsApi.topMetrics("hash", null, null, null, null, null, null, null, 50, null, "no-such-env", null)).isEmpty();
+    assertThat(metricsApi.topMetrics("hash", null, null, null, null, null, null, null, 50, null, "no-such-env", false)).isEmpty();
 
     final PendingResponse pending = plansApi.requestPlanCapture(APP, ORM_HASH, ENV);
     assertThat(pending.pending()).isGreaterThanOrEqualTo(1);
@@ -430,7 +430,7 @@ class V1ControllerTest {
     // Default (allApps=null/false): the shared name yields one row PER APP, each
     // with its app populated.
     final List<TopGroup> perApp = metricsApi.topMetrics("name", sharedName, null, null, null,
-      "total", null, null, 50, null, null, null);
+      "total", null, null, 50, null, null, false);
     assertThat(perApp).hasSize(2);
     assertThat(perApp).allSatisfy(g -> assertThat(g.app()).isNotNull());
     assertThat(perApp).extracting(TopGroup::app).containsExactlyInAnyOrder("perapp-a", "perapp-b");

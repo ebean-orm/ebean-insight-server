@@ -69,6 +69,7 @@
               <validationStyle>AVAJE</validationStyle>
               <generateRecordBuilders>true</generateRecordBuilders>
               <generateClientAnnotations>false</generateClientAnnotations>
+              <dateTimeType>INSTANT</dateTimeType>
             </configuration>
           </execution>
         </executions>

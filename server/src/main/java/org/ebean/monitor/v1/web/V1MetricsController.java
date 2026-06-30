@@ -49,7 +49,7 @@ public final class V1MetricsController implements MetricsApi {
   }
 
   @Override
-  public List<TopGroup> topMetrics(String by, String name, String label, String kind, String type, String orderBy, Long sinceMinutes, Long sinceHours, Integer limit, Boolean planCapable, String env, Boolean allApps) {
+  public List<TopGroup> topMetrics(String by, String name, String label, String kind, String type, String orderBy, Long sinceMinutes, Long sinceHours, Integer limit, Boolean planCapable, String env, boolean allApps) {
     return service.topMetrics(by, name, label, kind, type, orderBy, sinceMinutes, sinceHours, limit, planCapable, env, allApps);
   }
 

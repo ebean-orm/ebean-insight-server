@@ -140,7 +140,7 @@ final class TrendCommand implements Callable<Integer> {
     long[] count = new long[n];
     long totalCalls = 0;
     for (int i = 0; i < n; i++) {
-      long c = buckets.get(i).count() == null ? 0 : buckets.get(i).count();
+      long c = buckets.get(i).count();
       count[i] = c;
       totalCalls += c;
     }
@@ -155,8 +155,8 @@ final class TrendCommand implements Callable<Integer> {
     long grandTotal = 0;
     for (int i = 0; i < n; i++) {
       MetricTimeBucket b = buckets.get(i);
-      total[i] = b.total() == null ? 0 : b.total();
-      max[i] = b.max() == null ? 0 : b.max();
+      total[i] = b.total();
+      max[i] = b.max();
       grandTotal += total[i];
     }
     // Down-sample first, then derive mean call-weighted (sum totals / sum counts)

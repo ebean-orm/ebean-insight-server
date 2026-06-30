@@ -164,7 +164,7 @@ public class InsightTools {
           }
           return topGroupList.toJson(metricsApi.topMetrics(str(a, "by"), str(a, "name"),
               str(a, "label"), str(a, "kind"), str(a, "type"), str(a, "orderBy"),
-              lng(a, "sinceMinutes"), lng(a, "sinceHours"), intg(a, "limit"), bool(a, "planCapable"), str(a, "env"), bool(a, "allApps")));
+              lng(a, "sinceMinutes"), lng(a, "sinceHours"), intg(a, "limit"), bool(a, "planCapable"), str(a, "env"), boolDef(a, "allApps", false)));
         });
 
     add("plans", "List recently captured query plans.",
@@ -314,6 +314,10 @@ public class InsightTools {
 
   private static Boolean bool(Map<String, Object> a, String key) {
     return a != null && a.get(key) instanceof Boolean b ? b : null;
+  }
+
+  private static boolean boolDef(Map<String, Object> a, String key, boolean def) {
+    return a != null && a.get(key) instanceof Boolean b ? b : def;
   }
 
   private static Long lng(Map<String, Object> a, String key) {
