@@ -304,13 +304,18 @@ final class Interactive {
         continue;
       }
       if (isCaptureCommand(line)) {
-        captureCommand(line.trim().substring(1));
+        if (captureEnabled()) {
+          captureCommand(line.trim().substring(1));
+        } else {
+          System.out.println("Capture is only available at the hash level. Use --by hash.");
+        }
         continue;
       }
       Integer idx = parseIndex(line, rows.size());
       if (idx == null) {
+        String captureHint = captureEnabled() ? ", capture rows (e.g. 'c 1 3 5')" : "";
         System.out.println("Enter a number 1-" + rows.size()
-            + ", capture rows (e.g. 'c 1 3 5'), a measure (t/m/x/n), or 'q' to quit.");
+            + captureHint + ", a measure (t/m/x/n), or 'q' to quit.");
         continue;
       }
       if (!rowMenu(rows.get(idx - 1))) {
@@ -324,10 +329,16 @@ final class Interactive {
   }
 
   private String prompt() {
+    String capture = captureEnabled() ? "   " + AnsiColor.hot("c", "apture") + " N…" : "";
     return "Select " + AnsiColor.hot("1-" + rows.size(), "")
-        + "   " + AnsiColor.hot("c", "apture") + " N…"
+        + capture
         + "   by " + measureKeys()
         + "   " + AnsiColor.hot("q", "uit") + " > ";
+  }
+
+  /** True when rows carry real query hashes and capture requests are meaningful. */
+  private boolean captureEnabled() {
+    return "hash".equalsIgnoreCase(dimension);
   }
 
   /** Measure hotkeys with the active measure noted. */
