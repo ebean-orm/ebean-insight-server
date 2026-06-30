@@ -30,6 +30,7 @@ import picocli.CommandLine.Command;
         EnvsCommand.class,
         ForwardCommand.class,
         ConfigCommand.class,
+        SetupCommand.class,
         LoginCommand.class,
         LogoutCommand.class,
         WhoamiCommand.class
@@ -37,6 +38,9 @@ import picocli.CommandLine.Command;
     footerHeading = "%nGetting started:%n",
     footer = {
         "  # Option 1 — direct URL with OAuth2 (most common):",
+        "  insight setup https://central-insight.example.com   # sets url, auth config, and logs in",
+        "",
+        "  # Or configure manually:",
         "  insight config set url https://central-insight.example.com",
         "  insight config set auth-client-id <cognito-client-id>",
         "  insight config set auth-domain https://my-app.auth.<region>.amazoncognito.com",
@@ -50,8 +54,7 @@ import picocli.CommandLine.Command;
         "  insight forward &                            # keep a shared tunnel open",
         "",
         "  # Profiles — switch between targets (e.g. prod vs test):",
-        "  insight config set --profile prod url https://prod.example.com",
-        "  insight config set --profile prod auth-client-id <id>",
+        "  insight setup https://prod.example.com --profile prod",
         "  insight config use prod                      # activate prod profile",
         "  insight envs --profile prod                  # one-off override without switching",
         "",

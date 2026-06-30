@@ -26,6 +26,7 @@ these permitted path prefixes, which stay open:
 |------------------|-----|
 | `/health`        | Kubernetes liveness/readiness probes must not require a token. |
 | `/api/ingest`    | App forwarders authenticate with the `Insight-Key` header (see [Ingest key](#ingest-shared-secret-insight-key)), not a bearer token. |
+| `/api/cli-config` | Public OAuth2 client settings fetched by `insight setup` before a token exists (see [CLI bootstrap config](#cli-bootstrap-config-apicli-config)). |
 
 Everything else is protected, including:
 
@@ -53,6 +54,54 @@ key, then drop the old one.
 
 > This is independent of `insight.auth.enabled` — you can enforce the ingest key
 > with or without JWT auth on the rest of the server.
+
+---
+
+## CLI bootstrap config (`/api/cli-config`)
+
+`GET /api/cli-config` returns the public OAuth2 client settings the CLI needs to
+authenticate. It is always unauthenticated (even when `insight.auth.enabled=true`)
+because the CLI calls it before a token exists.
+
+This powers `insight setup <url>`, which fetches these settings automatically so
+users only need to provide the server URL:
+
+```bash
+insight setup https://central-insight.example.com   # one command bootstraps everything
+```
+
+Configure the values the server returns via:
+
+```yaml
+insight:
+  cli:
+    auth:
+      domain: "https://my-app.auth.ap-southeast-2.amazoncognito.com"
+      client-id: "<public-cognito-app-client-id>"
+      scope: "openid"
+```
+
+Or via environment variables:
+
+```
+INSIGHT_CLI_AUTH_DOMAIN=https://my-app.auth.ap-southeast-2.amazoncognito.com
+INSIGHT_CLI_AUTH_CLIENT_ID=<public-cognito-app-client-id>
+INSIGHT_CLI_AUTH_SCOPE=openid
+```
+
+| Property | Env var | Default | Notes |
+|----------|---------|---------|-------|
+| `insight.cli.auth.domain` | `INSIGHT_CLI_AUTH_DOMAIN` | `""` | Cognito Hosted-UI domain. |
+| `insight.cli.auth.client-id` | `INSIGHT_CLI_AUTH_CLIENT_ID` | `""` | Public PKCE app client id (no secret). |
+| `insight.cli.auth.scope` | `INSIGHT_CLI_AUTH_SCOPE` | `openid` | Requested OAuth2 scope(s). |
+
+> These are **not secrets** — a Cognito PKCE client id and Hosted-UI domain are
+> visible in every OAuth2 redirect URL. Safe to expose from an unauthenticated
+> endpoint.
+
+Fields that are unset (blank) are returned as `null` in the JSON response; the CLI
+will skip writing those keys and the user can set them manually with
+`insight config set`.
 
 ---
 
@@ -118,11 +167,14 @@ on before clients can obtain a token will lock them out.
 
 Recommended order:
 
-1. **Distribute the CLI login config** so operators can obtain a bearer token.
-   `insight login` (Cognito Hosted UI + PKCE) is built in; each operator sets the
-   `auth-*` config keys once and runs `insight login` — see the
-   [CLI README](../cli/README.md#oauth2-login). Tokens are sent on both
-   port-forward and `--url` connections.
+1. **Configure the CLI bootstrap endpoint** so operators can self-configure.
+   Set `insight.cli.auth.domain`, `insight.cli.auth.client-id`, and
+   `insight.cli.auth.scope` on the server (see
+   [CLI bootstrap config](#cli-bootstrap-config-apicli-config)). Then each
+   operator runs one command:
+   ```bash
+   insight setup https://<insight-host>   # fetches auth config + opens browser login
+   ```
 2. Enable on a **non-production** environment first
    (`INSIGHT_AUTH_ENABLED=true`) and validate:
    - probes stay green (`/health/*` permitted),

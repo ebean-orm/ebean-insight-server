@@ -29,6 +29,14 @@ insight:
     # Cognito issuer, e.g. https://cognito-idp.<region>.amazonaws.com/<userPoolId>
     # JWKS is discovered at <issuer>/.well-known/jwks.json
     issuer: ""
+  ## CLI bootstrap: public OAuth2 client settings returned by GET /api/cli-config
+  ## so users can run `insight setup <url>` instead of four manual `config set` calls.
+  ## These are not secrets — they are visible in every OAuth2 redirect URL.
+  cli:
+    auth:
+      domain: ""      # e.g. https://my-app.auth.ap-southeast-2.amazoncognito.com
+      client-id: ""   # public Cognito app client id
+      scope: openid   # requested scope
   ## Ingest shared secret: when set, /api/ingest requests must present a matching
   ## `Insight-Key` header (forwarders already send this). Unset (default) leaves
   ## ingestion open — protected only by network isolation. Accepts a single key

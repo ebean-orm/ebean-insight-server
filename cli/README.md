@@ -77,17 +77,12 @@ use named profiles. Each profile is a `.properties` file in
 `~/.insight/profiles/` and an associated token file `~/.insight/token-<name>.json`.
 The active profile's settings are merged over the base config at runtime.
 
-```bash
-# Create profiles by setting keys with --profile
-insight config set --profile apac-prod url            https://insight-apac.example.com
-insight config set --profile apac-prod auth-client-id <prod-client-id>
-insight config set --profile apac-prod auth-domain    https://prod.auth.ap-southeast-2.amazoncognito.com
-insight config set --profile apac-prod auth-scope     openid
+The easiest way to create a profile is with `insight setup`:
 
-insight config set --profile apac-test url            https://insight-apac-test.example.com
-insight config set --profile apac-test auth-client-id <test-client-id>
-insight config set --profile apac-test auth-domain    https://test.auth.ap-southeast-2.amazoncognito.com
-insight config set --profile apac-test auth-scope     openid
+```bash
+# Bootstrap each profile in one command (fetches auth config from the server)
+insight setup https://insight-apac-prod.example.com --profile apac-prod
+insight setup https://insight-apac-test.example.com --profile apac-test
 
 # List and switch profiles
 insight config profiles          # list all profiles (* = active)
@@ -95,9 +90,18 @@ insight config use apac-prod     # activate a profile
 insight config which             # show the active profile
 insight config use --none        # go back to base config
 
-# Each profile needs its own login (tokens are stored per-profile)
-insight config use apac-prod && insight login
-insight config use apac-test && insight login
+# One-off override without switching the active profile
+insight envs --profile apac-test
+```
+
+Or set profile keys manually:
+
+```bash
+insight config set --profile apac-prod url            https://insight-apac.example.com
+insight config set --profile apac-prod auth-client-id <prod-client-id>
+insight config set --profile apac-prod auth-domain    https://prod.auth.ap-southeast-2.amazoncognito.com
+insight config set --profile apac-prod auth-scope     openid
+insight login --profile apac-prod
 ```
 
 Global preferences (like `output=json`) live in the base config and apply to
@@ -128,9 +132,16 @@ you reach it:
 
 ### OAuth2 login
 
-One-time setup — point the CLI at your Cognito **public** app client (PKCE; no
-client secret). The redirect port must match a callback URL registered on the
-app client (`http://localhost:<port>/callback`):
+The easiest way to configure OAuth2 is `insight setup`, which fetches the auth
+settings from the server automatically:
+
+```bash
+insight setup https://<insight-host>   # sets url, auth config, and runs login
+```
+
+Or configure manually — point the CLI at your Cognito **public** app client
+(PKCE; no client secret). The redirect port must match a callback URL registered
+on the app client (`http://localhost:<port>/callback`):
 
 ```bash
 insight config set auth-domain    https://<your>.auth.<region>.amazoncognito.com
@@ -210,10 +221,11 @@ per-command forward.
 | `insight changes [--app] [--env] [--hash] [--change-type FIRST\|CHANGED] [--label] [--kind] [--type] [--since-minutes N \| --since-hours N] [-n/--limit N] [-i]` | List recent plan-shape change events (newest first). `--change-type` selects FIRST/CHANGED; `--label`/`--kind`/`--type` filter by the metric's tags. `-i` drives an interactive drill-down: pick a change to diff, then drill into the query (sql/plan/capture/trend). |
 | `insight change <id> [--raw]` | Show one plan-change event: from/to plans and a unified EXPLAIN diff. `--raw` prints only the to-plan EXPLAIN text. |
 | `insight capture [<app>] [<hash>...] [--app] [--hash] [--stdin] [--env]` | Request a fresh plan capture for one or more metric hashes (space or comma separated). `--app`/`--hash` are flag-form alternatives to the positionals; `--stdin` reads additional whitespace/comma/newline-separated hashes from standard input. |
+| `insight setup <url> [--profile NAME] [--no-login]` | Bootstrap the CLI from a server URL: sets url, fetches auth config, and logs in. |
 | `insight config <set\|get\|unset\|list\|path\|use\|profiles\|which>` | Manage persisted settings. `use <name>` activates a profile; `use --none` deactivates; `profiles` lists available; `which` shows the active one. |
-| `insight login [--timeout-seconds N]` | Authenticate via Cognito (OAuth2 + PKCE) and cache the bearer token. |
-| `insight whoami` | Show the cached login identity and token expiry. |
-| `insight logout` | Remove the cached bearer token. |
+| `insight login [--timeout-seconds N] [--profile NAME]` | Authenticate via Cognito (OAuth2 + PKCE) and cache the bearer token. |
+| `insight whoami [--profile NAME]` | Show the cached login identity and token expiry. |
+| `insight logout [--profile NAME]` | Remove the cached bearer token. |
 
 Every command supports `-h`/`--help`, and the root supports `-V`/`--version`.
 
@@ -247,13 +259,27 @@ when piping into a pager that interprets ANSI).
 **Static URL + OAuth2 (recommended):**
 
 ```bash
+# One command bootstraps everything (fetches auth config from the server)
+insight setup https://<insight-host>
+
+# Or configure manually:
 insight config set url            https://<insight-host>
 insight config set auth-client-id <public-app-client-id>
 insight config set auth-domain    https://<pool>.auth.<region>.amazoncognito.com
 insight config set auth-scope     openid
 insight login                     # opens browser; caches a bearer token
+
 insight config set output json    # optional: default to JSON
 insight envs                      # smoke test
+```
+
+**Multiple targets with profiles (e.g. APAC prod + test):**
+
+```bash
+insight setup https://insight-apac-prod.example.com --profile apac-prod
+insight setup https://insight-apac-test.example.com --profile apac-test
+insight config use apac-prod           # activate prod
+insight envs --profile apac-test       # one-off against test without switching
 ```
 
 **Kubernetes port-forward (cluster-internal servers):**

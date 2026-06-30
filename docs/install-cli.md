@@ -185,7 +185,15 @@ Once `insight --version` works, point the CLI at your server.
 
 ### Via a static URL + OAuth2 login (recommended)
 
-Persist the server URL and Cognito auth settings once, then log in:
+The `insight setup` command fetches the server's auth configuration automatically
+so you only need to provide the URL:
+
+```bash
+insight setup https://<insight-host>   # sets url, fetches auth config, opens browser login
+insight envs                           # smoke test
+```
+
+Or configure manually if your server doesn't expose `/api/cli-config`:
 
 ```bash
 insight config set url       https://<insight-host>
@@ -196,7 +204,16 @@ insight login                # opens browser; caches a bearer token
 insight envs                 # smoke test
 ```
 
-`insight login` runs the OAuth2 Authorization-Code + PKCE flow and caches a
+To set up multiple targets as profiles (e.g. prod and test):
+
+```bash
+insight setup https://insight-prod.example.com --profile prod
+insight setup https://insight-test.example.com --profile test
+insight config use prod           # activate prod
+insight envs --profile test       # one-off against test without switching
+```
+
+`insight login` (run by `setup`) uses the OAuth2 Authorization-Code + PKCE flow and caches a
 bearer token in `~/.insight/token.json`.  Subsequent commands load that token
 and silently refresh it when it expires.  Re-run `insight login` if you are
 ever prompted again.
