@@ -1,6 +1,7 @@
 package org.ebean.monitor.ingest;
 
 import io.ebean.Database;
+import io.ebean.annotation.Transactional;
 import io.avaje.config.Config;
 import org.ebean.monitor.api.MetricRequest;
 
@@ -65,6 +66,7 @@ public class IngestMessage {
     }
   }
 
+  @Transactional
   public void ingestQueryPlans(QueryPlanRequest queryPlans) {
     final var header = lookup.ingestHeader(queryPlans);
     List<DQueryPlan> newPlans = new ArrayList<>();
