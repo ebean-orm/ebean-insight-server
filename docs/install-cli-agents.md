@@ -155,7 +155,20 @@ built: <build-time>
 ## 6. First-run configuration (optional)
 
 Point the CLI at a server once and every command picks it up
-(see [`cli/README.md`](../cli/README.md) for the full reference):
+(see [`cli/README.md`](../cli/README.md) for the full reference).
+
+**Static URL + OAuth2 (recommended):**
+
+```bash
+insight config set url            https://<insight-host>
+insight config set auth-client-id <public-app-client-id>
+insight config set auth-domain    https://<pool>.auth.<region>.amazoncognito.com
+insight config set auth-scope     openid
+insight login                     # opens browser; caches a bearer token
+insight envs                      # smoke test
+```
+
+**Kubernetes port-forward (cluster-internal servers):**
 
 ```bash
 insight config set namespace <namespace>
@@ -163,6 +176,25 @@ insight config set service   <service>
 insight config set context   <kube-context>   # optional
 insight envs                                   # smoke test
 ```
+
+**Multiple targets (profiles):** if you need to switch between environments
+(e.g. prod vs test), create named profiles so each target keeps its own
+settings and token:
+
+```bash
+insight config set --profile prod url            https://prod.example.com
+insight config set --profile prod auth-client-id <prod-client-id>
+insight config set --profile prod auth-domain    https://prod.auth.<region>.amazoncognito.com
+insight config set --profile prod auth-scope     openid
+
+insight config use prod
+insight login          # caches ~/.insight/token-prod.json
+
+insight config use test && insight login   # repeat for each profile
+```
+
+Use `insight config profiles` to list available profiles and
+`insight config use --none` to go back to the base config.
 
 For the EROAD deployment specifics (the server runs only in `dev-core`,
 filtering by `--env dev|test`, the `forward` daemon, capture timing) follow the
