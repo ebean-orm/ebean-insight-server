@@ -85,14 +85,14 @@ Or via environment variables:
 
 ```
 INSIGHT_CLI_AUTH_DOMAIN=https://my-app.auth.ap-southeast-2.amazoncognito.com
-INSIGHT_CLI_AUTH_CLIENT_ID=<public-cognito-app-client-id>
+INSIGHT_CLI_AUTH_CLIENTID=<public-cognito-app-client-id>
 INSIGHT_CLI_AUTH_SCOPE=openid
 ```
 
 | Property | Env var | Default | Notes |
 |----------|---------|---------|-------|
 | `insight.cli.auth.domain` | `INSIGHT_CLI_AUTH_DOMAIN` | `""` | Cognito Hosted-UI domain. |
-| `insight.cli.auth.client-id` | `INSIGHT_CLI_AUTH_CLIENT_ID` | `""` | Public PKCE app client id (no secret). |
+| `insight.cli.auth.client-id` | `INSIGHT_CLI_AUTH_CLIENTID` | `""` | Public PKCE app client id (no secret). |
 | `insight.cli.auth.scope` | `INSIGHT_CLI_AUTH_SCOPE` | `openid` | Requested OAuth2 scope(s). |
 
 > These are **not secrets** — a Cognito PKCE client id and Hosted-UI domain are

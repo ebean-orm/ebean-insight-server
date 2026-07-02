@@ -8,17 +8,36 @@ app.name: ebean-insight-mcp
 insight:
   ## Base URL of the ebean-insight server /v1 API.
   url: ${INSIGHT_URL:http://localhost:8092}
-  ## Shared-secret API key sent as `Authorization: Bearer <key>` to the insight
-  ## server (matches the server's insight.api.key). Leave unset when the insight
-  ## server has auth disabled (e.g. reached via localhost / port-forward).
+  ## Shared-secret API key sent as Authorization: Bearer to the insight server
+  ## (matches the server's insight.api.key). Leave unset when the insight server
+  ## has auth disabled (e.g. reached via localhost / port-forward).
   api.key: ${INSIGHT_API_KEY:}
 
 ##
-## Inbound MCP client auth: bearer token(s) callers must present as
-## `Authorization: Bearer <token>`. Format is a comma separated list of
-## name:value entries (the name is a label for audit logging), e.g.
-## `claude-desktop:abc123,cli-agent:def456`. Unset leaves the server open
-## (protected only by network isolation). /health is always open.
+## Inbound MCP client auth — two complementary mechanisms, either or both may
+## be configured.
+##
+## Static bearer tokens (service accounts / scripted callers):
+##   Format: comma-separated name:value pairs, e.g. `claude-desktop:abc123`.
+##   The name is a label for audit logging; the value is the shared secret.
+##   Unset leaves static-token auth disabled.
+##
+## JWT / OAuth2 SSO (human operators via PKCE login):
+##   mcp.auth.issuer    — OIDC issuer URL (e.g. the same Cognito pool used by
+##                        INSIGHT_AUTH_ISSUER on the insight server). When set,
+##                        a valid JWT from this issuer is accepted as an
+##                        alternative to a static token.
+##   mcp.auth.client-id — Pre-registered PKCE client ID advertised in the
+##                        /.well-known/oauth-protected-resource discovery
+##                        document so MCP clients can skip Dynamic Client
+##                        Registration (optional but recommended).
+##
+## When neither tokens nor an issuer is configured the server is open,
+## protected only by network isolation. /health and /.well-known are always
+## open regardless of auth configuration.
 ##
 mcp:
   tokens: ${MCP_TOKENS:}
+  auth:
+    issuer: ${MCP_AUTH_ISSUER:}
+    client-id: ${MCP_AUTH_CLIENTID:}
