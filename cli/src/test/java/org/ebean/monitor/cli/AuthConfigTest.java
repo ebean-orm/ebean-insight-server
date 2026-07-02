@@ -36,8 +36,7 @@ class AuthConfigTest {
     assertThat(auth.domain()).isEqualTo("https://app.auth.ap-southeast-2.amazoncognito.com");
     assertThat(auth.clientId()).isEqualTo("client-abc");
     assertThat(auth.scope()).isEqualTo("default/default");
-    assertThat(auth.redirectPort()).isEqualTo(AuthConfig.DEFAULT_REDIRECT_PORT);
-    assertThat(auth.redirectUri()).isEqualTo("http://localhost:9876/callback");
+    assertThat(auth.redirectUri(54321)).isEqualTo("http://localhost:54321/callback");
   }
 
   @Test
@@ -45,13 +44,11 @@ class AuthConfigTest {
     var auth = new AuthConfig(props(
         "auth-user-pool-id", "ap-southeast-2_AbCdEf123",
         "auth-client-id", "client-abc",
-        "auth-scope", "insight/read",
-        "auth-redirect-port", "9123"));
+        "auth-scope", "insight/read"));
 
     assertThat(auth.domain()).contains("amazoncognito.com");
     assertThat(auth.scope()).isEqualTo("insight/read");
-    assertThat(auth.redirectPort()).isEqualTo(9123);
-    assertThat(auth.redirectUri()).isEqualTo("http://localhost:9123/callback");
+    assertThat(auth.redirectUri(9999)).isEqualTo("http://localhost:9999/callback");
   }
 
   @Test
@@ -62,13 +59,5 @@ class AuthConfigTest {
         "auth-client-id", "client-abc"));
 
     assertThat(auth.domain()).isEqualTo("https://explicit.example.com");
-  }
-
-  @Test
-  void invalidRedirectPort_rejected() {
-    assertThatThrownBy(() -> new AuthConfig(props(
-        "auth-domain", "https://x", "auth-client-id", "c", "auth-redirect-port", "abc")))
-        .isInstanceOf(CliException.class)
-        .hasMessageContaining("auth-redirect-port");
   }
 }

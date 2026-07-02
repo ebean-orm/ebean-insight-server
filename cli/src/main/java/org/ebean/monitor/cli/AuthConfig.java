@@ -17,19 +17,14 @@ import org.jspecify.annotations.Nullable;
  *       (e.g. {@code https://my-app.auth.ap-southeast-2.amazoncognito.com}); or</li>
  *   <li>{@code auth-user-pool-id} — derive the domain from the user pool id;</li>
  *   <li>{@code auth-client-id} — the public app client id;</li>
- *   <li>{@code auth-scope} — requested scope (default {@code default/default});</li>
- *   <li>{@code auth-redirect-port} — loopback callback port (default {@code 9876}).
- *       Must match a callback URL registered on the Cognito app client.</li>
+ *   <li>{@code auth-scope} — requested scope (default {@code default/default}).</li>
  * </ul>
  */
 final class AuthConfig {
 
-  static final int DEFAULT_REDIRECT_PORT = 9876;
-
   private final @Nullable String domain;
   private final @Nullable String clientId;
   private final String scope;
-  private final int redirectPort;
 
   AuthConfig() {
     this(new InsightConfig().load());
@@ -47,7 +42,6 @@ final class AuthConfig {
     this.clientId = trimToNull(props.getProperty("auth-client-id"));
     String s = trimToNull(props.getProperty("auth-scope"));
     this.scope = s != null ? s : "default/default";
-    this.redirectPort = parsePort(props.getProperty("auth-redirect-port"));
   }
 
   /** True when enough is configured to start a login / refresh. */
@@ -61,8 +55,7 @@ final class AuthConfig {
           OAuth2 login is not configured. Set the Cognito client details:
             insight config set auth-domain <hosted-ui-domain>   # or auth-user-pool-id <id>
             insight config set auth-client-id <public-client-id>
-            insight config set auth-scope <scope>               # optional, default default/default
-            insight config set auth-redirect-port <port>        # optional, default 9876""");
+            insight config set auth-scope <scope>               # optional, default default/default""");
     }
   }
 
@@ -78,34 +71,29 @@ final class AuthConfig {
     return scope;
   }
 
-  int redirectPort() {
-    return redirectPort;
+  /** The loopback redirect URI for a login flow using the given bound port. */
+  String redirectUri(int port) {
+    return "http://localhost:" + port + "/callback";
   }
 
-  /** The loopback redirect URI; must match a Cognito app-client callback URL. */
-  String redirectUri() {
-    return "http://localhost:" + redirectPort + "/callback";
+  /** Build the Cognito OIDC client for the login flow using the actual loopback port. */
+  CognitoOidc cognitoOidc(int port) {
+    return CognitoOidc.builder()
+        .domain(domain())
+        .clientId(clientId())
+        .scope(scope)
+        .redirectUri(redirectUri(port))
+        .build();
   }
 
-  /** Build the Cognito OIDC client for a public (PKCE) app client. */
+  /** Build the Cognito OIDC client for token refresh (redirect URI is not used). */
   CognitoOidc cognitoOidc() {
     return CognitoOidc.builder()
         .domain(domain())
         .clientId(clientId())
         .scope(scope)
-        .redirectUri(redirectUri())
+        .redirectUri("http://localhost/callback")
         .build();
-  }
-
-  private static int parsePort(@Nullable String value) {
-    if (value == null || value.isBlank()) {
-      return DEFAULT_REDIRECT_PORT;
-    }
-    try {
-      return Integer.parseInt(value.trim());
-    } catch (NumberFormatException e) {
-      throw new CliException("config auth-redirect-port is not a number: '" + value + "'");
-    }
   }
 
   private static @Nullable String trimToNull(@Nullable String value) {

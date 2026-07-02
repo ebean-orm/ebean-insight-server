@@ -53,9 +53,7 @@ final class LoopbackReceiver implements AutoCloseable {
       server.start();
       return receiver;
     } catch (IOException e) {
-      throw new CliException("Could not start the loopback receiver on port " + port
-          + " (" + e.getMessage() + "). Set a free port with `insight config set auth-redirect-port <port>`"
-          + " (it must also be a registered Cognito callback).");
+      throw new CliException("Could not start the loopback receiver: " + e.getMessage());
     }
   }
 

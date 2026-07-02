@@ -38,8 +38,8 @@ final class LoginHelper {
     String state = randomToken();
     String nonce = randomToken();
 
-    try (LoopbackReceiver receiver = LoopbackReceiver.start(auth.redirectPort())) {
-      CognitoOidc oidc = auth.cognitoOidc();
+    try (LoopbackReceiver receiver = LoopbackReceiver.start(0)) {
+      CognitoOidc oidc = auth.cognitoOidc(receiver.port());
       String loginUrl = oidc.loginUrl(nonce, state, pkce.challenge());
 
       if (BrowserLauncher.open(loginUrl)) {
