@@ -35,7 +35,8 @@ class AuthConfigTest {
     assertThat(auth.isConfigured()).isTrue();
     assertThat(auth.domain()).isEqualTo("https://app.auth.ap-southeast-2.amazoncognito.com");
     assertThat(auth.clientId()).isEqualTo("client-abc");
-    assertThat(auth.scope()).isEqualTo("default/default");
+    assertThat(auth.scope()).isEqualTo("openid");
+    assertThat(auth.redirectPorts()).isEqualTo(AuthConfig.DEFAULT_REDIRECT_PORTS);
     assertThat(auth.redirectUri(54321)).isEqualTo("http://localhost:54321/callback");
   }
 
@@ -59,5 +60,65 @@ class AuthConfigTest {
         "auth-client-id", "client-abc"));
 
     assertThat(auth.domain()).isEqualTo("https://explicit.example.com");
+  }
+
+  @Test
+  void multiPort_defaultPorts() {
+    var auth = new AuthConfig(props(
+        "auth-domain", "https://app.auth.ap-southeast-2.amazoncognito.com",
+        "auth-client-id", "client-abc"));
+
+    assertThat(auth.redirectPorts()).containsExactly(9876, 9877, 9878);
+  }
+
+  @Test
+  void multiPort_explicitPorts() {
+    var auth = new AuthConfig(props(
+        "auth-domain", "https://app.auth.ap-southeast-2.amazoncognito.com",
+        "auth-client-id", "client-abc",
+        "auth-redirect-ports", "9000,9001,9002"));
+
+    assertThat(auth.redirectPorts()).containsExactly(9000, 9001, 9002);
+  }
+
+  @Test
+  void multiPort_singlePort() {
+    var auth = new AuthConfig(props(
+        "auth-domain", "https://app.auth.ap-southeast-2.amazoncognito.com",
+        "auth-client-id", "client-abc",
+        "auth-redirect-ports", "8888"));
+
+    assertThat(auth.redirectPorts()).containsExactly(8888);
+    assertThat(auth.redirectUri(8888)).isEqualTo("http://localhost:8888/callback");
+  }
+
+  @Test
+  void multiPort_zeroMeansRandom() {
+    var auth = new AuthConfig(props(
+        "auth-domain", "https://app.auth.ap-southeast-2.amazoncognito.com",
+        "auth-client-id", "client-abc",
+        "auth-redirect-ports", "0"));
+
+    assertThat(auth.redirectPorts()).containsExactly(0);
+  }
+
+  @Test
+  void multiPort_legacySinglePortKey() {
+    var auth = new AuthConfig(props(
+        "auth-domain", "https://app.auth.ap-southeast-2.amazoncognito.com",
+        "auth-client-id", "client-abc",
+        "auth-redirect-port", "7777"));
+
+    assertThat(auth.redirectPorts()).containsExactly(7777);
+  }
+
+  @Test
+  void multiPort_invalidPortThrows() {
+    assertThatThrownBy(() -> new AuthConfig(props(
+        "auth-domain", "https://app.auth.ap-southeast-2.amazoncognito.com",
+        "auth-client-id", "client-abc",
+        "auth-redirect-ports", "abc")))
+        .isInstanceOf(CliException.class)
+        .hasMessageContaining("invalid port");
   }
 }

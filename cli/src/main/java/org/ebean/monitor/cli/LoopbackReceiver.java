@@ -49,12 +49,34 @@ final class LoopbackReceiver implements AutoCloseable {
           new InetSocketAddress(InetAddress.getLoopbackAddress(), port), 0);
       LoopbackReceiver receiver = new LoopbackReceiver(server);
       server.createContext("/callback", receiver::handle);
+      server.createContext("/", receiver::handle);
       server.setExecutor(null);
       server.start();
       return receiver;
     } catch (IOException e) {
-      throw new CliException("Could not start the loopback receiver: " + e.getMessage());
+      throw new CliException("Could not start the loopback receiver on port " + port
+          + " (" + e.getMessage() + "). Set a free port with `insight config set auth-redirect-ports <port>`"
+          + " (it must also be a registered callback URL).");
     }
+  }
+
+  /**
+   * Try each port in order and return the first receiver that binds successfully.
+   * Port {@code 0} lets the OS pick a free ephemeral port (RFC 8252 §7.3 —
+   * requires an RFC-compliant auth server such as Entra ID).
+   */
+  static LoopbackReceiver startFirst(int... ports) {
+    CliException last = null;
+    for (int port : ports) {
+      try {
+        return start(port);
+      } catch (CliException e) {
+        last = e;
+      }
+    }
+    throw last != null ? last
+        : new CliException("No loopback ports available. Set free ports with "
+            + "`insight config set auth-redirect-ports <ports>`.");
   }
 
   /** The actual bound port (useful when started on an ephemeral port). */

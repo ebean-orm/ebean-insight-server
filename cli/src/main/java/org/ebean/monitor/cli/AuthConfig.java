@@ -17,14 +17,21 @@ import org.jspecify.annotations.Nullable;
  *       (e.g. {@code https://my-app.auth.ap-southeast-2.amazoncognito.com}); or</li>
  *   <li>{@code auth-user-pool-id} — derive the domain from the user pool id;</li>
  *   <li>{@code auth-client-id} — the public app client id;</li>
- *   <li>{@code auth-scope} — requested scope (default {@code default/default}).</li>
+ *   <li>{@code auth-scope} — requested scope (default {@code openid});</li>
+ *   <li>{@code auth-redirect-ports} — comma-separated loopback callback ports
+ *       (default {@code 9876,9877,9878}). The CLI tries each in order and uses
+ *       the first available port. Set to {@code 0} for a random OS-assigned port
+ *       (requires an RFC 8252-compliant auth server such as Entra ID).</li>
  * </ul>
  */
 final class AuthConfig {
 
+  static final int[] DEFAULT_REDIRECT_PORTS = {9876, 9877, 9878};
+
   private final @Nullable String domain;
   private final @Nullable String clientId;
   private final String scope;
+  private final int[] redirectPorts;
 
   AuthConfig() {
     this(new InsightConfig().load());
@@ -41,7 +48,8 @@ final class AuthConfig {
         : (userPoolId != null ? CognitoUris.of(userPoolId).domain() : null);
     this.clientId = trimToNull(props.getProperty("auth-client-id"));
     String s = trimToNull(props.getProperty("auth-scope"));
-    this.scope = s != null ? s : "default/default";
+    this.scope = s != null ? s : "openid";
+    this.redirectPorts = parsePorts(props);
   }
 
   /** True when enough is configured to start a login / refresh. */
@@ -55,7 +63,8 @@ final class AuthConfig {
           OAuth2 login is not configured. Set the Cognito client details:
             insight config set auth-domain <hosted-ui-domain>   # or auth-user-pool-id <id>
             insight config set auth-client-id <public-client-id>
-            insight config set auth-scope <scope>               # optional, default default/default""");
+            insight config set auth-scope <scope>               # optional, default openid
+            insight config set auth-redirect-ports <ports>      # optional, default 9876,9877,9878""");
     }
   }
 
@@ -71,12 +80,17 @@ final class AuthConfig {
     return scope;
   }
 
-  /** The loopback redirect URI for a login flow using the given bound port. */
+  /** The ports to try in order when binding the loopback receiver. */
+  int[] redirectPorts() {
+    return redirectPorts;
+  }
+
+  /** The loopback redirect URI for the given bound port. */
   String redirectUri(int port) {
     return "http://localhost:" + port + "/callback";
   }
 
-  /** Build the Cognito OIDC client for the login flow using the actual loopback port. */
+  /** Build the Cognito OIDC client for the login flow using the given loopback port. */
   CognitoOidc cognitoOidc(int port) {
     return CognitoOidc.builder()
         .domain(domain())
@@ -86,14 +100,45 @@ final class AuthConfig {
         .build();
   }
 
-  /** Build the Cognito OIDC client for token refresh (redirect URI is not used). */
+  /** Build the Cognito OIDC client for token refresh (redirect URI is not checked). */
   CognitoOidc cognitoOidc() {
+    int port = redirectPorts[0] == 0 ? 9876 : redirectPorts[0];
     return CognitoOidc.builder()
         .domain(domain())
         .clientId(clientId())
         .scope(scope)
-        .redirectUri("http://localhost/callback")
+        .redirectUri(redirectUri(port))
         .build();
+  }
+
+  private static int[] parsePorts(Properties props) {
+    String multi = trimToNull(props.getProperty("auth-redirect-ports"));
+    if (multi != null) {
+      return parsePortList(multi, "auth-redirect-ports");
+    }
+    // Legacy single-port key
+    String single = trimToNull(props.getProperty("auth-redirect-port"));
+    if (single != null) {
+      return new int[]{parseSinglePort(single, "auth-redirect-port")};
+    }
+    return DEFAULT_REDIRECT_PORTS.clone();
+  }
+
+  private static int[] parsePortList(String value, String key) {
+    String[] parts = value.split(",");
+    int[] ports = new int[parts.length];
+    for (int i = 0; i < parts.length; i++) {
+      ports[i] = parseSinglePort(parts[i].trim(), key);
+    }
+    return ports;
+  }
+
+  private static int parseSinglePort(String value, String key) {
+    try {
+      return Integer.parseInt(value.trim());
+    } catch (NumberFormatException e) {
+      throw new CliException("config " + key + " contains invalid port: '" + value + "'");
+    }
   }
 
   private static @Nullable String trimToNull(@Nullable String value) {
