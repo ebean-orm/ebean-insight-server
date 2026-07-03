@@ -139,42 +139,58 @@ settings from the server automatically:
 insight setup https://<insight-host>   # sets url, auth config, and runs login
 ```
 
-Or configure manually — point the CLI at your Cognito **public** app client
-(PKCE; no client secret). The redirect port must match a callback URL registered
-on the app client (`http://localhost:<port>/callback`):
+Or configure manually — point the CLI at your OIDC provider's **public** app
+client (PKCE; no client secret). Each port in `auth-redirect-ports` must match a
+callback URL registered on the app client (`http://localhost:<port>/callback`):
 
 ```bash
 insight config set auth-domain    https://<your>.auth.<region>.amazoncognito.com
 # or derive the domain from the user pool id instead:
 #   insight config set auth-user-pool-id <region>_<poolId>
-insight config set auth-client-id <public-app-client-id>
-insight config set auth-scope     openid                 # scope(s); default is default/default
-insight config set auth-redirect-port 9876               # optional (default 9876)
+insight config set auth-client-id  <public-app-client-id>
+insight config set auth-scope      openid                       # default: openid
+insight config set auth-redirect-ports 9876,9877,9878           # optional (these are the defaults)
 ```
 
 Then:
 
 ```bash
-insight login      # opens the browser; completes via a loopback redirect
-insight whoami     # show the cached identity + token expiry
-insight logout     # remove the cached token (~/.insight/token.json)
+insight login           # opens the browser; completes via a loopback redirect
+insight login --device  # device code flow (RFC 8628) — no browser/port needed
+insight whoami          # show the cached identity + token expiry
+insight logout          # remove the cached token (~/.insight/token.json)
 ```
 
-`insight login` runs the OAuth2 Authorization-Code + PKCE flow: it starts a
-short-lived loopback server on `auth-redirect-port`, opens your browser to the
-Hosted UI, captures the redirected code, exchanges it for tokens and caches them
-in `~/.insight/token.json` (owner-only `0600`). Subsequent commands load that
-token and **silently refresh** it (via the refresh token) when it has expired.
-When the cached access token cannot be refreshed, the server returns `401` and
-you simply re-run `insight login`.
+`insight login` runs the OAuth2 Authorization-Code + PKCE flow: it tries each
+port in `auth-redirect-ports` in order (binding the first available), opens your
+browser to the Hosted UI, captures the redirected authorization code, exchanges
+it for tokens, and caches them in `~/.insight/token.json` (owner-only `0600`).
+Subsequent commands load that token and **silently refresh** it (via the refresh
+token) when it has expired. When the token cannot be refreshed, the server
+returns `401` and you simply re-run `insight login`.
+
+`insight login --device` uses the Device Authorization Grant (RFC 8628): no local
+port is needed — the CLI prints a short code for you to enter at the auth
+server's activation URL. Useful in headless or SSH environments.
+
+#### Security properties
+
+The PKCE login flow implements all three security requirements from
+[RFC 8252](https://datatracker.ietf.org/doc/html/rfc8252) (OAuth 2.0 for Native Apps):
+
+| Property | Implementation |
+|----------|---------------|
+| **PKCE** (S256) | A cryptographically random verifier is generated per login; the SHA-256 challenge is sent with the auth request and the verifier is sent only at token exchange — protects against auth-code interception. |
+| **State parameter** | A 128-bit random state token is generated, included in the auth URL, and verified against the callback — protects against CSRF. |
+| **Loopback-only binding** | The callback server binds to `InetAddress.getLoopbackAddress()` (`127.0.0.1`) not `0.0.0.0` — the redirect cannot be intercepted by another host on the network. |
 
 | Config key | Default | Meaning |
 |------------|---------|---------|
-| `auth-domain` | – | Cognito Hosted-UI domain (e.g. `https://app.auth.ap-southeast-2.amazoncognito.com`). |
+| `auth-domain` | – | Hosted-UI domain (e.g. `https://app.auth.ap-southeast-2.amazoncognito.com`). |
 | `auth-user-pool-id` | – | Alternative to `auth-domain`: derive the domain from the user pool id. `auth-domain` wins if both are set. |
 | `auth-client-id` | – | Public app client id (PKCE, no secret). |
-| `auth-scope` | `default/default` | Requested OAuth2 scope(s). |
-| `auth-redirect-port` | `9876` | Loopback callback port. Must match a registered Cognito callback URL `http://localhost:<port>/callback`. |
+| `auth-scope` | `openid` | Requested OAuth2 scope(s). |
+| `auth-redirect-ports` | `9876,9877,9878` | Comma-separated loopback callback ports tried in order. Each must match a registered callback URL `http://localhost:<port>/callback`. Set to `0` for a random OS-assigned port (requires an RFC 8252-compliant auth server such as Entra ID). |
 
 ## Daemon mode
 
