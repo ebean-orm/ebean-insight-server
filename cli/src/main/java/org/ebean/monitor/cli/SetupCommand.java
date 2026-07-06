@@ -37,7 +37,8 @@ final class SetupCommand implements Callable<Integer> {
   record CliConfigResponse(
       @Nullable String authDomain,
       @Nullable String authClientId,
-      @Nullable String authScope) {
+      @Nullable String authScope,
+      @Nullable String authTenantId) {
   }
 
   @Parameters(index = "0", paramLabel = "URL",
@@ -68,6 +69,9 @@ final class SetupCommand implements Callable<Integer> {
     if (remote.authClientId() != null) {
       write(config, "auth-client-id", remote.authClientId());
     }
+    if (remote.authTenantId() != null) {
+      write(config, "auth-tenant-id", remote.authTenantId());
+    }
     String scope = remote.authScope() != null ? remote.authScope() : "openid";
     write(config, "auth-scope", scope);
 
@@ -76,6 +80,7 @@ final class SetupCommand implements Callable<Integer> {
     System.out.println("  url          = " + baseUrl);
     if (remote.authDomain() != null)   System.out.println("  auth-domain  = " + remote.authDomain());
     if (remote.authClientId() != null) System.out.println("  auth-client-id = " + remote.authClientId());
+    if (remote.authTenantId() != null) System.out.println("  auth-tenant-id = " + remote.authTenantId());
     System.out.println("  auth-scope   = " + scope);
 
     // 3. Optionally activate the profile

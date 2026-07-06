@@ -6,7 +6,6 @@ import java.util.function.Function;
 import java.util.function.LongSupplier;
 
 import io.avaje.oauth2.core.data.OidcTokens;
-import io.avaje.oauth2.oidc.cognito.CognitoOidc;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -23,7 +22,7 @@ final class AuthSession {
   private final TokenStore store;
   private final AuthConfig authConfig;
   private final LongSupplier clock;
-  private final Function<AuthConfig, CognitoOidc> oidcFactory;
+  private final Function<AuthConfig, OidcLoginClient> oidcFactory;
 
   AuthSession() {
     this(TokenStore.forActiveProfile(), new AuthConfig());
@@ -34,11 +33,11 @@ final class AuthSession {
   }
 
   AuthSession(TokenStore store, AuthConfig authConfig) {
-    this(store, authConfig, () -> Instant.now().getEpochSecond(), AuthConfig::cognitoOidc);
+    this(store, authConfig, () -> Instant.now().getEpochSecond(), AuthConfig::oidcLogin);
   }
 
   AuthSession(TokenStore store, AuthConfig authConfig, LongSupplier clock,
-      Function<AuthConfig, CognitoOidc> oidcFactory) {
+      Function<AuthConfig, OidcLoginClient> oidcFactory) {
     this.store = store;
     this.authConfig = authConfig;
     this.clock = clock;

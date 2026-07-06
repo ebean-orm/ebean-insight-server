@@ -8,8 +8,11 @@ package org.ebean.monitor.mcp.auth;
  *                 when JWT auth is not configured.
  * @param clientId Optional pre-registered PKCE client ID hint
  *                 ({@code mcp.auth.client-id}) to advertise in the discovery document.
+ * @param jwksUri  Optional explicit JWKS uri ({@code mcp.auth.jwks-uri}) override for
+ *                 issuers whose JWKS endpoint isn't {@code <issuer>/.well-known/jwks.json}
+ *                 (e.g. Microsoft Entra ID).
  */
-record McpOAuthConfig(String issuer, String clientId) {
+record McpOAuthConfig(String issuer, String clientId, String jwksUri) {
 
   /** True when an OIDC issuer is configured and JWT auth is in use. */
   boolean enabled() {

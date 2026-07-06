@@ -2,7 +2,6 @@ package org.ebean.monitor.cli;
 
 import io.avaje.oauth2.core.data.OidcTokens;
 import io.avaje.oauth2.core.pkce.Pkce;
-import io.avaje.oauth2.oidc.cognito.CognitoOidc;
 import org.jspecify.annotations.Nullable;
 
 import java.security.SecureRandom;
@@ -51,7 +50,7 @@ final class LoginHelper {
 
     try (LoopbackReceiver receiver = LoopbackReceiver.startFirst(auth.redirectPorts())) {
       int port = receiver.port();
-      CognitoOidc oidc = auth.cognitoOidc(port);
+      OidcLoginClient oidc = auth.oidcLogin(port);
       String loginUrl = oidc.loginUrl(nonce, state, pkce.challenge());
 
       if (BrowserLauncher.open(loginUrl)) {
@@ -76,11 +75,16 @@ final class LoginHelper {
         throw new CliException("Login failed: state mismatch (possible CSRF); please retry.");
       }
 
-      return saveTokens(auth.cognitoOidc(port).obtainTokens(cb.code(), pkce.verifier()));
+      return saveTokens(oidc.obtainTokens(cb.code(), pkce.verifier()));
     }
   }
 
   private int loginDevice(AuthConfig auth) {
+    if (auth.isEntra()) {
+      throw new CliException(
+          "Device code login is not supported for Microsoft Entra ID. "
+              + "Run 'insight login' (without --device) to use the browser-based PKCE flow instead.");
+    }
     return new DeviceCodeFlow(auth, profile).login(timeoutSeconds);
   }
 

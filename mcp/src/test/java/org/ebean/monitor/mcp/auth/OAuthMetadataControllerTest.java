@@ -54,7 +54,7 @@ class OAuthMetadataControllerTest {
 
   @Test
   void buildsJsonMetadata_withIssuerAndClientId() {
-    var config = new McpOAuthConfig("https://idp.example.com/pool", "client-abc");
+    var config = new McpOAuthConfig("https://idp.example.com/pool", "client-abc", null);
     var controller = new OAuthMetadataController(config);
     var ctx = new FakeContext("https", "mcp.example.com");
 
@@ -72,7 +72,7 @@ class OAuthMetadataControllerTest {
 
   @Test
   void buildsJsonMetadata_withoutClientId() {
-    var config = new McpOAuthConfig("https://idp.example.com/pool", null);
+    var config = new McpOAuthConfig("https://idp.example.com/pool", null, null);
     var ctx = new FakeContext("https", "mcp.example.com");
 
     new OAuthMetadataController(config).oauthProtectedResource(ctx.proxy());
@@ -83,7 +83,7 @@ class OAuthMetadataControllerTest {
 
   @Test
   void returnsNotFound_whenIssuerBlank() {
-    var config = new McpOAuthConfig("", null);
+    var config = new McpOAuthConfig("", null, null);
     var ctx = new FakeContext("https", "mcp.example.com");
 
     new OAuthMetadataController(config).oauthProtectedResource(ctx.proxy());
@@ -93,7 +93,7 @@ class OAuthMetadataControllerTest {
 
   @Test
   void resourceUrlDerivedFromRequestHostAndScheme() {
-    var config = new McpOAuthConfig("https://idp.example.com/pool", null);
+    var config = new McpOAuthConfig("https://idp.example.com/pool", null, null);
     var ctx = new FakeContext("http", "localhost:8092");
 
     new OAuthMetadataController(config).oauthProtectedResource(ctx.proxy());
@@ -103,7 +103,7 @@ class OAuthMetadataControllerTest {
 
   @Test
   void resourceUrl_usesXForwardedProto_whenPresent() {
-    var config = new McpOAuthConfig("https://idp.example.com/pool", null);
+    var config = new McpOAuthConfig("https://idp.example.com/pool", null, null);
     // Simulate pod behind ingress: raw scheme is http but X-Forwarded-Proto says https.
     var ctx = new FakeContext("http", "mcp.example.com")
         .withRequestHeader("X-Forwarded-Proto", "https");

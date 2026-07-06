@@ -7,8 +7,8 @@ VPC ALB) plus the `Insight-Key` header on the ingest path, and — for the
 
 The server can optionally enforce **OAuth2 JWT bearer authentication** on its
 HTTP endpoints. This validates an `Authorization: Bearer <token>` access token
-(issued by an OIDC provider such as AWS Cognito) on every request, except a
-small permit-list.
+(issued by an OIDC provider such as AWS Cognito or Microsoft Entra ID) on
+every request, except a small permit-list.
 
 > Built on [`avaje-oauth2-jex-jwtfilter`](https://github.com/avaje/avaje-oauth2).
 > The filter verifies the token **issuer, expiry and signature** (via the
@@ -70,7 +70,7 @@ users only need to provide the server URL:
 insight setup https://central-insight.example.com   # one command bootstraps everything
 ```
 
-Configure the values the server returns via:
+Configure the values the server returns via (Cognito):
 
 ```yaml
 insight:
@@ -81,6 +81,18 @@ insight:
       scope: "openid"
 ```
 
+Or for Microsoft Entra ID, set `tenant-id` instead of `domain` — the CLI derives
+the v2.0 authorize/token endpoints from the tenant id:
+
+```yaml
+insight:
+  cli:
+    auth:
+      tenant-id: "<entra-tenant-id>"
+      client-id: "<entra-app-client-id>"
+      scope: "api://<entra-app-client-id>/access_as_user"
+```
+
 Or via environment variables:
 
 ```
@@ -89,15 +101,26 @@ INSIGHT_CLI_AUTH_CLIENTID=<public-cognito-app-client-id>
 INSIGHT_CLI_AUTH_SCOPE=openid
 ```
 
+```
+INSIGHT_CLI_AUTH_TENANTID=<entra-tenant-id>
+INSIGHT_CLI_AUTH_CLIENTID=<entra-app-client-id>
+INSIGHT_CLI_AUTH_SCOPE=api://<entra-app-client-id>/access_as_user
+```
+
 | Property | Env var | Default | Notes |
 |----------|---------|---------|-------|
-| `insight.cli.auth.domain` | `INSIGHT_CLI_AUTH_DOMAIN` | `""` | Cognito Hosted-UI domain. |
+| `insight.cli.auth.domain` | `INSIGHT_CLI_AUTH_DOMAIN` | `""` | Cognito Hosted-UI domain. Not used for Entra. |
+| `insight.cli.auth.tenant-id` | `INSIGHT_CLI_AUTH_TENANTID` | `""` | Microsoft Entra ID tenant id. When set, the CLI logs in against Entra's v2.0 endpoints instead of Cognito. |
 | `insight.cli.auth.client-id` | `INSIGHT_CLI_AUTH_CLIENTID` | `""` | Public PKCE app client id (no secret). |
-| `insight.cli.auth.scope` | `INSIGHT_CLI_AUTH_SCOPE` | `openid` | Requested OAuth2 scope(s). |
+| `insight.cli.auth.scope` | `INSIGHT_CLI_AUTH_SCOPE` | `openid` | Requested OAuth2 scope(s). For Entra, requesting only `openid`/`profile` will **not** yield a JWT access token verifiable against the tenant's JWKS — the app registration must expose an API and this must include that scope, e.g. `api://<clientId>/access_as_user`. |
 
-> These are **not secrets** — a Cognito PKCE client id and Hosted-UI domain are
-> visible in every OAuth2 redirect URL. Safe to expose from an unauthenticated
-> endpoint.
+> These are **not secrets** — a public OAuth2 client id, Cognito Hosted-UI
+> domain, or Entra tenant id are all visible in every OAuth2 redirect URL. Safe
+> to expose from an unauthenticated endpoint.
+
+> Entra ID only supports the PKCE (browser loopback) login flow here, not
+> device code — `insight login --device` is rejected when `tenant-id` is
+> configured.
 
 Fields that are unset (blank) are returned as `null` in the JSON response; the CLI
 will skip writing those keys and the user can set them manually with
@@ -107,14 +130,17 @@ will skip writing those keys and the user can set them manually with
 
 ## Configuration
 
-Two properties, both under `insight.auth`:
+Three properties, all under `insight.auth`:
 
 ```yaml
 insight:
   auth:
     enabled: false           # master switch — default OFF
-    # OIDC issuer. JWKS is discovered at <issuer>/.well-known/jwks.json
+    # OIDC issuer. JWKS defaults to <issuer>/.well-known/jwks.json unless jwks-uri is set below.
     issuer: ""
+    # Optional explicit JWKS URI override — required for providers (e.g. Entra ID)
+    # whose JWKS endpoint does not live at <issuer>/.well-known/jwks.json.
+    jwks-uri: ""
 ```
 
 Or via environment variables:
@@ -127,7 +153,8 @@ INSIGHT_AUTH_ISSUER=https://cognito-idp.ap-southeast-2.amazonaws.com/ap-southeas
 | Property | Env var | Default | Notes |
 |----------|---------|---------|-------|
 | `insight.auth.enabled` | `INSIGHT_AUTH_ENABLED` | `false` | When `false` no auth beans are created and the server behaves exactly as before. |
-| `insight.auth.issuer`  | `INSIGHT_AUTH_ISSUER`  | `""`    | Required when enabled. The token's `iss` claim must match. JWKS keys are fetched from `<issuer>/.well-known/jwks.json`. |
+| `insight.auth.issuer`  | `INSIGHT_AUTH_ISSUER`  | `""`    | Required when enabled. The token's `iss` claim must match. JWKS keys default to `<issuer>/.well-known/jwks.json` unless `jwks-uri` is set. |
+| `insight.auth.jwks-uri` | `INSIGHT_AUTH_JWKS_URI` | `""` | Optional explicit JWKS URI, overriding the `<issuer>/.well-known/jwks.json` default. Required for Microsoft Entra ID (see below). |
 
 ### Cognito issuer format
 
@@ -140,14 +167,43 @@ https://cognito-idp.<region>.amazonaws.com/<userPoolId>
 The server fetches the signing keys from
 `https://cognito-idp.<region>.amazonaws.com/<userPoolId>/.well-known/jwks.json`
 at startup (and refreshes on key rotation), so the server needs outbound network
-access to that endpoint.
+access to that endpoint. No `jwks-uri` override is needed for Cognito.
+
+### Microsoft Entra ID issuer format
+
+For a Microsoft Entra ID (Azure AD) tenant, the v2.0 issuer is:
+
+```
+https://login.microsoftonline.com/<tenantId>/v2.0
+```
+
+Unlike Cognito, Entra's JWKS endpoint does **not** live at
+`<issuer>/.well-known/jwks.json` — it is at a separate `discovery/v2.0/keys`
+path, so `insight.auth.jwks-uri` **must** be set explicitly:
+
+```yaml
+insight:
+  auth:
+    enabled: true
+    issuer: "https://login.microsoftonline.com/<tenantId>/v2.0"
+    jwks-uri: "https://login.microsoftonline.com/<tenantId>/discovery/v2.0/keys"
+```
+
+```
+INSIGHT_AUTH_ENABLED=true
+INSIGHT_AUTH_ISSUER=https://login.microsoftonline.com/<tenantId>/v2.0
+INSIGHT_AUTH_JWKS_URI=https://login.microsoftonline.com/<tenantId>/discovery/v2.0/keys
+```
+
+The MCP server has its own equivalent `mcp.auth.jwks-uri` / `MCP_AUTH_JWKS_URI`
+property alongside its existing `mcp.auth.issuer` / `mcp.auth.client-id`.
 
 ---
 
 ## Enabling on Kubernetes
 
-Add the two settings to the workload's environment, e.g. in your manifest /
-Helm values:
+Add the settings to the workload's environment, e.g. in your manifest / Helm
+values (Cognito):
 
 ```yaml
 env:
@@ -155,6 +211,18 @@ env:
     value: "true"
   - name: INSIGHT_AUTH_ISSUER
     value: "https://cognito-idp.ap-southeast-2.amazonaws.com/ap-southeast-2_AbCdEf123"
+```
+
+Or for Microsoft Entra ID (note the extra `INSIGHT_AUTH_JWKS_URI`):
+
+```yaml
+env:
+  - name: INSIGHT_AUTH_ENABLED
+    value: "true"
+  - name: INSIGHT_AUTH_ISSUER
+    value: "https://login.microsoftonline.com/<tenantId>/v2.0"
+  - name: INSIGHT_AUTH_JWKS_URI
+    value: "https://login.microsoftonline.com/<tenantId>/discovery/v2.0/keys"
 ```
 
 ---

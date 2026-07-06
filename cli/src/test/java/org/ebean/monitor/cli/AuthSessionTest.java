@@ -5,7 +5,6 @@ import java.util.Properties;
 import java.util.function.Function;
 
 import io.avaje.oauth2.core.data.OidcTokens;
-import io.avaje.oauth2.oidc.cognito.CognitoOidc;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -44,7 +43,7 @@ class AuthSessionTest {
     var store = store(dir);
     store.save(new TokenData("access-old", "refresh-old", null, "Bearer", 1_000L, 0L));
 
-    Function<AuthConfig, CognitoOidc> factory = cfg ->
+    Function<AuthConfig, OidcLoginClient> factory = cfg ->
         fake(() -> new OidcTokens("id-new", "access-new", "refresh-new", 3_600L, "Bearer"));
 
     var session = new AuthSession(store, configured(), () -> 2_000L, factory);
@@ -61,7 +60,7 @@ class AuthSessionTest {
     var store = store(dir);
     store.save(new TokenData("access-old", "refresh-old", null, "Bearer", 1_000L, 0L));
 
-    Function<AuthConfig, CognitoOidc> factory = cfg ->
+    Function<AuthConfig, OidcLoginClient> factory = cfg ->
         fake(() -> new OidcTokens(null, "access-new", null, 3_600L, "Bearer"));
 
     var session = new AuthSession(store, configured(), () -> 2_000L, factory);
@@ -74,7 +73,7 @@ class AuthSessionTest {
     var store = store(dir);
     store.save(new TokenData("access-old", "refresh-old", null, "Bearer", 1_000L, 0L));
 
-    Function<AuthConfig, CognitoOidc> factory = cfg -> fake(() -> {
+    Function<AuthConfig, OidcLoginClient> factory = cfg -> fake(() -> {
       throw new RuntimeException("network down");
     });
 
@@ -91,17 +90,15 @@ class AuthSessionTest {
     assertThat(session.bearerToken()).contains("access-old");
   }
 
-  private static Function<AuthConfig, CognitoOidc> failFactory() {
+  private static Function<AuthConfig, OidcLoginClient> failFactory() {
     return cfg -> {
-      throw new AssertionError("CognitoOidc should not be built");
+      throw new AssertionError("OidcLoginClient should not be built");
     };
   }
 
-  private static CognitoOidc fake(java.util.function.Supplier<OidcTokens> onRefresh) {
-    return new CognitoOidc() {
-      @Override public String loginUrl(String nonce, String state) { throw new UnsupportedOperationException(); }
+  private static OidcLoginClient fake(java.util.function.Supplier<OidcTokens> onRefresh) {
+    return new OidcLoginClient() {
       @Override public String loginUrl(String nonce, String state, String codeChallenge) { throw new UnsupportedOperationException(); }
-      @Override public OidcTokens obtainTokens(String code) { throw new UnsupportedOperationException(); }
       @Override public OidcTokens obtainTokens(String code, String codeVerifier) { throw new UnsupportedOperationException(); }
       @Override public OidcTokens refreshAccessToken(String refreshToken) { return onRefresh.get(); }
     };

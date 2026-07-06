@@ -32,7 +32,7 @@ final class InsightConfig {
   static final List<String> KEYS = List.of(
       "url", "namespace", "service", "target-port", "local-port",
       "context", "ready-timeout", "output", "env", "app",
-      "auth-domain", "auth-user-pool-id", "auth-client-id", "auth-scope",
+      "auth-domain", "auth-user-pool-id", "auth-tenant-id", "auth-client-id", "auth-scope",
       "auth-redirect-port");
 
   /** Internal key that tracks the active profile — not exposed via {@link #KEYS}. */

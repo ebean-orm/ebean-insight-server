@@ -19,6 +19,7 @@ import org.jspecify.annotations.Nullable;
  *   <li>{@code insight.cli.auth.domain}</li>
  *   <li>{@code insight.cli.auth.client-id}</li>
  *   <li>{@code insight.cli.auth.scope}</li>
+ *   <li>{@code insight.cli.auth.tenant-id}</li>
  * </ul>
  */
 @Controller
@@ -30,7 +31,8 @@ final class CliConfigController {
     return new CliConfig(
         trimToNull(Config.getNullable("insight.cli.auth.domain")),
         trimToNull(Config.getNullable("insight.cli.auth.client-id")),
-        trimToNull(Config.getNullable("insight.cli.auth.scope")));
+        trimToNull(Config.getNullable("insight.cli.auth.scope")),
+        trimToNull(Config.getNullable("insight.cli.auth.tenant-id")));
   }
 
   private static @Nullable String trimToNull(@Nullable String value) {

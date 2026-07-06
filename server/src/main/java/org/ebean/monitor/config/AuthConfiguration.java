@@ -34,15 +34,24 @@ import org.ebean.monitor.web.ApiKeyValidator;
 class AuthConfiguration {
 
   /**
-   * JwtVerifier built from the configured Cognito issuer. The issuer drives
-   * remote JWKS discovery at {@code <issuer>/.well-known/jwks.json}.
+   * JwtVerifier built from the configured issuer.
+   * <p>
+   * By default the issuer drives remote JWKS discovery at
+   * {@code <issuer>/.well-known/jwks.json} (Cognito's shape). Providers whose
+   * JWKS endpoint doesn't follow that convention — e.g. Microsoft Entra ID,
+   * where the v2.0 JWKS lives at
+   * {@code https://login.microsoftonline.com/<tenantId>/discovery/v2.0/keys} —
+   * require the explicit {@code insight.auth.jwks-uri} override.
    */
   @Bean
   JwtVerifier jwtVerifier() {
     String issuer = Config.get("insight.auth.issuer");
-    return JwtVerifier.builder()
-      .issuer(issuer)
-      .build();
+    String jwksUri = Config.getNullable("insight.auth.jwks-uri");
+    JwtVerifier.Builder builder = JwtVerifier.builder().issuer(issuer);
+    if (jwksUri != null && !jwksUri.isBlank()) {
+      builder.jwksUri(jwksUri.trim());
+    }
+    return builder.build();
   }
 
   /**

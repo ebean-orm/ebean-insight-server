@@ -32,14 +32,21 @@ final class McpAuthConfiguration {
   McpOAuthConfig mcpOAuthConfig() {
     return new McpOAuthConfig(
         Config.getNullable("mcp.auth.issuer"),
-        Config.getNullable("mcp.auth.client-id"));
+        Config.getNullable("mcp.auth.client-id"),
+        Config.getNullable("mcp.auth.jwks-uri"));
   }
 
   @Bean
   JexPlugin mcpAuthPlugin(TokenStore tokenStore, McpOAuthConfig oauthConfig) {
-    JwtVerifier verifier = oauthConfig.enabled()
-        ? JwtVerifier.builder().issuer(oauthConfig.issuer()).build()
-        : null;
+    JwtVerifier verifier = null;
+    if (oauthConfig.enabled()) {
+      JwtVerifier.Builder builder = JwtVerifier.builder().issuer(oauthConfig.issuer());
+      String jwksUri = oauthConfig.jwksUri();
+      if (jwksUri != null && !jwksUri.isBlank()) {
+        builder.jwksUri(jwksUri.trim());
+      }
+      verifier = builder.build();
+    }
     var filter = new BearerAuthFilter(tokenStore, verifier, "/health", "/.well-known");
     return jex -> jex.filter(filter);
   }
