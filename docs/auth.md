@@ -154,7 +154,7 @@ INSIGHT_AUTH_ISSUER=https://cognito-idp.ap-southeast-2.amazonaws.com/ap-southeas
 |----------|---------|---------|-------|
 | `insight.auth.enabled` | `INSIGHT_AUTH_ENABLED` | `false` | When `false` no auth beans are created and the server behaves exactly as before. |
 | `insight.auth.issuer`  | `INSIGHT_AUTH_ISSUER`  | `""`    | Required when enabled. The token's `iss` claim must match. JWKS keys default to `<issuer>/.well-known/jwks.json` unless `jwks-uri` is set. |
-| `insight.auth.jwks-uri` | `INSIGHT_AUTH_JWKS_URI` | `""` | Optional explicit JWKS URI, overriding the `<issuer>/.well-known/jwks.json` default. Required for Microsoft Entra ID (see below). |
+| `insight.auth.jwks-uri` | `INSIGHT_AUTH_JWKSURI` | `""` | Optional explicit JWKS URI, overriding the `<issuer>/.well-known/jwks.json` default. Required for Microsoft Entra ID (see below). |
 
 ### Cognito issuer format
 
@@ -192,10 +192,10 @@ insight:
 ```
 INSIGHT_AUTH_ENABLED=true
 INSIGHT_AUTH_ISSUER=https://login.microsoftonline.com/<tenantId>/v2.0
-INSIGHT_AUTH_JWKS_URI=https://login.microsoftonline.com/<tenantId>/discovery/v2.0/keys
+INSIGHT_AUTH_JWKSURI=https://login.microsoftonline.com/<tenantId>/discovery/v2.0/keys
 ```
 
-The MCP server has its own equivalent `mcp.auth.jwks-uri` / `MCP_AUTH_JWKS_URI`
+The MCP server has its own equivalent `mcp.auth.jwks-uri` / `MCP_AUTH_JWKSURI`
 property alongside its existing `mcp.auth.issuer` / `mcp.auth.client-id`.
 
 ---
@@ -213,7 +213,7 @@ env:
     value: "https://cognito-idp.ap-southeast-2.amazonaws.com/ap-southeast-2_AbCdEf123"
 ```
 
-Or for Microsoft Entra ID (note the extra `INSIGHT_AUTH_JWKS_URI`):
+Or for Microsoft Entra ID (note the extra `INSIGHT_AUTH_JWKSURI`):
 
 ```yaml
 env:
@@ -221,7 +221,7 @@ env:
     value: "true"
   - name: INSIGHT_AUTH_ISSUER
     value: "https://login.microsoftonline.com/<tenantId>/v2.0"
-  - name: INSIGHT_AUTH_JWKS_URI
+  - name: INSIGHT_AUTH_JWKSURI
     value: "https://login.microsoftonline.com/<tenantId>/discovery/v2.0/keys"
 ```
 
