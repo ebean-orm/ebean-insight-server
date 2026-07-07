@@ -27,6 +27,8 @@ final class WhoamiCommand implements Callable<Integer> {
       @Nullable String scope,
       @Nullable String issuer,
       @Nullable String tokenUse,
+      @Nullable String email,
+      @Nullable String upn,
       long expiresAt,
       boolean expired) {
   }
@@ -63,6 +65,8 @@ final class WhoamiCommand implements Callable<Integer> {
     System.out.printf("Scope:     %s%n", value(identity.scope()));
     System.out.printf("Issuer:    %s%n", value(identity.issuer()));
     System.out.printf("Token use: %s%n", value(identity.tokenUse()));
+    System.out.printf("Email:     %s%n", value(identity.email()));
+    System.out.printf("UPN:       %s%n", value(identity.upn()));
     System.out.printf("Expires:   %s (%s)%n",
         Instant.ofEpochSecond(identity.expiresAt()),
         identity.expired() ? "expired — run `insight login`" : "valid");
@@ -78,10 +82,10 @@ final class WhoamiCommand implements Callable<Integer> {
       AccessToken at = mapper.readAccessToken(jwt.payload());
       long expiresAt = at.expiredAt() > 0 ? at.expiredAt() : token.expiresAt();
       return new Identity(at.sub(), at.clientId(), at.scope(), at.issuer(),
-          at.tokenUse(), expiresAt, now >= expiresAt);
+          at.tokenUse(), at.email(), at.upn(), expiresAt, now >= expiresAt);
     } catch (RuntimeException e) {
       // token not decodable (e.g. opaque) — fall back to stored expiry only
-      return new Identity(null, null, null, null, null,
+      return new Identity(null, null, null, null, null, null, null,
           token.expiresAt(), token.isExpired(now));
     }
   }

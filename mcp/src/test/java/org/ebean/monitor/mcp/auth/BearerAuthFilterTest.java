@@ -207,7 +207,7 @@ class BearerAuthFilterTest {
       public void verify(io.avaje.oauth2.core.jwt.SignedJwt jwt) {}
       @Override
       public AccessToken verifyAccessToken(String token) {
-        return new AccessToken(sub, null, null, 0, null, 0, 0, 0, null, null);
+        return new AccessToken(sub, null, null, 0, null, 0, 0, 0, null, null, null, null);
       }
     };
   }

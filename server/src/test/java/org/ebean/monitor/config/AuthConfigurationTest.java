@@ -32,7 +32,7 @@ class AuthConfigurationTest {
 
   private static AccessToken accessToken() {
     return new AccessToken("sub1", "access", "insight/read", 0L,
-      "issuer", 0L, 0L, 1, "jti1", "client123");
+      "issuer", 0L, 0L, 1, "jti1", "client123", null, null);
   }
 
   private JwtAuthFilter filter() {

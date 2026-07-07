@@ -42,7 +42,7 @@
     <dependency>
       <groupId>io.avaje</groupId>
       <artifactId>avaje-oauth2-core</artifactId>
-      <version>1.4</version>
+      <version>1.5</version>
     </dependency>
 
     <dependency>
