@@ -116,6 +116,16 @@ final class SetupCommand implements Callable<Integer> {
           .GET().as(CliConfigResponse.class);
       return res.body();
     } catch (HttpException e) {
+      Throwable cause = e.getCause();
+      if (e.statusCode() == 499 && cause != null) {
+        // avaje-http-client synthesizes status 499 for connection-level failures
+        // (DNS, connect/TLS timeout, connection refused) — no real HTTP response
+        // was received, so surface the underlying exception instead of "HTTP 499".
+        String detail = cause.getMessage() != null
+            ? cause.getClass().getSimpleName() + ": " + cause.getMessage()
+            : cause.getClass().getSimpleName();
+        throw new CliException("Failed to reach " + baseUrl + "/api/cli-config: " + detail);
+      }
       throw new CliException("Failed to fetch CLI config from " + baseUrl + "/api/cli-config: HTTP " + e.statusCode());
     } catch (Exception e) {
       throw new CliException("Failed to reach " + baseUrl + "/api/cli-config: " + e.getMessage());
