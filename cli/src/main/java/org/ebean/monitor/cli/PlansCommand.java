@@ -150,7 +150,7 @@ final class PlansCommand implements Callable<Integer> {
       QueryPlan p = insight.plans.getPlan(id);
       PlanCommand.printPlan(p);
     } catch (HttpException e) {
-      System.out.println("Failed to load plan " + id + ": HTTP " + e.statusCode());
+      System.out.println("Failed to load plan " + id + ": " + HttpErrors.describe(e));
     }
   }
 

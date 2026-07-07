@@ -106,7 +106,7 @@ final class CaptureCommand implements Callable<Integer> {
           results.add(new CaptureResult(hash, pending.label(), null));
         } catch (HttpException e) {
           anyError = true;
-          results.add(new CaptureResult(hash, null, "HTTP " + e.statusCode()));
+          results.add(new CaptureResult(hash, null, HttpErrors.describe(e)));
         }
       }
       if (out.json()) {

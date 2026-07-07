@@ -189,7 +189,7 @@ final class Interactive {
     try {
       metrics = insight.metrics.getMetricByHash(app, hash);
     } catch (HttpException e) {
-      System.out.println("Failed to load metric: HTTP " + e.statusCode());
+      System.out.println("Failed to load metric: " + HttpErrors.describe(e));
       return 1;
     }
     if (metrics.isEmpty()) {
@@ -444,7 +444,7 @@ final class Interactive {
           status = "requested";
           requested++;
         } catch (HttpException e) {
-          status = "failed HTTP " + e.statusCode();
+          status = "failed " + HttpErrors.describe(e);
           failed++;
         }
       }
@@ -529,7 +529,7 @@ final class Interactive {
       try {
         hashRows = drill.fetch(app, name, label, kind, type, by.name());
       } catch (HttpException e) {
-        System.out.println("Failed to load queries: HTTP " + e.statusCode());
+        System.out.println("Failed to load queries: " + HttpErrors.describe(e));
         return true;
       }
       if (!hashRows.isEmpty()) {
@@ -542,7 +542,7 @@ final class Interactive {
     try {
       metrics = insight.metrics.listAppMetrics(app, name, label, kind, type, null, 100);
     } catch (HttpException e) {
-      System.out.println("Failed to load queries: HTTP " + e.statusCode());
+      System.out.println("Failed to load queries: " + HttpErrors.describe(e));
       return true;
     }
     if (metrics.isEmpty()) {
@@ -597,7 +597,7 @@ final class Interactive {
       System.out.println();
       MetricCommand.printMetric(metrics.get(0));
     } catch (HttpException e) {
-      System.out.println("Failed to load metric: HTTP " + e.statusCode());
+      System.out.println("Failed to load metric: " + HttpErrors.describe(e));
     }
   }
 
@@ -621,7 +621,7 @@ final class Interactive {
       System.out.println("plan:");
       System.out.println(p.plan());
     } catch (HttpException e) {
-      System.out.println("Failed to load plan: HTTP " + e.statusCode());
+      System.out.println("Failed to load plan: " + HttpErrors.describe(e));
     }
   }
 
@@ -631,7 +631,7 @@ final class Interactive {
       System.out.println("Capture requested (env " + (env == null ? "*" : env)
           + ", queue depth " + pending.pending() + "). Check 'insight pending' / 'insight plans' shortly.");
     } catch (HttpException e) {
-      System.out.println("Capture failed: HTTP " + e.statusCode());
+      System.out.println("Capture failed: " + HttpErrors.describe(e));
     }
   }
 
@@ -654,7 +654,7 @@ final class Interactive {
       System.out.println();
       System.out.print(ChangeCommand.render(detail));
     } catch (HttpException e) {
-      System.out.println("Failed to load plan changes: HTTP " + e.statusCode());
+      System.out.println("Failed to load plan changes: " + HttpErrors.describe(e));
     }
   }
 
@@ -695,7 +695,7 @@ final class Interactive {
       System.out.println();
       System.out.print(ChangeCommand.render(detail));
     } catch (HttpException e) {
-      System.out.println("Failed to load change " + c.id() + ": HTTP " + e.statusCode());
+      System.out.println("Failed to load change " + c.id() + ": " + HttpErrors.describe(e));
       return true;
     }
     while (true) {
@@ -795,7 +795,7 @@ final class Interactive {
       if (e.statusCode() == 404) {
         System.out.println("This server build does not serve the per-hash time-series endpoint yet.");
       } else {
-        System.out.println("Failed to load trend: HTTP " + e.statusCode());
+        System.out.println("Failed to load trend: " + HttpErrors.describe(e));
       }
       return null;
     }
@@ -845,7 +845,7 @@ final class Interactive {
     try {
       plans = insight.plans.listPlans(row.app(), env, null, row.hash(), null, null, null, null, 50);
     } catch (HttpException e) {
-      System.out.println("Failed to load plans: HTTP " + e.statusCode());
+      System.out.println("Failed to load plans: " + HttpErrors.describe(e));
       return;
     }
     if (plans.isEmpty()) {

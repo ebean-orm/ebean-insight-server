@@ -156,7 +156,7 @@ final class MissingPlansCommand implements Callable<Integer> {
         results.add(new CaptureResult(m.key(), pending.label() != null ? pending.label() : m.label(), null));
       } catch (HttpException e) {
         anyError = true;
-        results.add(new CaptureResult(m.key(), m.label(), "HTTP " + e.statusCode()));
+        results.add(new CaptureResult(m.key(), m.label(), HttpErrors.describe(e)));
       }
     }
     if (out.json()) {
