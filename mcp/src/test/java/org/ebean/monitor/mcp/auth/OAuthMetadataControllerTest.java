@@ -54,7 +54,7 @@ class OAuthMetadataControllerTest {
 
   @Test
   void buildsJsonMetadata_withIssuerAndClientId() {
-    var config = new McpOAuthConfig("https://idp.example.com/pool", "client-abc", null);
+    var config = new McpOAuthConfig("https://idp.example.com/pool", "client-abc", null, "openid");
     var controller = new OAuthMetadataController(config);
     var ctx = new FakeContext("https", "mcp.example.com");
 
@@ -71,8 +71,25 @@ class OAuthMetadataControllerTest {
   }
 
   @Test
+  void buildsJsonMetadata_withConfiguredResourceScope() {
+    // e.g. Microsoft Entra ID: scopes_supported must be the resource's own exposed API
+    // scope, not the bare "openid" default, so the client receives a correctly
+    // audienced/versioned access token (see McpOAuthConfig javadoc).
+    var config = new McpOAuthConfig(
+        "https://login.microsoftonline.com/tenant-id/v2.0",
+        "client-abc",
+        null,
+        "api://client-abc/access_as_user");
+    var ctx = new FakeContext("https", "mcp.example.com");
+
+    new OAuthMetadataController(config).oauthProtectedResource(ctx.proxy());
+
+    assertThat(ctx.body).contains("\"scopes_supported\":[\"api://client-abc/access_as_user\"]");
+  }
+
+  @Test
   void buildsJsonMetadata_withoutClientId() {
-    var config = new McpOAuthConfig("https://idp.example.com/pool", null, null);
+    var config = new McpOAuthConfig("https://idp.example.com/pool", null, null, "openid");
     var ctx = new FakeContext("https", "mcp.example.com");
 
     new OAuthMetadataController(config).oauthProtectedResource(ctx.proxy());
@@ -83,7 +100,7 @@ class OAuthMetadataControllerTest {
 
   @Test
   void returnsNotFound_whenIssuerBlank() {
-    var config = new McpOAuthConfig("", null, null);
+    var config = new McpOAuthConfig("", null, null, "openid");
     var ctx = new FakeContext("https", "mcp.example.com");
 
     new OAuthMetadataController(config).oauthProtectedResource(ctx.proxy());
@@ -93,7 +110,7 @@ class OAuthMetadataControllerTest {
 
   @Test
   void resourceUrlDerivedFromRequestHostAndScheme() {
-    var config = new McpOAuthConfig("https://idp.example.com/pool", null, null);
+    var config = new McpOAuthConfig("https://idp.example.com/pool", null, null, "openid");
     var ctx = new FakeContext("http", "localhost:8092");
 
     new OAuthMetadataController(config).oauthProtectedResource(ctx.proxy());
@@ -103,7 +120,7 @@ class OAuthMetadataControllerTest {
 
   @Test
   void resourceUrl_usesXForwardedProto_whenPresent() {
-    var config = new McpOAuthConfig("https://idp.example.com/pool", null, null);
+    var config = new McpOAuthConfig("https://idp.example.com/pool", null, null, "openid");
     // Simulate pod behind ingress: raw scheme is http but X-Forwarded-Proto says https.
     var ctx = new FakeContext("http", "mcp.example.com")
         .withRequestHeader("X-Forwarded-Proto", "https");

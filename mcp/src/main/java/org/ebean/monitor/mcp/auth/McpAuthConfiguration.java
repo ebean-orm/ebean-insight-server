@@ -33,7 +33,8 @@ final class McpAuthConfiguration {
     return new McpOAuthConfig(
         Config.getNullable("mcp.auth.issuer"),
         Config.getNullable("mcp.auth.client-id"),
-        Config.getNullable("mcp.auth.jwks-uri"));
+        Config.getNullable("mcp.auth.jwks-uri"),
+        Config.get("mcp.auth.scope", "openid"));
   }
 
   @Bean

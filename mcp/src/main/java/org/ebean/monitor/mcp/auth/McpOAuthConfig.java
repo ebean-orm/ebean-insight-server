@@ -11,8 +11,18 @@ package org.ebean.monitor.mcp.auth;
  * @param jwksUri  Optional explicit JWKS uri ({@code mcp.auth.jwks-uri}) override for
  *                 issuers whose JWKS endpoint isn't {@code <issuer>/.well-known/jwks.json}
  *                 (e.g. Microsoft Entra ID).
+ * @param scope    OAuth scope(s) advertised as {@code scopes_supported}
+ *                 ({@code mcp.auth.scope}), space-separated. Defaults to {@code openid}.
+ *                 <p>
+ *                 For providers (e.g. Microsoft Entra ID) that mint the access token's
+ *                 audience/format from the requested scope, this <strong>must</strong> be
+ *                 the resource's own exposed API scope (e.g.
+ *                 {@code api://<client-id>/access_as_user}) — not the bare {@code openid}
+ *                 default — otherwise the client may receive a token for a different
+ *                 (default) audience whose issuer/version doesn't match {@link #issuer()},
+ *                 causing {@link io.avaje.oauth2.core.jwt.JwtVerifier} to reject it.
  */
-record McpOAuthConfig(String issuer, String clientId, String jwksUri) {
+record McpOAuthConfig(String issuer, String clientId, String jwksUri, String scope) {
 
   /** True when an OIDC issuer is configured and JWT auth is in use. */
   boolean enabled() {

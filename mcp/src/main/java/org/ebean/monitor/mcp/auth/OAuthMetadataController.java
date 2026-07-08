@@ -42,7 +42,11 @@ public class OAuthMetadataController {
    *   <li>{@code resource} — canonical MCP endpoint URL (derived from request host)</li>
    *   <li>{@code authorization_servers} — the OIDC issuer from {@link McpOAuthConfig}</li>
    *   <li>{@code bearer_methods_supported} — always {@code ["header"]}</li>
-   *   <li>{@code scopes_supported} — always {@code ["openid"]}</li>
+   *   <li>{@code scopes_supported} — {@link McpOAuthConfig#scope()} (defaults to
+   *       {@code "openid"}); for Entra ID this must be the resource's own exposed
+   *       API scope so the client receives a token whose audience/issuer format
+   *       matches what {@link McpOAuthConfig#issuer()} expects — see
+   *       {@link McpOAuthConfig}</li>
    *   <li>{@code client_id} — optional PKCE client ID hint; included when configured
    *       so clients can skip Dynamic Client Registration</li>
    * </ul>
@@ -62,7 +66,7 @@ public class OAuthMetadataController {
     sb.append("{\"resource\":\"").append(resource).append('"');
     sb.append(",\"authorization_servers\":[\"").append(oauthConfig.issuer()).append("\"]");
     sb.append(",\"bearer_methods_supported\":[\"header\"]");
-    sb.append(",\"scopes_supported\":[\"openid\"]");
+    sb.append(",\"scopes_supported\":[\"").append(oauthConfig.scope()).append("\"]");
     if (oauthConfig.clientId() != null && !oauthConfig.clientId().isBlank()) {
       sb.append(",\"client_id\":\"").append(oauthConfig.clientId()).append('"');
     }
