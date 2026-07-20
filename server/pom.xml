@@ -17,7 +17,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
     <maven.compiler.release>25</maven.compiler.release>
-    <ebean.version>19.2.0</ebean.version>
+    <ebean.version>19.3.0</ebean.version>
     <avaje-inject.version>12.6</avaje-inject.version>
     <avaje-http.version>3.10</avaje-http.version>
     <avaje-jex.version>3.6</avaje-jex.version>
@@ -42,7 +42,7 @@
     <dependency>
       <groupId>io.avaje</groupId>
       <artifactId>avaje-metrics</artifactId>
-      <version>9.15</version>
+      <version>10.0</version>
     </dependency>
 
     <dependency>
@@ -144,7 +144,7 @@
     <dependency>
       <groupId>io.ebean</groupId>
       <artifactId>ebean-test-containers</artifactId>
-      <version>8.3</version>
+      <version>8.4</version>
       <scope>test</scope>
     </dependency>
 
@@ -177,7 +177,7 @@
       <plugin> <!-- perform metrics enhancement -->
         <groupId>io.avaje.metrics</groupId>
         <artifactId>metrics-maven-plugin</artifactId>
-        <version>9.15</version>
+        <version>10.0</version>
         <extensions>true</extensions>
       </plugin>
 
@@ -253,7 +253,7 @@
           <plugin>
             <groupId>org.graalvm.buildtools</groupId>
             <artifactId>native-maven-plugin</artifactId>
-            <version>1.1.4</version>
+            <version>1.1.5</version>
             <executions>
               <execution>
                 <id>build-native</id>
@@ -324,7 +324,7 @@
           <plugin>
             <groupId>com.google.cloud.tools</groupId>
             <artifactId>jib-maven-plugin</artifactId>
-            <version>3.5.1</version>
+            <version>3.5.2</version>
             <dependencies>
               <dependency>
                 <groupId>com.google.cloud.tools</groupId>
