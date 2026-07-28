@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Proxy;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -207,7 +208,8 @@ class BearerAuthFilterTest {
       public void verify(io.avaje.oauth2.core.jwt.SignedJwt jwt) {}
       @Override
       public AccessToken verifyAccessToken(String token) {
-        return new AccessToken(sub, null, null, 0, null, 0, 0, 0, null, null, null, null);
+        return new AccessToken(sub, null, null, 0, null, 0, 0, 0,
+          null, null, null, null, null, 0, List.of());
       }
     };
   }
