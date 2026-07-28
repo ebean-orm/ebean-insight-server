@@ -1,10 +1,4 @@
 -711354723,     I__partition_help.sql
-846020531,      1.0__initial.sql
-1256671819,     1.1__capture_request.sql
--1362069816,    1.2__plan_shape.sql
-702796780,      1.3__plan_change.sql
-85386349,       1.4__metric_tags.sql
-1704466480,     1.5__reset_data.sql
-1157210771,     1.6__base_partitions.sql
-1809545849,     1.7__plan_identity.sql
+-1393306997,    1.0__initial.sql
+1157210771,     1.1__base_partitions.sql
 
