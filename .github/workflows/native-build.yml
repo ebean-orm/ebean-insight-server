@@ -17,8 +17,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: graalvm/setup-graalvm@v1
+      - name: Set up GraalVM
+        uses: graalvm/setup-graalvm@v1
         with:
+          version: '25.2'
           java-version: '25'
           distribution: 'graalvm'
           cache: 'maven'
