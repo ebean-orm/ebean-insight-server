@@ -218,6 +218,50 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
+  /v1/apps/{app}/metrics/top/timeseries:
+    get:
+      tags: [metrics]
+      operationId: topAppMetricsTimeseries
+      summary: Per-bucket time-series of the top-N labels for an application, plus an "Other" remainder series
+      description: |
+        Ranks metrics by `label` tag over the requested window (same ranking as
+        `/metrics/top` with `by=label`), then returns a dense per-bucket
+        time-series for each of the top `seriesLimit` labels. Any execution time
+        outside the top labels (including metrics with no `label` tag) is
+        summed into a single synthetic `Other` series (`other: true`), so the
+        stacked total across all returned series reconstructs the application's
+        overall `ebean.query.total` for every bucket. The `Other` series is
+        omitted when the top labels already cover every metric in the window.
+
+        Bucket resolution is chosen automatically from the window (1m / 10m /
+        60m / 1d), matching `/metrics/by-hash/{hash}/timeseries`. `orderBy=value`
+        is not applicable (this endpoint covers timer metrics only) and yields
+        400.
+      parameters:
+        - $ref: '#/components/parameters/AppPath'
+        - $ref: '#/components/parameters/MetricName'
+        - $ref: '#/components/parameters/KindTag'
+        - $ref: '#/components/parameters/TypeTag'
+        - $ref: '#/components/parameters/OrderBy'
+        - $ref: '#/components/parameters/SinceMinutes'
+        - $ref: '#/components/parameters/SinceHours'
+        - $ref: '#/components/parameters/SeriesLimit'
+        - name: planCapable
+          in: query
+          schema:
+            type: boolean
+          description: Optional filter; when true, restrict to plan-capable metrics.
+        - $ref: '#/components/parameters/EnvQuery'
+      responses:
+        '200':
+          description: Top-N label series, each with a dense per-bucket time-series
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricTimeseriesTop'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
   /v1/apps/{app}/metrics/missing-plans:
     get:
       tags: [metrics]
@@ -560,6 +604,18 @@ components:
         minimum: 1
         maximum: 200
       description: Max items to return (default 50, hard cap 200).
+    SeriesLimit:
+      name: seriesLimit
+      in: query
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        maximum: 20
+      description: |
+        Max number of top labels broken out as individual stacked series
+        (default 8, hard cap 20). Remaining execution time is summed into a
+        single `Other` series.
     OrderBy:
       name: orderBy
       in: query
@@ -901,6 +957,56 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/MetricTimeBucket'
+
+    MetricTimeseriesTopSeries:
+      type: object
+      description: |
+        One stacked series in a `top/timeseries` result: either a top-N label
+        (`other: false`) or the synthetic remainder (`other: true`, `group`
+        `"Other"`) summing every metric outside the top-N labels for the
+        window, including metrics with no `label` tag.
+      required: [group, other, hashCount, totalMicros, buckets]
+      properties:
+        group:
+          type: string
+          description: The label value (or `"Other"` for the remainder series).
+        other:
+          type: boolean
+          description: True only for the synthetic remainder series.
+        hashCount:
+          type: integer
+          format: int64
+          description: Number of underlying metric identities (hashes) summed into this series.
+        totalMicros:
+          type: integer
+          format: int64
+          description: Summed total time over the whole window (sum of this series' buckets); used for ranking/legend.
+        buckets:
+          type: array
+          items:
+            $ref: '#/components/schemas/MetricTimeBucket'
+
+    MetricTimeseriesTop:
+      type: object
+      required: [app, windowMinutes, bucketMinutes, series]
+      properties:
+        app:
+          type: string
+        windowMinutes:
+          type: integer
+          format: int64
+        bucketMinutes:
+          type: integer
+          format: int64
+          description: Resolution chosen for the window (1, 10, 60 or 1440).
+        series:
+          type: array
+          description: |
+            Ordered by the requested `orderBy` dimension, descending (`total`
+            by default); the `Other` series, if present, is always last
+            regardless of its own magnitude.
+          items:
+            $ref: '#/components/schemas/MetricTimeseriesTopSeries'
 
     MissingPlanMetric:
       type: object

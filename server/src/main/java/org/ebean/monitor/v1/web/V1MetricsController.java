@@ -6,6 +6,7 @@ import org.ebean.monitor.v1.MetricsApi;
 import org.ebean.monitor.v1.model.AppMetric;
 import org.ebean.monitor.v1.model.AppMetricStats;
 import org.ebean.monitor.v1.model.MetricTimeseries;
+import org.ebean.monitor.v1.model.MetricTimeseriesTop;
 import org.ebean.monitor.v1.model.MissingPlanMetric;
 import org.ebean.monitor.v1.model.TopGroup;
 
@@ -41,6 +42,11 @@ public final class V1MetricsController implements MetricsApi {
   @Override
   public List<TopGroup> topAppMetrics(String app, String by, String name, String label, String kind, String type, String orderBy, Long sinceMinutes, Long sinceHours, Integer limit, Boolean planCapable, String env) {
     return service.topAppMetrics(app, by, name, label, kind, type, orderBy, sinceMinutes, sinceHours, limit, planCapable, env);
+  }
+
+  @Override
+  public MetricTimeseriesTop topAppMetricsTimeseries(String app, String name, String kind, String type, String orderBy, Long sinceMinutes, Long sinceHours, Integer seriesLimit, Boolean planCapable, String env) {
+    return service.getTopAppMetricsTimeseries(app, name, kind, type, orderBy, sinceMinutes, sinceHours, seriesLimit, planCapable, env);
   }
 
   @Override
