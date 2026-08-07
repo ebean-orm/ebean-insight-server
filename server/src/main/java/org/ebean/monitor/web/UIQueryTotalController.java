@@ -203,6 +203,18 @@ public class UIQueryTotalController {
     return sb.toString();
   }
 
+  static String metricSqlUrl(String app, String env, String range, String label, String hash) {
+    final StringBuilder sb = new StringBuilder("/ux/query-sql?app=")
+      .append(urlEncode(app))
+      .append("&range=").append(urlEncode(range))
+      .append("&label=").append(urlEncode(label))
+      .append("&hash=").append(urlEncode(hash));
+    if (env != null && !env.isBlank()) {
+      sb.append("&env=").append(urlEncode(env));
+    }
+    return sb.toString();
+  }
+
   private static String urlEncode(String value) {
     return URLEncoder.encode(value, StandardCharsets.UTF_8);
   }

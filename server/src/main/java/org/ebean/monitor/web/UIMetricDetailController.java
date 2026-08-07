@@ -95,7 +95,9 @@ public class UIMetricDetailController {
     for (TopGroup g : hashGroups) {
       final String color = Palette.colorFor(colorIndex++);
       colorByHash.put(g.key(), color);
-      hashBreakdown.add(new HashRow(g.key(), color));
+      hashBreakdown.add(new HashRow(g.key(), color,
+        hasSql(g.sql()) ? UIQueryTotalController.metricSqlUrl(
+          selectedApp, selectedEnv, range.key(), label, g.key()) : null));
     }
     final MetricTimeseriesTop hashTimeseries = service.getLabelHashTimeseries(
       selectedApp, label, METRIC_NAME, (long) range.minutes(), null, HASH_BREAKDOWN_LIMIT, env);
@@ -158,6 +160,10 @@ public class UIMetricDetailController {
 
   private static long microsToMs(@Nullable Long micros) {
     return micros == null ? 0L : micros / 1000L;
+  }
+
+  private static boolean hasSql(@Nullable String sql) {
+    return sql != null && !sql.isBlank();
   }
 
   private static String formatNum(long value) {

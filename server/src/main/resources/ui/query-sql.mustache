@@ -1,0 +1,15 @@
+{{<fragments/layout}}
+  {{$body}}
+    <link rel="stylesheet" href="/static/query-plan.css">
+
+    <hgroup>
+      <h1>SQL</h1>
+      <p>SQL for hash <code>{{hash}}</code> in <strong>{{app}}</strong>{{#env}} / {{env}}{{/env}}.</p>
+    </hgroup>
+
+    <article class="query-total-section">
+      <header>{{label}}</header>
+      <pre class="query-plan-sql">{{sql}}</pre>
+    </article>
+  {{/body}}
+{{/fragments/layout}}

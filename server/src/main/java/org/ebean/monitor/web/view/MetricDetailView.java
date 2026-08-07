@@ -1,6 +1,7 @@
 package org.ebean.monitor.web.view;
 
 import io.jstach.jstache.JStache;
+import org.jspecify.annotations.Nullable;
 
 import java.util.List;
 
@@ -33,7 +34,7 @@ public record MetricDetailView(
 ) {
 
   /** One ranked row of the "breakdown by hash" table for this label. */
-  public record HashRow(String hash, String color) {
+  public record HashRow(String hash, String color, @Nullable String sqlUrl) {
   }
 
   /** One row of the "recently captured query plans" table for this label. */

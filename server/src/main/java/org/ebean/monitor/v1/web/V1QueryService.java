@@ -1355,6 +1355,32 @@ public final class V1QueryService {
     return runPlanSummaryQuery(resolved, env, label, hash, kind, type, window, clampLimit(limit));
   }
 
+  /**
+   * Returns the SQL stored for an application metric identified by its label
+   * and query hash.
+   */
+  @Nullable
+  public String getMetricSql(String appName, String label, String hash) {
+    final String sql = """
+      select m.sql
+      from ebean_insight.app_metric m
+      join ebean_insight.app a on a.id = m.app_id
+      where a.name = :app
+        and m.key = :hash
+        and m.tags ->> 'label' = :label
+      limit 1
+      """;
+    return DB.sqlQuery(sql)
+      .setParameter("app", appName)
+      .setParameter("hash", hash)
+      .setParameter("label", label)
+      .mapTo((rs, _) -> rs.getString("sql"))
+      .findList()
+      .stream()
+      .findFirst()
+      .orElse(null);
+  }
+
   public QueryPlan getPlan(long planId) {
     final DQueryPlan plan = new QDQueryPlan().id.eq((int) planId).findOne();
     if (plan == null) {

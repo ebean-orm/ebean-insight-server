@@ -67,7 +67,7 @@ public final class LabelFamily {
     for (TopGroup g : sorted) {
       final String label = g.label();
       final int depth = depthOf(root, label);
-      final String display = depth == 0 ? label : label.substring(label.lastIndexOf('.') + 1);
+      final String display = depth == 0 ? label : label.substring(root.length() + 1);
       final long totalMicros = orZero(g.totalMicros());
       final long meanMicros = orZero(g.meanMicros());
       final long count = g.count() == null ? 0L : g.count();
