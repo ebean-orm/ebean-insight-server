@@ -1,0 +1,138 @@
+{{<fragments/layout}}
+  {{$filters}}
+    <form class="header-filters" method="get" action="/ux/metric-detail">
+      <input type="hidden" name="label" value="{{label}}">
+      <input type="hidden" name="app" value="{{app}}">
+      <span class="header-app-context">{{app}}</span>
+      <select name="env" aria-label="Environment" onchange="this.form.submit()">
+        {{#envs}}
+          <option value="{{value}}"{{#selected}} selected{{/selected}}>{{label}}</option>
+        {{/envs}}
+      </select>
+      <select name="range" aria-label="Time range" onchange="this.form.submit()">
+        {{#ranges}}
+          <option value="{{value}}"{{#selected}} selected{{/selected}}>{{label}}</option>
+        {{/ranges}}
+      </select>
+      <noscript><button type="submit">Apply</button></noscript>
+    </form>
+  {{/filters}}
+  {{$body}}
+    <link rel="stylesheet" href="/static/query-total.css">
+    <link rel="stylesheet" href="/static/metric-detail.css">
+
+    <h3>{{label}}</h3>
+
+    {{^hasData}}
+      <article>
+        <p>No data for <strong>{{label}}</strong> in the selected application / environment / range.</p>
+      </article>
+    {{/hasData}}
+
+    {{#hasData}}
+      <div class="metric-detail-chart-layout">
+        <div class="metric-detail-chart-stack">
+          <article class="query-total-section">
+            <header>Total execution time by hash (ms)</header>
+            <div class="chart-toolbar" role="group">
+              <button type="button" id="metric-chart-type-bar" class="chart-type-btn"
+                      aria-pressed="true">Stacked bar</button>
+              <button type="button" id="metric-chart-type-line" class="chart-type-btn"
+                      aria-pressed="false">Line</button>
+            </div>
+            <div class="chartjs-wrap chartjs-wrap-small">
+              <canvas id="total-chart"></canvas>
+            </div>
+          </article>
+          {{> fragments/hash-legend}}
+          <article class="query-total-section">
+            <header>Mean and Max execution time by hash (ms)</header>
+            <div class="chart-toolbar" role="group">
+              <button type="button" id="metric-mean-mode-both" class="chart-type-btn"
+                      aria-pressed="true">Mean + Max</button>
+              <button type="button" id="metric-mean-mode-only" class="chart-type-btn"
+                      aria-pressed="false">Mean only</button>
+              <button type="button" id="metric-mean-mode-max" class="chart-type-btn"
+                      aria-pressed="false">Max only</button>
+            </div>
+            <div class="chartjs-wrap chartjs-wrap-small">
+              <canvas id="mean-chart"></canvas>
+            </div>
+          </article>
+          {{> fragments/hash-legend}}
+        </div>
+      </div>
+
+      <article class="query-total-section">
+        <header>Recently captured query plans</header>
+        <table>
+          <thead>
+            <tr>
+              <th>Env</th>
+              <th>Hash</th>
+              <th>Captured (UTC)</th>
+              <th>Query time (ms)</th>
+              <th>Capture count</th>
+              <th>Shape changed</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{^recentPlans}}
+              <tr><td colspan="6">No query plans captured for this label in the selected window.</td></tr>
+            {{/recentPlans}}
+            {{#recentPlans}}
+              <tr class="plan-row" data-hash="{{hash}}" data-color="{{color}}">
+                <td>{{env}}</td>
+                <td><span class="hash-swatch" style="background-color: {{color}}"></span><code>{{hash}}</code></td>
+                <td><a href="/ux/query-plan?id={{id}}">{{whenCaptured}}</a></td>
+                <td>{{queryTimeMs}}</td>
+                <td>{{captureCount}}</td>
+                <td>{{#shapeChanged}}<mark>Yes</mark>{{/shapeChanged}}{{^shapeChanged}}&mdash;{{/shapeChanged}}</td>
+              </tr>
+            {{/recentPlans}}
+          </tbody>
+        </table>
+      </article>
+
+      {{#hasFamily}}
+        <article class="query-total-section">
+          <header>Query family</header>
+          <p class="family-hint">
+            Related queries sharing this label's root (parent finder query and its lazy-loaded fetch-path
+            descendants). Bar width shows each row's total execution time relative to the busiest query in the family.
+          </p>
+          <table class="family-table">
+            <thead>
+              <tr>
+                <th>Label</th>
+                <th>Executions</th>
+                <th>Total (ms)</th>
+                <th>Mean (ms)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {{#family}}
+                <tr class="family-row{{#current}} family-row-current{{/current}}">
+                  <td style="padding-left: {{indent}}px">
+                    <a href="{{detailUrl}}">{{display}}</a>
+                    <div class="family-bar-track"><div class="family-bar" style="width: {{pct}}%"></div></div>
+                  </td>
+                  <td>{{count}}</td>
+                  <td>{{totalMs}}</td>
+                  <td>{{meanMs}}</td>
+                </tr>
+              {{/family}}
+            </tbody>
+          </table>
+        </article>
+      {{/hasFamily}}
+    {{/hasData}}
+
+    <script type="application/json" id="total-chart-data">{{{totalChartDataJson}}}</script>
+    <script type="application/json" id="mean-chart-data">{{{meanChartDataJson}}}</script>
+    <script type="application/json" id="max-chart-data">{{{maxChartDataJson}}}</script>
+    <script src="/static/vendor/chart.umd.min.js"></script>
+    <script src="/static/dashboard-charts.js"></script>
+    <script src="/static/metric-detail.js"></script>
+  {{/body}}
+{{/fragments/layout}}

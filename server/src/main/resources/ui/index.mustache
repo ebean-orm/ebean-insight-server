@@ -1,0 +1,21 @@
+{{<fragments/layout}}
+  {{$body}}
+    <article>
+      <header>Applications</header>
+      <ul>
+        {{#apps}}
+          <li>
+            {{#topUrl}}<a href="{{topUrl}}">{{name}}</a>{{/topUrl}}
+            {{^topUrl}}<span>{{name}}</span>{{/topUrl}}
+            {{#envs}}
+              <a class="app-env-link" href="{{topUrl}}">{{name}}</a>
+            {{/envs}}
+          </li>
+        {{/apps}}
+      </ul>
+      {{^apps}}
+        <p>No applications reporting yet.</p>
+      {{/apps}}
+    </article>
+  {{/body}}
+{{/fragments/layout}}

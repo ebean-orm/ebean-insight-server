@@ -1,0 +1,72 @@
+{{<fragments/layout}}
+  {{$body}}
+    <link rel="stylesheet" href="/static/query-plan.css">
+
+    <hgroup>
+      <h1>{{label}}</h1>
+      <p>Captured query plan for <code>{{hash}}</code> in <strong>{{app}}</strong> / {{env}}.</p>
+    </hgroup>
+
+    <article class="query-plan-meta">
+      <div class="query-plan-meta-grid">
+        <div>
+          <small>Captured (UTC)</small>
+          <p>{{whenCaptured}}</p>
+        </div>
+        <div>
+          <small>Query time</small>
+          <p>{{queryTimeMs}} ms</p>
+        </div>
+        <div>
+          <small>Capture count</small>
+          <p>{{captureCount}}</p>
+        </div>
+        <div>
+          <small>Shape changed</small>
+          <p>{{#shapeChanged}}<mark>Yes</mark>{{/shapeChanged}}{{^shapeChanged}}&mdash;{{/shapeChanged}}</p>
+        </div>
+      </div>
+    </article>
+
+    <article class="query-total-section">
+      <header>SQL</header>
+      <pre class="query-plan-sql">{{sql}}</pre>
+      {{#hasBind}}
+        <p><small>Bind</small></p>
+        <pre class="query-plan-sql">{{bind}}</pre>
+      {{/hasBind}}
+    </article>
+
+    <article class="query-total-section">
+      <header>Execution plan</header>
+      <iframe id="pev2-frame" class="query-plan-frame" src="/static/pev2-frame.html" title="Query plan visualization"></iframe>
+    </article>
+
+    <article class="query-total-section">
+      <header>Other captures for this hash</header>
+      <table>
+        <thead>
+          <tr>
+            <th>Captured (UTC)</th>
+            <th>Query time (ms)</th>
+            <th>Shape changed</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {{#siblings}}
+            <tr class="{{#current}}current{{/current}}">
+              <td>{{whenCaptured}}</td>
+              <td>{{queryTimeMs}}</td>
+              <td>{{#shapeChanged}}<mark>Yes</mark>{{/shapeChanged}}{{^shapeChanged}}&mdash;{{/shapeChanged}}</td>
+              <td>{{^current}}<a href="/ux/query-plan?id={{id}}">View</a>{{/current}}{{#current}}<small>Viewing</small>{{/current}}</td>
+            </tr>
+          {{/siblings}}
+        </tbody>
+      </table>
+    </article>
+
+    <script type="application/json" id="plan-data">{{{planDataJson}}}</script>
+    <script src="/static/query-plan.js"></script>
+  {{/body}}
+{{/fragments/layout}}

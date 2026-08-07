@@ -1,0 +1,148 @@
+/*
+ * Chart-specific styling for the /ux/top dashboard (Chart.js stacked bar).
+ * Form controls, cards (article) and the legend table are styled by
+ * Pico.css (vendored at /static/vendor/pico.min.css) - only the bespoke
+ * chart layout lives here.
+ */
+
+.chartjs-wrap {
+  position: relative;
+  height: 320px;
+}
+
+.top-ranking-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.ranking-chart-wrap {
+  position: relative;
+  height: 360px;
+}
+
+.top-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  margin: 0.5rem 0 1.5rem;
+}
+
+.top-mean-max-section {
+  margin-bottom: 1rem;
+}
+
+.top-chart-legend .legend-series-toggle {
+  margin: 0;
+}
+
+@media (max-width: 900px) {
+  .top-ranking-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.chart-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.chart-type-btn {
+  width: auto;
+  margin: 0;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.8rem;
+  background: transparent;
+  color: var(--pico-muted-color);
+  border: var(--pico-border-width) solid var(--pico-muted-border-color);
+}
+
+.chart-type-btn[aria-pressed="true"] {
+  background: var(--pico-muted-border-color);
+  color: #000;
+  border-color: var(--pico-muted-border-color);
+}
+
+.legend-swatch {
+  display: inline-block;
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 2px;
+  vertical-align: middle;
+}
+
+.legend-series-toggle {
+  width: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.legend-series-toggle[aria-pressed="false"] {
+  opacity: 0.45;
+  text-decoration: line-through;
+}
+
+.legend-series-toggle {
+  width: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.legend-series-toggle[aria-pressed="false"] {
+  opacity: 0.45;
+}
+
+.legend-toggle {
+  margin-bottom: 0.5rem;
+}
+
+.legend-toggle-icon {
+  display: inline-flex;
+  width: 1rem;
+  height: 1rem;
+  margin-right: 0.25rem;
+  vertical-align: -0.15rem;
+}
+
+.legend-toggle-icon svg {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.legend-icon-eye-off {
+  display: none;
+}
+
+.legend-toggle[open] .legend-icon-eye {
+  display: none;
+}
+
+.legend-toggle[open] .legend-icon-eye-off {
+  display: block;
+}
+
+.legend-table th,
+.legend-table td {
+  padding-block: 0.25rem;
+}
+
+.legend-table th:nth-child(n+3),
+.legend-table td:nth-child(n+3) {
+  text-align: right;
+}

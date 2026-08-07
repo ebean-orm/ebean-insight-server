@@ -116,5 +116,5 @@ datasource:
   db:
     username: ${DB_USER:ebean_insight}
     password: ${DB_PASS:ebean_insight}
-    url: jdbc:postgresql://${DB_URL:localhost:9432}/ebean_insight
+    url: jdbc:postgresql://${DB_URL:localhost:7432}/ebean_insight
 

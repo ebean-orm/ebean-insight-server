@@ -4,6 +4,8 @@ import io.avaje.config.Config;
 import io.avaje.inject.Bean;
 import io.avaje.inject.Factory;
 import io.avaje.inject.RequiresProperty;
+import io.avaje.jex.spi.JexPlugin;
+import io.avaje.jex.staticcontent.StaticContent;
 import io.avaje.jsonb.Jsonb;
 import io.avaje.metrics.Metrics;
 import io.ebean.Database;
@@ -17,6 +19,14 @@ class Configuration {
   @Bean
   Jsonb jsonb() {
     return Jsonb.builder().build();
+  }
+
+  @Bean
+  JexPlugin staticContentPlugin() {
+    return StaticContent.ofClassPath("/static/")
+      .directoryIndex("index.html")
+      .route("/static/")
+      .build();
   }
 
   /**

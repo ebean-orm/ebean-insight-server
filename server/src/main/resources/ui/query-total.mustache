@@ -1,0 +1,155 @@
+{{<fragments/layout}}
+  {{$filters}}
+    <form class="header-filters" method="get" action="/ux/top">
+      <select name="app" aria-label="Application" onchange="this.form.submit()">
+        {{#apps}}
+          <option value="{{value}}"{{#selected}} selected{{/selected}}>{{label}}</option>
+        {{/apps}}
+      </select>
+      <select name="env" aria-label="Environment" onchange="this.form.submit()">
+        {{#envs}}
+          <option value="{{value}}"{{#selected}} selected{{/selected}}>{{label}}</option>
+        {{/envs}}
+      </select>
+      <select name="range" aria-label="Time range" onchange="this.form.submit()">
+        {{#ranges}}
+          <option value="{{value}}"{{#selected}} selected{{/selected}}>{{label}}</option>
+        {{/ranges}}
+      </select>
+      <noscript><button type="submit">Apply</button></noscript>
+    </form>
+  {{/filters}}
+  {{$body}}
+    <link rel="stylesheet" href="/static/query-total.css">
+
+    <hgroup>
+      <h3>Total Query Execution Time</h3>
+    </hgroup>
+
+    {{^hasData}}
+      <article>
+        <p>No data for the selected application / environment / range.</p>
+      </article>
+    {{/hasData}}
+
+    {{#hasData}}
+      <article class="query-total-section">
+        <div class="chart-toolbar" role="group">
+          <button type="button" id="chart-type-bar" class="chart-type-btn" aria-pressed="true">Stacked bar</button>
+          <button type="button" id="chart-type-line" class="chart-type-btn" aria-pressed="false">Line</button>
+        </div>
+        <div class="chartjs-wrap">
+          <canvas id="chartjs-canvas"></canvas>
+        </div>
+      </article>
+
+      <div class="top-chart-legend" aria-label="Chart series legend">
+        {{#legend}}
+          <button type="button" class="legend-series-toggle"
+                  data-label="{{group}}" aria-pressed="true"
+                  aria-label="Toggle {{group}}" title="{{group}}">
+            <span class="legend-swatch" style="background-color: {{color}};"></span>
+          </button>
+        {{/legend}}
+      </div>
+
+      <article class="query-total-section top-mean-max-section">
+        <header><h3>Mean and Max execution time</h3></header>
+        <div class="chart-toolbar" role="group">
+          <button type="button" id="top-mean-mode-both" class="chart-type-btn"
+                  aria-pressed="true">Mean + Max</button>
+          <button type="button" id="top-mean-mode-only" class="chart-type-btn"
+                  aria-pressed="false">Mean only</button>
+          <button type="button" id="top-mean-mode-max" class="chart-type-btn"
+                  aria-pressed="false">Max only</button>
+        </div>
+        <div class="chartjs-wrap">
+          <canvas id="top-mean-max-chart"></canvas>
+        </div>
+      </article>
+
+      <div class="top-chart-legend" aria-label="Chart series legend">
+        {{#legend}}
+          <button type="button" class="legend-series-toggle"
+                  data-label="{{group}}" aria-pressed="true"
+                  aria-label="Toggle {{group}}" title="{{group}}">
+            <span class="legend-swatch" style="background-color: {{color}};"></span>
+          </button>
+        {{/legend}}
+      </div>
+
+      <div class="top-ranking-grid">
+        <article class="query-total-section">
+          <header>Top by time</header>
+          <div class="ranking-chart-wrap">
+            <canvas id="top-by-time-chart"></canvas>
+          </div>
+        </article>
+        <article class="query-total-section">
+          <header>Top by mean</header>
+          <div class="ranking-chart-wrap">
+            <canvas id="top-by-mean-chart"></canvas>
+          </div>
+        </article>
+      </div>
+
+      <details class="legend-toggle">
+        <summary>
+          <span class="legend-toggle-icon" aria-hidden="true">
+            <svg class="legend-icon-eye" viewBox="0 0 24 24" focusable="false">
+              <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"></path>
+              <circle cx="12" cy="12" r="2.5"></circle>
+            </svg>
+            <svg class="legend-icon-eye-off" viewBox="0 0 24 24" focusable="false">
+              <path d="m3 3 18 18"></path>
+              <path d="M10.6 6.2A11.8 11.8 0 0 1 12 6c6.5 0 10 6 10 6a18 18 0 0 1-3.1 3.7"></path>
+              <path d="M6.2 6.2C3.5 8.3 2 12 2 12s3.5 6 10 6c1.4 0 2.7-.3 3.8-.8"></path>
+            </svg>
+          </span>
+          Legend
+        </summary>
+        <table class="legend-table">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Group</th>
+              <th>Total (ms)</th>
+              <th>Executions</th>
+              <th>Avg (ms)</th>
+              <th>Distinct queries</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{#legend}}
+              <tr>
+                <td>
+                  <button type="button" class="legend-series-toggle"
+                          data-label="{{group}}" aria-pressed="true">
+                    <span class="legend-swatch" style="background-color: {{color}};"></span>
+                  </button>
+                </td>
+                <td>
+                  {{^other}}<a href="{{detailUrl}}">{{group}}</a>{{/other}}
+                  {{#other}}{{group}}{{/other}}
+                </td>
+                <td>{{totalMs}}</td>
+                <td>{{executions}}</td>
+                <td>{{avgMs}}</td>
+                <td>{{hashCount}}</td>
+              </tr>
+            {{/legend}}
+          </tbody>
+        </table>
+      </details>
+    {{/hasData}}
+
+    <script type="application/json" id="chart-data">{{{chartDataJson}}}</script>
+    <script type="application/json" id="top-mean-data">{{{meanMaxMeanJson}}}</script>
+    <script type="application/json" id="top-max-data">{{{meanMaxMaxJson}}}</script>
+    <script type="application/json" id="top-by-time-data">{{{topByTimeJson}}}</script>
+    <script type="application/json" id="top-by-mean-data">{{{topByMeanJson}}}</script>
+    <script src="/static/vendor/chart.umd.min.js"></script>
+    <script src="/static/dashboard-charts.js"></script>
+    <script src="/static/query-total.js"></script>
+  {{/body}}
+{{/fragments/layout}}

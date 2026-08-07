@@ -68,6 +68,8 @@ class AuthConfiguration {
       .permit("/health")
       .permit("/api/ingest")
       .permit("/api/cli-config")
+      .permit("/ux")
+      .permit("/static")
       .verifier(jwtVerifier)
       .bearerAuthoriser(apiKeyValidator.enabled() ? apiKeyValidator::principalFor : null)
       .build();

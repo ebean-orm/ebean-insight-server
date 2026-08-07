@@ -154,6 +154,23 @@ public final class V1QueryService {
       .findOne();
   }
 
+  public List<Env> listAppEnvs(String appName) {
+    final DApp app = findApp(appName);
+    if (app == null) {
+      return List.of();
+    }
+    return DB.sqlQuery("""
+        select distinct e.name
+        from ebean_insight.timed_m1 t
+        join ebean_insight.env e on e.id = t.env_id
+        where t.app_id = :appId
+        order by e.name
+        """)
+      .setParameter("appId", app.getId())
+      .mapTo((rs, _) -> new Env(rs.getString("name")))
+      .findList();
+  }
+
   private static AppSummary toAppSummary(ResultSet rs, DApp app) throws SQLException {
     return AppSummary.builder()
       .id((long) app.getId())
@@ -382,6 +399,114 @@ public final class V1QueryService {
     };
   }
 
+  /**
+   * Bucket step for the "Top" stacked-bar chart ({@link #getTopAppMetricsTimeseries}).
+   * Windows over 4h but within the {@code timed_m1} table's range (up to 12h,
+   * see {@link #timeseriesTableFor}) would otherwise render one bar per raw
+   * 1-minute row — far too many/thin columns for a stacked bar chart — so
+   * those windows are aggregated up to 5-minute bars instead. Shorter windows
+   * (<=4h) keep 1-minute bars, and longer windows already fall onto a coarser
+   * table (10-minute/60-minute) via {@link #bucketMinutesFor}.
+   */
+  static long topBucketMinutesFor(long windowMinutes, String table) {
+    if ("ebean_insight.timed_m1".equals(table) && windowMinutes > 240L) {
+      return 5L;
+    }
+    return bucketMinutesFor(table);
+  }
+
+  /** Dense per-bucket time-series for a single {@code label}, aggregated across every underlying hash sharing it. */
+  public record LabelTimeseries(String app, String label, long windowMinutes, long bucketMinutes,
+                                 List<MetricTimeBucket> buckets) {
+  }
+
+  /**
+   * Per-bucket time-series for a single {@code label} tag, summed across every
+   * underlying metric identity (hash) sharing that label — the drill-down
+   * counterpart to {@link #getTopAppMetricsTimeseries}'s top-N-labels view.
+   * Reuses the same dense grid × group SQL as that method with a single
+   * label as the "group".
+   */
+  public LabelTimeseries getLabelTimeseries(String appName, String label,
+                                            @Nullable Long sinceMinutes, @Nullable Long sinceHours,
+                                            @Nullable String env) {
+    final TimeWindow window = TimeWindow.of(sinceMinutes, sinceHours, DEFAULT_TOP_WINDOW_MINUTES);
+    final long minutes = window.minutes();
+    final String table = timeseriesTableFor(minutes);
+    final long bucketMinutes = bucketMinutesFor(table);
+    final DApp app = findApp(appName);
+    if (app == null || isBlank(label)) {
+      return new LabelTimeseries(appName, label, minutes, bucketMinutes, List.of());
+    }
+    final Integer envId = resolveEnvId(env);
+    if (envFilterMisses(env, envId)) {
+      return new LabelTimeseries(app.getName(), label, minutes, bucketMinutes, List.of());
+    }
+    final Map<String, List<MetricTimeBucket>> byGroup = denseBucketsByGroup(
+      app, table, window, null, null, null, null, envId, List.of(new RankedLabel(label, 0L, 0L)));
+    return new LabelTimeseries(app.getName(), label, minutes, bucketMinutes,
+      byGroup.getOrDefault(label, List.of()));
+  }
+
+  /**
+   * Per-bucket time-series for the hashes belonging to a single label,
+   * including an {@code Other} remainder when the hash limit is exceeded.
+   */
+  public MetricTimeseriesTop getLabelHashTimeseries(String appName, String label, String name,
+                                                    @Nullable Long sinceMinutes, @Nullable Long sinceHours,
+                                                    @Nullable Integer seriesLimit, @Nullable String env) {
+    final TimeWindow window = TimeWindow.of(sinceMinutes, sinceHours, DEFAULT_TOP_WINDOW_MINUTES);
+    final long minutes = window.minutes();
+    final String table = timeseriesTableFor(minutes);
+    final long bucketMinutes = topBucketMinutesFor(minutes, table);
+    final DApp app = findApp(appName);
+    if (app == null || isBlank(label)) {
+      return emptyTimeseriesTop(appName, minutes, bucketMinutes);
+    }
+    final Integer envId = resolveEnvId(env);
+    if (envFilterMisses(env, envId)) {
+      return emptyTimeseriesTop(app.getName(), minutes, bucketMinutes);
+    }
+
+    final List<TopGroup> hashGroups = topAppMetrics(appName, "hash", name, label, null, null,
+      "total", minutes, null, seriesLimit, null, env);
+    if (hashGroups.isEmpty()) {
+      return emptyTimeseriesTop(app.getName(), minutes, bucketMinutes);
+    }
+    final List<RankedLabel> ranked = hashGroups.stream()
+      .map(g -> new RankedLabel(g.key(), 1L, g.totalMicros()))
+      .toList();
+    final Map<String, List<MetricTimeBucket>> bucketsByHash =
+      denseBucketsByHash(app, table, bucketMinutes, window, name, label, envId, ranked);
+
+    final List<MetricTimeseriesTopSeries> series = new ArrayList<>(ranked.size() + 1);
+    for (RankedLabel hash : ranked) {
+      series.add(MetricTimeseriesTopSeries.builder()
+        .group(hash.label())
+        .other(false)
+        .hashCount(hash.hashCount())
+        .totalMicros(hash.total())
+        .buckets(bucketsByHash.getOrDefault(hash.label(), List.of()))
+        .build());
+    }
+    final List<MetricTimeBucket> otherBuckets = bucketsByHash.get(OTHER_SENTINEL);
+    if (otherBuckets != null && otherBuckets.stream().anyMatch(b -> b.total() > 0L)) {
+      series.add(MetricTimeseriesTopSeries.builder()
+        .group("Other")
+        .other(true)
+        .hashCount(0L)
+        .totalMicros(otherBuckets.stream().mapToLong(MetricTimeBucket::total).sum())
+        .buckets(otherBuckets)
+        .build());
+    }
+    return MetricTimeseriesTop.builder()
+      .app(app.getName())
+      .windowMinutes(minutes)
+      .bucketMinutes(bucketMinutes)
+      .series(series)
+      .build();
+  }
+
   public List<TopGroup> topAppMetrics(String appName, @Nullable String by, @Nullable String name,
                                       @Nullable String label, @Nullable String kind, @Nullable String type,
                                       @Nullable String orderBy,
@@ -404,6 +529,26 @@ public final class V1QueryService {
                                    @Nullable String env, @Nullable Boolean allApps) {
     final TimeWindow window = TimeWindow.of(sinceMinutes, sinceHours, DEFAULT_TOP_WINDOW_MINUTES);
     return runTopQuery(null, by, name, label, kind, type, orderBy, window, planCapable, env, allApps, clampLimit(limit));
+  }
+
+  /**
+   * Every label in the dot-hierarchy "family" rooted at {@code root} - the
+   * root itself (an exact match) plus every label that starts with
+   * {@code root + "."} - each with its own aggregated timer stats over the
+   * window. Labels follow Ebean's {@code Type.method[.fetchPath...]}
+   * convention: the root is the originating finder query and each further
+   * dot segment is one additional lazy-loaded fetch path, so this powers a
+   * "query family" tree on the metric-detail page relating a label to its
+   * ancestor/descendant fetch-path queries.
+   */
+  public List<TopGroup> topLabelFamily(String appName, String root, @Nullable String name,
+                                       long windowMinutes, @Nullable String env, @Nullable Integer limit) {
+    final DApp app = findApp(appName);
+    if (app == null || isBlank(root)) {
+      return List.of();
+    }
+    final TimeWindow window = TimeWindow.of(windowMinutes, null, DEFAULT_TOP_WINDOW_MINUTES);
+    return runLabelFamilyQuery(app, root, name, window, env, clampLimit(limit));
   }
 
   /**
@@ -430,7 +575,7 @@ public final class V1QueryService {
     final TimeWindow window = TimeWindow.of(sinceMinutes, sinceHours, DEFAULT_TOP_WINDOW_MINUTES);
     final long minutes = window.minutes();
     final String table = timeseriesTableFor(minutes);
-    final long bucketMinutes = bucketMinutesFor(table);
+    final long bucketMinutes = topBucketMinutesFor(minutes, table);
     final DApp app = findApp(appName);
     if (app == null) {
       return emptyTimeseriesTop(appName, minutes, bucketMinutes);
@@ -452,7 +597,7 @@ public final class V1QueryService {
     }
 
     final Map<String, List<MetricTimeBucket>> bucketsByGroup =
-      denseBucketsByGroup(app, table, window, name, kind, type, planCapable, envId, ranked);
+      denseBucketsByGroup(app, table, bucketMinutes, window, name, kind, type, planCapable, envId, ranked);
 
     final List<MetricTimeseriesTopSeries> series = new ArrayList<>(ranked.size() + 1);
     long rankedHashCount = 0L;
@@ -548,7 +693,22 @@ public final class V1QueryService {
                                                                   @Nullable String name, @Nullable String kind,
                                                                   @Nullable String type, @Nullable Boolean planCapable,
                                                                   @Nullable Integer envId, List<RankedLabel> ranked) {
-    final long bucketMinutes = bucketMinutesFor(table);
+    return denseBucketsByGroup(app, table, bucketMinutesFor(table), window, name, kind, type, planCapable, envId, ranked);
+  }
+
+  /**
+   * As above, but with an explicit {@code bucketMinutes} step decoupled from the
+   * source table's native row granularity — rows are truncated (floor-divided)
+   * to the requested step and summed, so a coarser step (e.g. 5-minute bars
+   * sourced from the 1-minute {@code timed_m1} table) correctly aggregates
+   * multiple underlying rows into one bucket rather than only matching rows
+   * that happen to land exactly on a step boundary.
+   */
+  private Map<String, List<MetricTimeBucket>> denseBucketsByGroup(DApp app, String table, long bucketMinutes,
+                                                                  TimeWindow window,
+                                                                  @Nullable String name, @Nullable String kind,
+                                                                  @Nullable String type, @Nullable Boolean planCapable,
+                                                                  @Nullable Integer envId, List<RankedLabel> ranked) {
     final long stepSeconds = bucketMinutes * 60L;
     final String inList = namedGroupList(ranked.size());
     final String valuesList = groupsValuesList(ranked.size());
@@ -567,7 +727,7 @@ public final class V1QueryService {
       ),
       data as (
         select
-          t.event_time,
+          to_timestamp((cast(floor(extract(epoch from t.event_time) / :step) as bigint)) * :step) as event_time,
           case when m.tags ->> 'label' in (%s) then m.tags ->> 'label' else '%s' end as grp,
           sum(t.count) as cnt,
           sum(t.total) as tot,
@@ -583,7 +743,7 @@ public final class V1QueryService {
       + (planCapable == null ? "" : "    and m.plan_capable = :planCapable\n")
       + (envId == null ? "" : "    and t.env_id = :envId\n")
       + """
-        group by t.event_time, grp
+        group by 1, grp
       )
       select
         grid.event_time       as event_time,
@@ -605,6 +765,83 @@ public final class V1QueryService {
       query.setParameter("g" + i, ranked.get(i).label());
     }
     bindCommonFilters(query, name, kind, type, planCapable, envId);
+
+    final Map<String, List<MetricTimeBucket>> result = new LinkedHashMap<>();
+    final List<BucketRow> rows = query
+      .mapTo((rs, _) -> new BucketRow(
+        rs.getString("grp"),
+        toInstant(rs.getTimestamp("event_time")),
+        rs.getLong("count"),
+        rs.getLong("total"),
+        rs.getLong("max")))
+      .findList();
+    for (BucketRow row : rows) {
+      result.computeIfAbsent(row.grp(), k -> new ArrayList<>())
+        .add(new MetricTimeBucket(row.eventTime(), row.count(), row.total(), row.max()));
+    }
+    return result;
+  }
+
+  private Map<String, List<MetricTimeBucket>> denseBucketsByHash(DApp app, String table, long bucketMinutes,
+                                                                 TimeWindow window, String name, String label,
+                                                                 @Nullable Integer envId, List<RankedLabel> ranked) {
+    final long stepSeconds = bucketMinutes * 60L;
+    final String inList = namedGroupList(ranked.size());
+    final String valuesList = groupsValuesList(ranked.size());
+    final String sql = ("""
+      with grid as (
+        select to_timestamp(s) as event_time
+        from generate_series(
+               (cast(floor(extract(epoch from cast(:from as timestamptz)) / :step) as bigint) + 1) * :step,
+               (cast(floor(extract(epoch from now()) / :step) as bigint)) * :step,
+               :step
+             ) as s
+      ),
+      groups (grp) as (
+        values %s
+      ),
+      data as (
+        select
+          to_timestamp((cast(floor(extract(epoch from t.event_time) / :step) as bigint)) * :step) as event_time,
+          case when m.key in (%s) then m.key else '%s' end as grp,
+          sum(t.count) as cnt,
+          sum(t.total) as tot,
+          max(t.max)   as mx
+        from %s t
+        join ebean_insight.app_metric m on m.id = t.metric_id
+        where t.event_time > :from
+          and m.app_id = :appId
+          and m.tags ->> 'label' = :label
+          and m.name = :name
+        """
+      + (envId == null ? "" : "    and t.env_id = :envId\n")
+      + """
+        group by 1, grp
+      )
+      select
+        grid.event_time       as event_time,
+        groups.grp            as grp,
+        coalesce(data.cnt, 0) as count,
+        coalesce(data.tot, 0) as total,
+        coalesce(data.mx, 0)  as max
+      from grid
+      cross join groups
+      left join data on data.event_time = grid.event_time and data.grp = groups.grp
+      order by grid.event_time asc, groups.grp asc
+      """).formatted(valuesList, inList, OTHER_SENTINEL, table);
+
+    final SqlQuery query = DB.sqlQuery(sql)
+      .setParameter("from", window.from())
+      .setParameter("step", stepSeconds)
+      .setParameter("appId", app.getId())
+      .setParameter("label", label)
+      .setParameter("name", name);
+    for (int i = 0; i < ranked.size(); i++) {
+      query.setParameter("g" + i, ranked.get(i).label());
+    }
+    if (envId != null) {
+      query.setParameter("envId", envId);
+    }
 
     final Map<String, List<MetricTimeBucket>> result = new LinkedHashMap<>();
     final List<BucketRow> rows = query
@@ -803,6 +1040,68 @@ public final class V1QueryService {
     }
     final String byKeyFinal = byKey;
     return sqlQuery.mapTo((rs, _) -> toTopGroup(rs, byKeyFinal, byHash, gauge, minutes)).findList();
+  }
+
+  /**
+   * Every distinct label for {@code app} that is {@code root} itself or
+   * starts with {@code root + "."}, each aggregated as one row (same shape
+   * as {@link #runTopQuery} with {@code by=label}). Used to build the
+   * "query family" tree relating a label to its dot-hierarchy ancestor and
+   * descendant fetch-path queries.
+   */
+  private List<TopGroup> runLabelFamilyQuery(DApp app, String root, @Nullable String name,
+                                             TimeWindow window, @Nullable String env, int limit) {
+    final Integer envId = resolveEnvId(env);
+    if (envFilterMisses(env, envId)) {
+      return List.of();
+    }
+    final long minutes = window.minutes();
+    final String table = timedTableFor(minutes);
+    final String tagExpr = "m.tags ->> 'label'";
+
+    final String sql = ("""
+      select
+        %s as grp,
+        min(m.name)              as name,
+        max(m.tags ->> 'label')  as label_tag,
+        count(distinct m.app_id) as app_count,
+        min(a.name)              as app_name,
+        count(distinct m.id)     as hash_count,
+        bool_or(m.plan_capable)  as plan_capable,
+        min(m.key)               as mkey,
+        min(m.loc)               as mloc,
+        min(m.sql)               as msql,
+        coalesce(sum(t.count), 0) as agg_count,
+        coalesce(sum(t.total), 0) as agg_total,
+        coalesce(max(t.max), 0)   as agg_max
+      from %s t
+      join ebean_insight.app_metric m on m.id = t.metric_id
+      join ebean_insight.app a        on a.id = m.app_id
+      where t.event_time > :from
+        and a.id = :appId
+        and (%s = :root or %s like :rootLike)
+      """
+      + (isBlank(name) ? "" : "  and m.name = :name\n")
+      + (envId == null ? "" : "  and t.env_id = :envId\n")
+      + """
+      group by %s, m.app_id
+      order by %s desc
+      limit :limit
+      """).formatted(tagExpr, table, tagExpr, tagExpr, tagExpr, orderByExpression("total"));
+
+    final SqlQuery sqlQuery = DB.sqlQuery(sql)
+      .setParameter("from", window.from())
+      .setParameter("appId", app.getId())
+      .setParameter("root", root)
+      .setParameter("rootLike", root + ".%")
+      .setParameter("limit", limit);
+    if (!isBlank(name)) {
+      sqlQuery.setParameter("name", name);
+    }
+    if (envId != null) {
+      sqlQuery.setParameter("envId", envId);
+    }
+    return sqlQuery.mapTo((rs, _) -> toTopGroup(rs, "label", false, false, minutes)).findList();
   }
 
   private static TopGroup toTopGroup(ResultSet rs, String byKey, boolean byHash,
@@ -1062,6 +1361,21 @@ public final class V1QueryService {
       throw new NotFoundException("No query plan with id " + planId);
     }
     return toQueryPlan(plan);
+  }
+
+  /**
+   * The owning app name for a captured query plan. Kept separate from
+   * {@link #getPlan(long)}/the public {@code QueryPlan} API model (which is
+   * generated from the OpenAPI contract and intentionally doesn't carry an
+   * app name) - used only by the UI drill-down page to link back to
+   * {@code /ux/metric-detail} for the plan's app.
+   */
+  public String getPlanAppName(long planId) {
+    final DQueryPlan plan = new QDQueryPlan().id.eq((int) planId).findOne();
+    if (plan == null) {
+      throw new NotFoundException("No query plan with id " + planId);
+    }
+    return plan.app().getName();
   }
 
   public PendingResponse requestPlanCapture(String appName, String hash, @Nullable String env) {

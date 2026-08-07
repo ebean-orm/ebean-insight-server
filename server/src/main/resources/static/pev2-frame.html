@@ -1,0 +1,56 @@
+<!doctype html>
+<!--
+  Minimal standalone document that renders the PEV2 (dalibo/pev2) Postgres
+  EXPLAIN-plan visualizer. Loaded in an <iframe> by the /ux/query-plan page so
+  PEV2's required Bootstrap CSS - and Vue 3, which PEV2 is built on - are
+  fully isolated from the rest of the Pico.css-based dashboard and can't leak
+  in either direction.
+
+  The parent page posts {type: 'pev2-plan', plan, query} once this frame
+  signals {type: 'pev2-ready'} - this avoids embedding large/arbitrary
+  captured plan text into an HTML attribute or JS string literal.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Query plan</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="https://unpkg.com/pev2@1/dist/pev2.umd.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/bootstrap@5/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://unpkg.com/pev2@1/dist/pev2.css">
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <pev2 :plan-source="plan" :plan-query="query"></pev2>
+</div>
+<script>
+  (function () {
+    const { createApp, reactive } = Vue;
+    const state = reactive({ plan: '', query: '' });
+    const app = createApp({
+      data: function () {
+        return state;
+      }
+    });
+    app.component('pev2', pev2.Plan);
+    app.mount('#app');
+
+    window.addEventListener('message', function (evt) {
+      if (evt.source !== window.parent || !evt.data || evt.data.type !== 'pev2-plan') {
+        return;
+      }
+      state.plan = evt.data.plan || '';
+      state.query = evt.data.query || '';
+    });
+
+    window.parent.postMessage({type: 'pev2-ready'}, window.location.origin);
+  })();
+</script>
+</body>
+</html>

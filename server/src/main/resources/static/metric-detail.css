@@ -1,0 +1,124 @@
+/*
+ * Chart-specific styling for the /ux/metric-detail drill-down page. Table
+ * styling (hash breakdown, recent plans) is handled by Pico.css; the
+ * two-chart grid layout, chart height, hash "color swatch" linking, and
+ * click-to-drill row states live here.
+ */
+
+.metric-detail-charts {
+  margin-bottom: 1.5rem;
+}
+
+.metric-detail-chart-layout {
+  margin-bottom: 1.5rem;
+}
+
+.metric-detail-chart-stack {
+  min-width: 0;
+}
+
+.metric-detail-chart-stack .query-total-section + .query-total-section {
+  margin-top: 1rem;
+}
+
+.hash-legend {
+  margin: 0 0 1rem;
+}
+
+.hash-legend strong {
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.hash-legend ul {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hash-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding-block: 0.25rem;
+  overflow-wrap: anywhere;
+}
+
+.chartjs-wrap-small {
+  height: 240px;
+}
+
+/* Small colored dot rendered next to a hash value in the legend and plan table. */
+.hash-swatch {
+  display: inline-block;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  margin-right: 0.5rem;
+  vertical-align: middle;
+}
+
+.hash-series-toggle {
+  width: auto;
+  margin: 0 0.25rem 0 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  vertical-align: middle;
+}
+
+.hash-series-toggle[aria-pressed="false"] {
+  opacity: 0.45;
+}
+
+.hash-series-toggle .hash-swatch {
+  border-radius: 2px;
+}
+
+/* "Query family" tree: a flat, pre-ordered list of rows (root + every
+   dot-hierarchy descendant fetch-path label) with CSS-only indentation by
+   depth and a relative-time bar so the busiest fetch path in the chain is
+   obvious at a glance without any expand/collapse JS. */
+.family-hint {
+  color: var(--pico-muted-color);
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.family-table td {
+  vertical-align: middle;
+}
+
+.family-table td:first-child {
+  white-space: nowrap;
+}
+
+.family-row-current td:first-child {
+  font-weight: 600;
+}
+
+.family-bar-track {
+  margin-top: 0.25rem;
+  height: 6px;
+  border-radius: 3px;
+  background-color: var(--pico-muted-border-color);
+  overflow: hidden;
+  min-width: 8rem;
+}
+
+.family-bar {
+  height: 100%;
+  background-color: var(--pico-primary);
+  border-radius: 3px;
+}
+
+@media (max-width: 768px) {
+  .hash-legend ul {
+    gap: 0.25rem 0.5rem;
+  }
+}

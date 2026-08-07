@@ -1,0 +1,13 @@
+<nav aria-label="breadcrumb">
+  <ul>
+    <li><a href="/ux" class="brand"><strong>ebean insight</strong></a></li>
+    {{#breadcrumb}}
+      {{#crumbs}}
+        <li>
+          {{#href}}<a href="{{.}}">{{name}}</a>{{/href}}
+          {{^href}}<span aria-current="page">{{name}}</span>{{/href}}
+        </li>
+      {{/crumbs}}
+    {{/breadcrumb}}
+  </ul>
+</nav>

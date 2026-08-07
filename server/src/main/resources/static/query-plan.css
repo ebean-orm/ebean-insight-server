@@ -1,0 +1,41 @@
+/*
+ * Styling for the /ux/query-plan drill-down page: the metadata summary grid,
+ * SQL/bind blocks, the PEV2 iframe sizing, and the "other captures" table's
+ * current-row highlight.
+ */
+
+.query-plan-meta {
+  margin-bottom: 1.5rem;
+}
+
+.query-plan-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem;
+}
+
+.query-plan-meta-grid small {
+  color: var(--pico-muted-color);
+}
+
+.query-plan-meta-grid p {
+  margin: 0;
+  font-weight: 600;
+}
+
+.query-plan-sql {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.query-plan-frame {
+  width: 100%;
+  height: 70vh;
+  border: var(--pico-border-width) solid var(--pico-muted-border-color);
+  border-radius: var(--pico-border-radius);
+}
+
+tr.current {
+  background-color: var(--pico-code-background-color);
+  font-weight: 600;
+}
