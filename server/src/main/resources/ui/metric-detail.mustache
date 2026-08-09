@@ -64,7 +64,7 @@
       </div>
 
       <article class="query-total-section">
-        <header>Recently captured query plans</header>
+        <header>Recently collected query plans</header>
         <table>
           <thead>
             <tr>
@@ -78,7 +78,7 @@
           </thead>
           <tbody>
             {{^recentPlans}}
-              <tr><td colspan="6">No query plans captured for this label in the selected window.</td></tr>
+              <tr><td colspan="6">No query plans collected for this label.</td></tr>
             {{/recentPlans}}
             {{#recentPlans}}
               <tr class="plan-row" data-hash="{{hash}}" data-color="{{color}}">

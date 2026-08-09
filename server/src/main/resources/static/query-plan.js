@@ -8,12 +8,39 @@
 (function () {
   const frame = document.getElementById('pev2-frame');
   const dataEl = document.getElementById('plan-data');
-  if (!frame || !dataEl) {
+  if (!dataEl) {
     return;
   }
 
   const data = JSON.parse(dataEl.textContent);
+  const copyButton = document.getElementById('copy-plan');
+  const copyStatus = document.getElementById('copy-plan-status');
 
+  if (copyButton) {
+    copyButton.addEventListener('click', function () {
+      if (!navigator.clipboard) {
+        if (copyStatus) {
+          copyStatus.textContent = 'Clipboard unavailable';
+        }
+        return;
+      }
+      navigator.clipboard.writeText(data.plan || '')
+        .then(function () {
+          if (copyStatus) {
+            copyStatus.textContent = 'Copied';
+          }
+        })
+        .catch(function () {
+          if (copyStatus) {
+            copyStatus.textContent = 'Copy failed';
+          }
+        });
+    });
+  }
+
+  if (!frame) {
+    return;
+  }
   window.addEventListener('message', function (evt) {
     if (evt.source !== frame.contentWindow || !evt.data || evt.data.type !== 'pev2-ready') {
       return;

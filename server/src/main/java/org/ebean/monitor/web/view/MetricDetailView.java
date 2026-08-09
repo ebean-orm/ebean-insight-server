@@ -11,7 +11,7 @@ import java.util.List;
  * <p>
  * Shows two small trend charts (total execution time, mean execution time)
  * for the label across the selected window, a ranked breakdown of the
- * underlying query hashes sharing that label, and any recently captured
+ * underlying query hashes sharing that label, and the most recently collected
  * query plans for those hashes.
  */
 @JStache(path = "metric-detail")
@@ -37,7 +37,7 @@ public record MetricDetailView(
   public record HashRow(String hash, String color, @Nullable String sqlUrl) {
   }
 
-  /** One row of the "recently captured query plans" table for this label. */
+  /** One row of the "recently collected query plans" table for this label. */
   public record PlanRow(long id, String env, String hash, String whenCaptured, String queryTimeMs,
                         String captureCount, boolean shapeChanged, String color) {
   }

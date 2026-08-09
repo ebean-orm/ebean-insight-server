@@ -35,7 +35,7 @@ import java.util.Map;
  * <p>
  * Shows "total" and "mean" execution-time trend charts for the label (summed
  * across every underlying query hash sharing it), a ranked breakdown of those
- * hashes for the selected window, and any recently captured query plans.
+ * hashes for the selected window, and the most recently collected query plans.
  */
 @Html
 @Controller
@@ -44,7 +44,7 @@ public class UIMetricDetailController {
 
   private static final String METRIC_NAME = "ebean.query";
   private static final int HASH_BREAKDOWN_LIMIT = 15;
-  private static final int RECENT_PLANS_LIMIT = 15;
+  private static final int RECENT_PLANS_LIMIT = 10;
   private static final int FAMILY_LIMIT = 50;
 
   private static final DateTimeFormatter PLAN_CAPTURED_FORMAT =
@@ -105,8 +105,9 @@ public class UIMetricDetailController {
     final String meanChartJson = toJson(BucketCharts.buildHashMean(hashTimeseries, colorByHash));
     final String maxChartJson = toJson(BucketCharts.buildHashMax(hashTimeseries, colorByHash));
 
+    // Plans are recent by collection time, independent of the selected metric range.
     final List<QueryPlanSummary> plans = service.listPlans(selectedApp, env, label, null, null, null,
-      (long) range.minutes(), null, RECENT_PLANS_LIMIT);
+      null, null, RECENT_PLANS_LIMIT);
     final List<PlanRow> recentPlans = plans.stream()
       .map(p -> new PlanRow(p.id(), p.envName(), p.hash(), PLAN_CAPTURED_FORMAT.format(p.whenCaptured()),
         formatNum(p.queryTimeMicros() / 1000L), formatNum(p.captureCount()),

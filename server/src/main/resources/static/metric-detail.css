@@ -22,19 +22,14 @@
 }
 
 .hash-legend {
-  margin: 0 0 1rem;
-}
-
-.hash-legend strong {
-  margin-bottom: 0.5rem;
-  display: block;
+  margin: 0;
 }
 
 .hash-legend ul {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.25rem 0.75rem;
+  gap: 0.125rem 0.5rem;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -44,7 +39,7 @@
   display: flex;
   align-items: center;
   gap: 0.25rem;
-  padding-block: 0.25rem;
+  padding: 0;
   overflow-wrap: anywhere;
 }
 
@@ -119,6 +114,6 @@
 
 @media (max-width: 768px) {
   .hash-legend ul {
-    gap: 0.25rem 0.5rem;
+    gap: 0.125rem 0.35rem;
   }
 }

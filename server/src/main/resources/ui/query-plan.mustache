@@ -38,7 +38,13 @@
     </article>
 
     <article class="query-total-section">
-      <header>Execution plan</header>
+      <header class="query-plan-header">
+        <span>Execution plan</span>
+        <span class="query-plan-copy">
+          <button type="button" id="copy-plan">Copy plan text</button>
+          <small id="copy-plan-status" role="status" aria-live="polite"></small>
+        </span>
+      </header>
       <iframe id="pev2-frame" class="query-plan-frame" src="/static/pev2-frame.html" title="Query plan visualization"></iframe>
     </article>
 
