@@ -34,10 +34,13 @@
 
   let chart = null;
   let meanMaxChart = null;
-  let chartType = 'bar';
+  const initialUrlState = new URLSearchParams(window.location.search);
+  let chartType = initialUrlState.get('chart') === 'line' ? 'line' : 'bar';
   let rankingCharts = [];
-  let meanMaxMode = 'both';
-  let meanMaxScale = 'linear';
+  let rankingHoverLabel = null;
+  let meanMaxMode = ['both', 'only', 'max'].includes(initialUrlState.get('mean'))
+    ? initialUrlState.get('mean') : 'both';
+  let meanMaxScale = initialUrlState.get('scale') === 'log' ? 'logarithmic' : 'linear';
   let sharedHoverIndex = null;
   let selectedRange = null;
   let dragRange = null;
@@ -50,6 +53,12 @@
   const visible = new Map(chartData.datasets.map(function (ds) {
     return [ds.label, true];
   }));
+
+  const setChartStateUrl = function (name, value) {
+    const current = new URLSearchParams(window.location.search);
+    current.set(name, value);
+    window.history.replaceState(null, '', window.location.pathname + '?' + current.toString());
+  };
 
   const sharedTimeCrosshair = {
     id: 'shared-time-crosshair',
@@ -423,6 +432,24 @@
         filterForm.appendChild(input);
       });
     });
+    filterForm.addEventListener('submit', function () {
+      filterForm.querySelectorAll('.chart-state-bound').forEach(function (input) {
+        input.remove();
+      });
+      const state = new URLSearchParams(window.location.search);
+      [['chart', state.get('chart')], ['mean', state.get('mean')], ['scale', state.get('scale')]]
+        .forEach(function (entry) {
+          if (!entry[1]) {
+            return;
+          }
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = entry[0];
+          input.value = entry[1];
+          input.className = 'chart-state-bound';
+          filterForm.appendChild(input);
+        });
+    });
   }
 
   const updateLegend = function () {
@@ -473,6 +500,7 @@
 
   const selectType = function (type) {
     render(type);
+    setChartStateUrl('chart', type);
     if (barBtn && lineBtn) {
       barBtn.setAttribute('aria-pressed', String(type === 'bar'));
       lineBtn.setAttribute('aria-pressed', String(type === 'line'));
@@ -500,6 +528,35 @@
         + alpha + ')';
     }
     return color;
+  };
+
+  const rankingHighlight = {
+    id: 'ranking-highlight',
+    afterDatasetsDraw: function (currentChart) {
+      if (!rankingHoverLabel || !currentChart.chartArea) {
+        return;
+      }
+      const labels = currentChart.data.labels || [];
+      const activeIndex = labels.indexOf(rankingHoverLabel);
+      if (activeIndex < 0) {
+        return;
+      }
+      const activeElement = currentChart.getDatasetMeta(0).data[activeIndex];
+      if (!activeElement) {
+        return;
+      }
+      const context = currentChart.ctx;
+      context.save();
+      const properties = activeElement.getProps(['base', 'x', 'y', 'height'], true);
+      context.strokeStyle = window.DashboardCharts.themeColors().text;
+      context.lineWidth = 2;
+      context.strokeRect(
+        Math.min(properties.base, properties.x),
+        properties.y - properties.height / 2,
+        Math.abs(properties.x - properties.base),
+        properties.height);
+      context.restore();
+    }
   };
 
   const renderRankingChart = function (dataId, canvasId, unit) {
@@ -533,7 +590,9 @@
           backgroundColor: barColors.map(function (color) {
             return withAlpha(color, 0.3);
           }),
-          hoverBackgroundColor: barColors,
+          hoverBackgroundColor: barColors.map(function (color) {
+            return withAlpha(color, 0.55);
+          }),
           borderWidth: 0,
           barPercentage: 0.8,
           categoryPercentage: 0.9
@@ -564,7 +623,16 @@
             window.location.href = detailUrlFor(rankingData.labels[elements[0].index]);
           }
         },
-        onHover: window.DashboardCharts.pointerOnHover,
+        onHover: function (event, elements) {
+          window.DashboardCharts.pointerOnHover(event, elements);
+          const label = elements.length ? rankingData.labels[elements[0].index] : null;
+          if (rankingHoverLabel !== label) {
+            rankingHoverLabel = label;
+            rankingCharts.forEach(function (entry) {
+              entry.chart.update('none');
+            });
+          }
+        },
         plugins: {
           legend: {display: false},
           tooltip: window.DashboardCharts.tooltipOptions(rankingData.labels, unit ? {
@@ -578,7 +646,7 @@
         },
         interaction: {mode: 'nearest', intersect: true}
       },
-      plugins: [{
+      plugins: [rankingHighlight, {
         id: 'ranking-bar-labels',
         afterDatasetsDraw: function (chart) {
           const meta = chart.getDatasetMeta(0);
@@ -601,7 +669,7 @@
         }
       }]
     });
-    rankingCharts.push(rankingChart);
+    rankingCharts.push({chart: rankingChart, labels: rankingData.labels});
   };
 
   const renderMeanMaxChart = function (mode, scale) {
@@ -649,6 +717,12 @@
         });
       });
     }
+    const maxValue = datasets.reduce(function (max, ds) {
+      return Math.max(max, ds.data.reduce(function (seriesMax, value) {
+        return Math.max(seriesMax, Number(value) || 0);
+      }, 0));
+    }, 0);
+    const durationUnit = window.DashboardCharts.durationUnitFor(maxValue);
     meanMaxChart = new Chart(meanCanvas.getContext('2d'), {
       type: 'line',
       data: {labels: meanData.labels, datasets: datasets},
@@ -658,7 +732,14 @@
         animation: false,
         scales: {
           x: window.DashboardCharts.buildXScale(meanData.labels, meanData.bucketMinutes),
-          y: {type: meanMaxScale}
+          y: {
+            type: meanMaxScale,
+            ticks: {
+              callback: function (value) {
+                return window.DashboardCharts.compactDuration(value, durationUnit);
+              }
+            }
+          }
         },
         onHover: function (event, elements) {
           window.DashboardCharts.pointerOnHover(event, elements);
@@ -666,7 +747,13 @@
         },
         plugins: {
           legend: {display: false},
-          tooltip: window.DashboardCharts.tooltipOptions(meanData.labels)
+          tooltip: window.DashboardCharts.tooltipOptions(meanData.labels, {
+            label: function (context) {
+              return context.dataset.label + ': '
+                + window.DashboardCharts.detailedDuration(context.raw)
+                + ' (' + context.formattedValue + ' ms)';
+            }
+          })
         }
       },
       plugins: [sharedTimeCrosshair]
@@ -691,6 +778,7 @@
     if (button) {
       button.addEventListener('click', function () {
         renderMeanMaxChart(mode);
+        setChartStateUrl('mean', mode);
       });
     }
   });
@@ -698,12 +786,13 @@
   if (meanMaxScaleToggle) {
     meanMaxScaleToggle.addEventListener('change', function () {
       renderMeanMaxChart(meanMaxMode, meanMaxScaleToggle.checked ? 'logarithmic' : 'linear');
+      setChartStateUrl('scale', meanMaxScaleToggle.checked ? 'log' : 'linear');
     });
   }
 
   const redrawRankingCharts = function () {
-    rankingCharts.forEach(function (rankingChart) {
-      rankingChart.destroy();
+    rankingCharts.forEach(function (entry) {
+      entry.chart.destroy();
     });
     rankingCharts = [];
     renderRankingChart('top-by-time-data', 'top-by-time-chart', 'ms');
@@ -719,8 +808,8 @@
 
   selectedRange = selectionFromUrl();
   updateSelectionStatus();
-  render('bar');
+  selectType(chartType);
   updateLegend();
-  renderMeanMaxChart('both');
+  renderMeanMaxChart(meanMaxMode, meanMaxScale);
   redrawRankingCharts();
 })();

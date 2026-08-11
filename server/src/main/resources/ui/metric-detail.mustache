@@ -4,6 +4,15 @@
       <input type="hidden" name="label" value="{{label}}">
       <input type="hidden" name="app" value="{{app}}">
       <span class="header-app-context">{{app}}</span>
+      <div id="custom-range-controls" class="custom-range-controls" hidden>
+        <label>
+          <input type="datetime-local" id="custom-range-from" aria-label="Custom range start">
+        </label>
+        <label>
+          <input type="datetime-local" id="custom-range-to" aria-label="Custom range end">
+        </label>
+        <button type="submit" class="custom-range-apply">Apply</button>
+      </div>
       <select name="env" aria-label="Environment" onchange="this.form.submit()">
         {{#envs}}
           <option value="{{value}}"{{#selected}} selected{{/selected}}>{{label}}</option>
@@ -31,7 +40,7 @@
 
     {{#hasData}}
       <div class="metric-detail-chart-layout">
-        <div class="metric-detail-chart-stack">
+        <div class="metric-detail-chart-column">
           <article class="query-total-section">
             <header>Total execution time by hash (ms)</header>
             <div class="chart-toolbar" role="toolbar" aria-label="Total chart controls">
@@ -44,7 +53,9 @@
               <canvas id="total-chart"></canvas>
             </div>
           </article>
-          {{> fragments/hash-legend}}
+        </div>
+
+        <div class="metric-detail-chart-column">
           <article class="query-total-section">
             <header>Mean and Max execution time by hash (ms)</header>
             <div class="chart-toolbar" role="toolbar" aria-label="Mean and Max chart controls">
@@ -64,9 +75,77 @@
               <canvas id="mean-chart"></canvas>
             </div>
           </article>
-          {{> fragments/hash-legend}}
+        </div>
+        <div id="metric-chart-range-selection" class="chart-range-selection" hidden>
+          <span id="metric-chart-range-selection-text"></span>
+          <button type="button" id="metric-chart-range-selection-clear">Use preset range</button>
         </div>
       </div>
+      <div class="hash-legend" aria-label="Query hash legend">
+        <ul>
+          {{#hashBreakdown}}
+            <li class="hash-legend-item">
+              <button type="button" class="hash-series-toggle"
+                      data-label="{{hash}}" aria-pressed="true"
+                      aria-label="Toggle {{hash}}" title="{{hash}}">
+                <span class="hash-swatch" style="background-color: {{color}}"
+                      aria-hidden="true"></span>
+              </button>
+            </li>
+          {{/hashBreakdown}}
+        </ul>
+      </div>
+
+      <article class="query-total-section hash-query-section">
+        <header>Query hashes</header>
+        <div class="hash-query-browser">
+          <div class="hash-query-list">
+            <table id="hash-query-table">
+              <thead>
+                <tr>
+                  <th>Hash</th>
+                  <th>Location</th>
+                  <th>Total (ms)</th>
+                  <th>Mean (ms)</th>
+                  <th>SQL</th>
+                </tr>
+              </thead>
+              <tbody>
+                {{#hashBreakdown}}
+                  <tr class="hash-query-row" data-hash="{{hash}}" data-color="{{color}}">
+                    <td>
+                      <button type="button" class="hash-query-select"
+                              data-hash="{{hash}}" aria-label="Show SQL for {{hash}}"
+                              title="{{hash}}">
+                        <span class="hash-swatch" style="background-color: {{color}}"></span>
+                        <code>{{displayHash}}</code>
+                      </button>
+                    </td>
+                    <td><code>{{location}}</code></td>
+                    <td>{{totalMs}}</td>
+                    <td>{{meanMs}}</td>
+                    <td>
+                      <button type="button" class="hash-sql-show"
+                              data-hash="{{hash}}">Show SQL</button>
+                      {{#sqlUrl}}<a href="{{sqlUrl}}">Open</a>{{/sqlUrl}}
+                      <template class="hash-sql-source" data-hash="{{hash}}">{{sql}}</template>
+                    </td>
+                  </tr>
+                {{/hashBreakdown}}
+                {{^hashBreakdown}}
+                  <tr><td colspan="5">No hash-level data.</td></tr>
+                {{/hashBreakdown}}
+              </tbody>
+            </table>
+          </div>
+          <aside id="hash-sql-inspector" class="hash-sql-inspector" aria-live="polite">
+            <h4 id="hash-sql-title">Select a hash to view SQL</h4>
+            <p id="hash-sql-location"></p>
+            <pre><code id="hash-sql-content"></code></pre>
+            <a id="hash-sql-open" href="#" hidden>Open full SQL page</a>
+          </aside>
+        </div>
+      </article>
 
       <article class="query-total-section">
         <header>Recently collected query plans</header>
@@ -89,7 +168,7 @@
               <tr class="plan-row" data-hash="{{hash}}" data-color="{{color}}">
                 <td>{{env}}</td>
                 <td><span class="hash-swatch" style="background-color: {{color}}"></span><code>{{hash}}</code></td>
-                <td><a href="/ux/query-plan?id={{id}}">{{whenCaptured}}</a></td>
+                <td><a href="{{url}}">{{whenCaptured}}</a></td>
                 <td>{{queryTimeMs}}</td>
                 <td>{{captureCount}}</td>
                 <td>{{#shapeChanged}}<mark>Yes</mark>{{/shapeChanged}}{{^shapeChanged}}&mdash;{{/shapeChanged}}</td>

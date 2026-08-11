@@ -35,7 +35,7 @@ import java.util.Random;
  * synthetic pre-aggregated rows are inserted directly into each tier,
  * following a daily business-hours "wave" (plus weekend dip, per-bucket
  * jitter, and one spiky batch-job label) across a fixed set of query labels
- * so the top-8 + "Other" stacked bar looks realistic at every range. Several
+ * so the top-15 + "Other" stacked bar looks realistic at every range. Several
  * labels are split across two underlying query hashes (e.g. an indexed fast
  * path and a slower sequential-scan path) so the metric-detail drill-down's
  * "breakdown by hash" table has more than one row to look right.
@@ -185,6 +185,48 @@ public class SeedDemoData {
         "select t.id, t.external_id, p.name, p.status from third_party_identifier t join provider p on p.id = t.provider_id where t.id = ?",
         "third-party-nl-v1",
         "Nested Loop  (cost=0.42..612.30 rows=1 width=80)\n  ->  Index Scan using third_party_identifier_pk on third_party_identifier t\n  ->  Index Scan using provider_pk on provider p")
+    )),
+    new LabelSpec("Category.findList", "Category", 2.8, 11_000L, null, List.of(
+      new HashSpec("default", "CategoryRepository.java:34", 1.0, 1.0,
+        "select id, name, parent_id from category where active = true order by name",
+        "category-active-v1",
+        "Index Scan using category_active_idx on category  (cost=0.29..18.42 rows=240 width=72)\n  Index Cond: (active = true)")
+    )),
+    new LabelSpec("Shipment.findList", "Shipment", 2.4, 28_000L, null, List.of(
+      new HashSpec("default", "ShipmentRepository.java:48", 1.0, 1.0,
+        "select id, order_id, carrier, tracking_number from shipment where order_id = ?",
+        "shipment-order-v1",
+        "Index Scan using shipment_order_idx on shipment  (cost=0.29..7.42 rows=3 width=88)\n  Index Cond: (order_id = $1)")
+    )),
+    new LabelSpec("Review.findList", "Review", 2.1, 18_000L, null, List.of(
+      new HashSpec("default", "ReviewRepository.java:57", 1.0, 1.0,
+        "select id, product_id, rating, comment from review where product_id = ? order by when_created desc",
+        "review-product-v1",
+        "Index Scan using review_product_created_idx on review  (cost=0.42..14.20 rows=18 width=112)\n  Index Cond: (product_id = $1)")
+    )),
+    new LabelSpec("Warehouse.findList", "Warehouse", 1.8, 24_000L, null, List.of(
+      new HashSpec("default", "WarehouseRepository.java:29", 1.0, 1.0,
+        "select id, code, name, region from warehouse where region = ?",
+        "warehouse-region-v1",
+        "Index Scan using warehouse_region_idx on warehouse  (cost=0.29..9.11 rows=12 width=80)\n  Index Cond: (region = $1)")
+    )),
+    new LabelSpec("Promotion.findList", "Promotion", 1.4, 35_000L, null, List.of(
+      new HashSpec("default", "PromotionRepository.java:71", 1.0, 1.0,
+        "select id, code, discount from promotion where starts_at <= ? and ends_at > ?",
+        "promotion-active-v1",
+        "Index Scan using promotion_active_dates_idx on promotion  (cost=0.42..22.55 rows=9 width=64)\n  Index Cond: ((starts_at <= $1) AND (ends_at > $2))")
+    )),
+    new LabelSpec("Session.findById", "Session", 1.2, 7_000L, null, List.of(
+      new HashSpec("default", "SessionRepository.java:18", 1.0, 1.0,
+        "select id, user_id, expires_at from user_session where id = ?",
+        "session-pk-v1",
+        "Index Scan using user_session_pk on user_session  (cost=0.29..2.31 rows=1 width=48)\n  Index Cond: (id = $1)")
+    )),
+    new LabelSpec("Notification.send", "Notification", 0.8, 42_000L, null, List.of(
+      new HashSpec("default", "NotificationService.java:103", 1.0, 1.0,
+        "insert into notification (user_id, channel, payload, sent_at) values (?, ?, ?, ?)",
+        "notification-insert-v1",
+        "Insert on notification  (cost=0.00..0.02 rows=0 width=0)")
     ))
   );
 

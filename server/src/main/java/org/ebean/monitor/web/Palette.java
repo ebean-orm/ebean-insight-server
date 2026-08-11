@@ -12,7 +12,8 @@ final class Palette {
   static final String[] COLORS = {
     "#4e79a7", "#f28e2b", "#e15759", "#76b7b2",
     "#59a14f", "#edc949", "#af7aa1", "#ff9da7",
-    "#9c755f", "#2f4b7c"
+    "#9c755f", "#2f4b7c", "#00a6ca", "#7b2cbf",
+    "#d45087", "#006d2c", "#8c8c00"
   };
 
   /** Neutral grey used for the synthetic "Other" series / unranked rows. */

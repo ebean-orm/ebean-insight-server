@@ -14,6 +14,7 @@ import org.ebean.monitor.web.view.QueryPlanView;
 import org.ebean.monitor.web.view.QueryPlanView.SiblingRow;
 
 import java.time.ZoneOffset;
+import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
@@ -47,12 +48,22 @@ public class UIQueryPlanController {
   }
 
   @Get("query-plan")
-  QueryPlanView queryPlan(@QueryParam("id") long id) {
+  QueryPlanView queryPlan(@QueryParam("id") long id,
+                          @QueryParam("range") String range,
+                          @QueryParam("from") String fromParam,
+                          @QueryParam("to") String toParam) {
     final QueryPlan plan = service.getPlan(id);
     final String appName = service.getPlanAppName(id);
+    final Instant from = UIQueryTotalController.parseInstant(fromParam, "from");
+    final Instant to = UIQueryTotalController.parseInstant(toParam, "to");
+    if ((from == null) != (to == null)) {
+      throw new io.avaje.jex.http.BadRequestException("Both from and to timestamps are required");
+    }
 
     final Breadcrumb breadcrumb = new Breadcrumb(List.of(
-      new Breadcrumb.Item("/ux/metric-detail?app=" + appName + "&label=" + plan.label(), plan.label()),
+      new Breadcrumb.Item(UIQueryTotalController.metricDetailUrl(
+        appName, plan.envName(), UIQueryTotalController.rangeKey(range, from, to),
+        plan.label(), from, to), plan.label()),
       new Breadcrumb.Item("Query plan")));
 
     final List<QueryPlanSummary> siblingSummaries = service.listPlans(

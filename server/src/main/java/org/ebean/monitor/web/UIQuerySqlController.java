@@ -11,6 +11,7 @@ import org.ebean.monitor.web.view.Breadcrumb;
 import org.ebean.monitor.web.view.QuerySqlView;
 import org.jspecify.annotations.Nullable;
 
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -33,16 +34,24 @@ public class UIQuerySqlController {
                         @QueryParam("env") @Nullable String env,
                         @QueryParam("range") @Nullable String range,
                         @QueryParam("label") String label,
-                        @QueryParam("hash") String hash) {
+                        @QueryParam("hash") String hash,
+                        @QueryParam("from") @Nullable String fromParam,
+                        @QueryParam("to") @Nullable String toParam) {
     final String sql = service.getMetricSql(app, label, hash);
     if (sql == null || sql.isBlank()) {
       throw new NotFoundException("No SQL stored for metric hash " + hash);
     }
+    final Instant from = UIQueryTotalController.parseInstant(fromParam, "from");
+    final Instant to = UIQueryTotalController.parseInstant(toParam, "to");
+    if ((from == null) != (to == null)) {
+      throw new io.avaje.jex.http.BadRequestException("Both from and to timestamps are required");
+    }
     final String detailUrl = UIQueryTotalController.metricDetailUrl(
-      app, env, RangeOptions.resolve(range).key(), label);
+      app, env, UIQueryTotalController.rangeKey(range, from, to), label, from, to);
     final Breadcrumb breadcrumb = new Breadcrumb(List.of(
       new Breadcrumb.Item(detailUrl, label),
       new Breadcrumb.Item("SQL")));
     return new QuerySqlView(breadcrumb, app, env == null ? "" : env, label, hash, sql);
   }
+
 }

@@ -10,15 +10,18 @@
 }
 
 .metric-detail-chart-layout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
   margin-bottom: 1.5rem;
 }
 
-.metric-detail-chart-stack {
-  min-width: 0;
+.metric-detail-chart-layout > .chart-range-selection {
+  grid-column: 1 / -1;
 }
 
-.metric-detail-chart-stack .query-total-section + .query-total-section {
-  margin-top: 1rem;
+.metric-detail-chart-column {
+  min-width: 0;
 }
 
 .hash-legend {
@@ -110,6 +113,87 @@
   height: 100%;
   background-color: var(--pico-primary);
   border-radius: 3px;
+}
+
+.hash-query-browser {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1rem;
+}
+
+.hash-query-list {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+#hash-query-table {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+#hash-query-table th,
+#hash-query-table td {
+  white-space: nowrap;
+}
+
+.hash-query-row.is-selected {
+  background-color: var(--pico-code-background-color);
+}
+
+.hash-query-select,
+.hash-sql-show {
+  width: auto;
+  margin: 0;
+  padding: 0.15rem 0.35rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.hash-query-select:hover,
+.hash-sql-show:hover {
+  text-decoration: underline;
+}
+
+.hash-query-select code {
+  font-size: 0.9rem;
+}
+
+.hash-sql-source {
+  display: none;
+}
+
+.hash-sql-inspector {
+  min-width: 0;
+}
+
+.hash-sql-inspector h4 {
+  margin-top: 0;
+  overflow-wrap: anywhere;
+}
+
+.hash-sql-inspector p {
+  color: var(--pico-muted-color);
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+.hash-sql-inspector pre {
+  max-height: 28rem;
+  margin: 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 900px) {
+  .metric-detail-chart-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .hash-query-browser {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 768px) {

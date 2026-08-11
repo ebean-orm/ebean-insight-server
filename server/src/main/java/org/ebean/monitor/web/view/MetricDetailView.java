@@ -34,11 +34,17 @@ public record MetricDetailView(
 ) {
 
   /** One ranked row of the "breakdown by hash" table for this label. */
-  public record HashRow(String hash, String color, @Nullable String sqlUrl) {
+  public record HashRow(String hash, String color, @Nullable String location,
+                        String totalMs, String meanMs, @Nullable String sql,
+                        @Nullable String sqlUrl) {
+
+    public String displayHash() {
+      return hash.length() <= 8 ? hash : hash.substring(0, 8) + "...";
+    }
   }
 
   /** One row of the "recently collected query plans" table for this label. */
-  public record PlanRow(long id, String env, String hash, String whenCaptured, String queryTimeMs,
+  public record PlanRow(long id, String url, String env, String hash, String whenCaptured, String queryTimeMs,
                         String captureCount, boolean shapeChanged, String color) {
   }
 

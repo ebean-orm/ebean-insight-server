@@ -7,11 +7,10 @@
       <li class="hash-legend-item">
         <button type="button" class="hash-series-toggle"
                 data-label="{{hash}}" aria-pressed="true"
-                aria-label="Toggle {{hash}}">
-          <span class="hash-swatch" style="background-color: {{color}}"></span>
+                aria-label="Toggle {{hash}}" title="{{hash}}">
+          <span class="hash-swatch" style="background-color: {{color}}"
+                aria-hidden="true"></span>
         </button>
-        <code>{{hash}}</code>
-        {{#sqlUrl}}<a href="{{sqlUrl}}">SQL</a>{{/sqlUrl}}
       </li>
     {{/hashBreakdown}}
   </ul>

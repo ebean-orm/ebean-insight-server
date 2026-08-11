@@ -5,13 +5,13 @@ import io.avaje.http.api.Controller;
 import io.avaje.http.api.Get;
 import io.avaje.http.api.Path;
 import io.avaje.http.api.QueryParam;
+import io.avaje.jex.http.BadRequestException;
 import io.avaje.jsonb.Jsonb;
 import org.ebean.monitor.v1.model.Env;
 import org.ebean.monitor.v1.model.QueryPlanSummary;
 import org.ebean.monitor.v1.model.TopGroup;
 import org.ebean.monitor.v1.model.MetricTimeseriesTop;
 import org.ebean.monitor.v1.web.V1QueryService;
-import org.ebean.monitor.v1.web.V1QueryService.LabelTimeseries;
 import org.ebean.monitor.web.RangeOptions.RangeOption;
 import org.ebean.monitor.web.view.Breadcrumb;
 import org.ebean.monitor.web.view.MetricDetailView;
@@ -21,8 +21,10 @@ import org.ebean.monitor.web.view.MetricDetailView.PlanRow;
 import org.ebean.monitor.web.view.Option;
 import org.jspecify.annotations.Nullable;
 
+import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -62,17 +64,24 @@ public class UIMetricDetailController {
   MetricDetailView metricDetail(@QueryParam("app") String appParam,
                                 @QueryParam("env") @Nullable String envParam,
                                 @QueryParam("range") @Nullable String rangeParam,
-                                @QueryParam("label") String labelParam) {
+                                @QueryParam("label") String labelParam,
+                                @QueryParam("from") @Nullable String fromParam,
+                                @QueryParam("to") @Nullable String toParam) {
 
     final List<Env> envs = service.listEnvs();
     final String selectedApp = appParam == null ? "" : appParam;
     final String selectedEnv = envParam == null ? "" : envParam;
-    final RangeOption range = RangeOptions.resolve(rangeParam);
+    final Instant from = parseInstant(fromParam, "from");
+    final Instant to = parseInstant(toParam, "to");
+    if ((from == null) != (to == null)) {
+      throw new BadRequestException("Both from and to timestamps are required");
+    }
+    final RangeOption range = from == null ? RangeOptions.resolve(rangeParam) : RangeOptions.custom();
     final String label = labelParam == null ? "" : labelParam;
 
     final Breadcrumb breadcrumb = new Breadcrumb(List.of(
-      new Breadcrumb.Item("/ux/top?app=" + selectedApp
-        + "&env=" + selectedEnv + "&range=" + range.key(), "Top"),
+      new Breadcrumb.Item(UIQueryTotalController.topUrl(
+        selectedApp, selectedEnv, range.key(), from, to), "Top"),
       new Breadcrumb.Item(label)));
 
     if (selectedApp.isBlank() || label.isBlank()) {
@@ -80,15 +89,20 @@ public class UIMetricDetailController {
     }
 
     final String env = selectedEnv.isBlank() ? null : selectedEnv;
-    final LabelTimeseries totalSeries = service.getLabelTimeseries(
-      selectedApp, label, (long) range.minutes(), null, env);
-
-    if (totalSeries.buckets().isEmpty()) {
+    final MetricTimeseriesTop hashTimeseries = from == null
+      ? service.getLabelHashTimeseries(
+        selectedApp, label, METRIC_NAME, (long) range.minutes(), null, HASH_BREAKDOWN_LIMIT, env)
+      : service.getLabelHashTimeseries(
+        selectedApp, label, METRIC_NAME, HASH_BREAKDOWN_LIMIT, env, from, to);
+    if (hashTimeseries.series().isEmpty()) {
       return emptyView(breadcrumb, envs, selectedApp, selectedEnv, range, label);
     }
 
-    final List<TopGroup> hashGroups = service.topAppMetrics(selectedApp, "hash", METRIC_NAME, label,
-      null, null, "total", (long) range.minutes(), null, HASH_BREAKDOWN_LIMIT, null, env);
+    final List<TopGroup> hashGroups = from == null
+      ? service.topAppMetrics(selectedApp, "hash", METRIC_NAME, label,
+        null, null, "total", (long) range.minutes(), null, HASH_BREAKDOWN_LIMIT, null, env)
+      : service.topAppMetrics(selectedApp, "hash", METRIC_NAME, label,
+        null, null, "total", HASH_BREAKDOWN_LIMIT, null, env, from, to);
     final Map<String, String> colorByHash = new HashMap<>();
     final List<HashRow> hashBreakdown = new ArrayList<>(hashGroups.size());
     int colorIndex = 0;
@@ -96,25 +110,28 @@ public class UIMetricDetailController {
       final String color = Palette.colorFor(colorIndex++);
       colorByHash.put(g.key(), color);
       hashBreakdown.add(new HashRow(g.key(), color,
+        g.loc(), formatNum(microsToMs(g.totalMicros())), formatNum(microsToMs(g.meanMicros())),
+        g.sql(),
         hasSql(g.sql()) ? UIQueryTotalController.metricSqlUrl(
-          selectedApp, selectedEnv, range.key(), label, g.key()) : null));
+          selectedApp, selectedEnv, range.key(), label, g.key(), from, to) : null));
     }
-    final MetricTimeseriesTop hashTimeseries = service.getLabelHashTimeseries(
-      selectedApp, label, METRIC_NAME, (long) range.minutes(), null, HASH_BREAKDOWN_LIMIT, env);
-    final String totalChartJson = toJson(BucketCharts.buildHashStacked(hashTimeseries, colorByHash));
-    final String meanChartJson = toJson(BucketCharts.buildHashMean(hashTimeseries, colorByHash));
-    final String maxChartJson = toJson(BucketCharts.buildHashMax(hashTimeseries, colorByHash));
+    final BucketCharts.HashCharts charts = BucketCharts.buildHashCharts(hashTimeseries, colorByHash);
+    final String totalChartJson = toJson(charts.total());
+    final String meanChartJson = toJson(charts.mean());
+    final String maxChartJson = toJson(charts.max());
 
     // Plans are recent by collection time, independent of the selected metric range.
     final List<QueryPlanSummary> plans = service.listPlans(selectedApp, env, label, null, null, null,
       null, null, RECENT_PLANS_LIMIT);
     final List<PlanRow> recentPlans = plans.stream()
-      .map(p -> new PlanRow(p.id(), p.envName(), p.hash(), PLAN_CAPTURED_FORMAT.format(p.whenCaptured()),
+      .map(p -> new PlanRow(p.id(), UIQueryTotalController.queryPlanUrl(
+          p.id(), range.key(), from, to), p.envName(), p.hash(),
+        PLAN_CAPTURED_FORMAT.format(p.whenCaptured()),
         formatNum(p.queryTimeMicros() / 1000L), formatNum(p.captureCount()),
         Boolean.TRUE.equals(p.shapeChanged()), colorByHash.getOrDefault(p.hash(), Palette.OTHER_COLOR)))
       .toList();
 
-    final List<FamilyRow> family = buildFamily(selectedApp, label, range, env);
+    final List<FamilyRow> family = buildFamily(selectedApp, label, range, env, from, to);
 
     return new MetricDetailView(breadcrumb, true, selectedApp,
       selectedEnv, envOptions(envs, selectedEnv), range.key(), RangeOptions.options(range.key()),
@@ -134,10 +151,12 @@ public class UIMetricDetailController {
    * sharing that root - or an empty list when the label has no family
    * (no dots beyond the root, or no sibling/descendant data in this window).
    */
-  private List<FamilyRow> buildFamily(String app, String label, RangeOption range, @Nullable String env) {
+  private List<FamilyRow> buildFamily(String app, String label, RangeOption range, @Nullable String env,
+                                      @Nullable Instant from, @Nullable Instant to) {
     final String root = LabelFamily.rootOf(label);
-    final List<TopGroup> familyGroups = service.topLabelFamily(
-      app, root, METRIC_NAME, (long) range.minutes(), env, FAMILY_LIMIT);
+    final List<TopGroup> familyGroups = from == null
+      ? service.topLabelFamily(app, root, METRIC_NAME, (long) range.minutes(), env, FAMILY_LIMIT)
+      : service.topLabelFamily(app, root, METRIC_NAME, env, FAMILY_LIMIT, from, to);
     if (familyGroups.size() <= 1) {
       return List.of();
     }
@@ -145,8 +164,20 @@ public class UIMetricDetailController {
       .map(n -> new FamilyRow(n.label(), n.display(), n.depth() * 20,
         formatNum(n.totalMicros() / 1000L), formatNum(n.meanMicros() / 1000L), formatNum(n.count()),
         String.format(Locale.US, "%.0f", n.pct()), n.current(),
-        UIQueryTotalController.metricDetailUrl(app, env, range.key(), n.label())))
+        UIQueryTotalController.metricDetailUrl(app, env, range.key(), n.label(), from, to)))
       .toList();
+  }
+
+  @Nullable
+  private static Instant parseInstant(@Nullable String value, String parameter) {
+    if (value == null || value.isBlank()) {
+      return null;
+    }
+    try {
+      return Instant.parse(value);
+    } catch (DateTimeParseException e) {
+      throw new BadRequestException("Invalid " + parameter + " timestamp");
+    }
   }
 
   private String toJson(ChartData chartData) {

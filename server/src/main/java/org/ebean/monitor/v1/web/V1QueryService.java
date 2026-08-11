@@ -403,8 +403,9 @@ public final class V1QueryService {
    * Bucket step for the "Top" stacked-bar chart ({@link #getTopAppMetricsTimeseries}).
    * Windows over 3h but up to 4h use 2-minute bars, windows over 4h but within
    * the {@code timed_m1} table's range (up to 12h, see {@link #timeseriesTableFor})
-   * use 5-minute bars, and longer windows already fall onto a coarser table
-   * (10-minute/60-minute) via {@link #bucketMinutesFor}.
+   * use 5-minute bars. Windows over 24h sourced from {@code timed_m10} use
+   * 20-minute bars to keep the chart near 150 columns; longer windows already
+   * fall onto the 60-minute table via {@link #bucketMinutesFor}.
    */
   static long topBucketMinutesFor(long windowMinutes, String table) {
     if ("ebean_insight.timed_m1".equals(table)) {
@@ -414,6 +415,9 @@ public final class V1QueryService {
       if (windowMinutes > 180L) {
         return 2L;
       }
+    }
+    if ("ebean_insight.timed_m10".equals(table) && windowMinutes > 1440L) {
+      return 20L;
     }
     return bucketMinutesFor(table);
   }
@@ -434,6 +438,17 @@ public final class V1QueryService {
                                             @Nullable Long sinceMinutes, @Nullable Long sinceHours,
                                             @Nullable String env) {
     final TimeWindow window = TimeWindow.of(sinceMinutes, sinceHours, DEFAULT_TOP_WINDOW_MINUTES);
+    return getLabelTimeseries(appName, label, window, env);
+  }
+
+  /** Dense label time-series over an absolute time window. */
+  public LabelTimeseries getLabelTimeseries(String appName, String label,
+                                            @Nullable String env, Instant from, Instant to) {
+    return getLabelTimeseries(appName, label, TimeWindow.between(from, to), env);
+  }
+
+  private LabelTimeseries getLabelTimeseries(String appName, String label,
+                                             TimeWindow window, @Nullable String env) {
     final long minutes = window.minutes();
     final String table = timeseriesTableFor(minutes);
     final long bucketMinutes = bucketMinutesFor(table);
@@ -459,6 +474,19 @@ public final class V1QueryService {
                                                     @Nullable Long sinceMinutes, @Nullable Long sinceHours,
                                                     @Nullable Integer seriesLimit, @Nullable String env) {
     final TimeWindow window = TimeWindow.of(sinceMinutes, sinceHours, DEFAULT_TOP_WINDOW_MINUTES);
+    return getLabelHashTimeseries(appName, label, name, window, seriesLimit, env);
+  }
+
+  /** Per-hash label time-series over an absolute time window. */
+  public MetricTimeseriesTop getLabelHashTimeseries(String appName, String label, String name,
+                                                    @Nullable Integer seriesLimit, @Nullable String env,
+                                                    Instant from, Instant to) {
+    return getLabelHashTimeseries(appName, label, name, TimeWindow.between(from, to), seriesLimit, env);
+  }
+
+  private MetricTimeseriesTop getLabelHashTimeseries(String appName, String label, String name,
+                                                     TimeWindow window, @Nullable Integer seriesLimit,
+                                                     @Nullable String env) {
     final long minutes = window.minutes();
     final String table = timeseriesTableFor(minutes);
     final long bucketMinutes = topBucketMinutesFor(minutes, table);
@@ -574,6 +602,17 @@ public final class V1QueryService {
     }
     final TimeWindow window = TimeWindow.of(windowMinutes, null, DEFAULT_TOP_WINDOW_MINUTES);
     return runLabelFamilyQuery(app, root, name, window, env, clampLimit(limit));
+  }
+
+  /** Query-family groups over an absolute time window. */
+  public List<TopGroup> topLabelFamily(String appName, String root, @Nullable String name,
+                                       @Nullable String env, @Nullable Integer limit,
+                                       Instant from, Instant to) {
+    final DApp app = findApp(appName);
+    if (app == null || isBlank(root)) {
+      return List.of();
+    }
+    return runLabelFamilyQuery(app, root, name, TimeWindow.between(from, to), env, clampLimit(limit));
   }
 
   /**

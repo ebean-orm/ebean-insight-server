@@ -51,7 +51,7 @@ public class UIQueryTotalController {
   private static final String METRIC_NAME = "ebean.query";
 
   /** Top-N stacked series before the remainder is folded into "Other". */
-  private static final int SERIES_LIMIT = 10;
+  private static final int SERIES_LIMIT = 15;
 
   private static final DateTimeFormatter BUCKET_LABEL_FORMAT =
     DateTimeFormatter.ofPattern("MM-dd HH:mm", Locale.US).withZone(ZoneOffset.UTC);
@@ -117,11 +117,11 @@ public class UIQueryTotalController {
     if (from != null) {
       return service.topAppMetrics(
         app, "label", METRIC_NAME, null, null, null, orderBy,
-        10, null, env, from, to);
+        SERIES_LIMIT, null, env, from, to);
     }
     return service.topAppMetrics(
       app, "label", METRIC_NAME, null, null, null, orderBy,
-      windowMinutes, null, 10, null, env);
+      windowMinutes, null, SERIES_LIMIT, null, env);
   }
 
   private static long windowMinutes(Instant from, Instant to) {
@@ -133,7 +133,7 @@ public class UIQueryTotalController {
   }
 
   @Nullable
-  private static Instant parseInstant(@Nullable String value, String parameter) {
+  static Instant parseInstant(@Nullable String value, String parameter) {
     if (value == null || value.isBlank()) {
       return null;
     }
@@ -183,7 +183,7 @@ public class UIQueryTotalController {
       final long totalMs = s.totalMicros() / 1000L;
       final long avgMs = execCount == 0L ? 0L : totalMs / execCount;
       final String detailUrl = s.other() ? null
-        : metricDetailUrl(selectedApp, selectedEnv, range.key(), s.group());
+        : metricDetailUrl(selectedApp, selectedEnv, range.key(), s.group(), from, to);
       legend.add(new LegendRow(color, s.group(), formatNum(totalMs), formatNum(execCount),
         formatNum(avgMs), formatNum(s.hashCount()), s.other(), detailUrl));
     }
@@ -229,9 +229,12 @@ public class UIQueryTotalController {
     for (MetricTimeseriesTopSeries s : series) {
       final String color = s.other() ? Palette.OTHER_COLOR : Palette.colorFor(colorIndex++);
       final List<Long> values = s.buckets().stream()
-        .map(bucket -> max
-          ? bucket.max() / 1000L
-          : bucket.count() == 0L ? 0L : (bucket.total() / 1000L) / bucket.count())
+        .map(bucket -> {
+          if (max) {
+            return bucket.count() == 0L ? null : Long.valueOf(bucket.max() / 1000L);
+          }
+          return bucket.count() == 0L ? 0L : (bucket.total() / 1000L) / bucket.count();
+        })
         .toList();
       datasets.add(new ChartData.ChartDataset(s.group(), values, color));
     }
@@ -254,6 +257,11 @@ public class UIQueryTotalController {
 
   /** Link from a query-total label (legend row / stacked-bar segment) to its {@link UIMetricDetailController} drill-down. */
   static String metricDetailUrl(String app, String env, String range, String label) {
+    return metricDetailUrl(app, env, range, label, null, null);
+  }
+
+  static String metricDetailUrl(String app, String env, String range, String label,
+                                @Nullable Instant from, @Nullable Instant to) {
     final StringBuilder sb = new StringBuilder("/ux/metric-detail?app=")
       .append(urlEncode(app))
       .append("&range=").append(urlEncode(range))
@@ -261,10 +269,16 @@ public class UIQueryTotalController {
     if (env != null && !env.isBlank()) {
       sb.append("&env=").append(urlEncode(env));
     }
+    appendAbsoluteRange(sb, from, to);
     return sb.toString();
   }
 
   static String metricSqlUrl(String app, String env, String range, String label, String hash) {
+    return metricSqlUrl(app, env, range, label, hash, null, null);
+  }
+
+  static String metricSqlUrl(String app, String env, String range, String label, String hash,
+                             @Nullable Instant from, @Nullable Instant to) {
     final StringBuilder sb = new StringBuilder("/ux/query-sql?app=")
       .append(urlEncode(app))
       .append("&range=").append(urlEncode(range))
@@ -273,7 +287,37 @@ public class UIQueryTotalController {
     if (env != null && !env.isBlank()) {
       sb.append("&env=").append(urlEncode(env));
     }
+    appendAbsoluteRange(sb, from, to);
     return sb.toString();
+  }
+
+  static String topUrl(String app, String env, String range,
+                       @Nullable Instant from, @Nullable Instant to) {
+    final StringBuilder sb = new StringBuilder("/ux/top?app=")
+      .append(urlEncode(app))
+      .append("&env=").append(urlEncode(env))
+      .append("&range=").append(urlEncode(range));
+    appendAbsoluteRange(sb, from, to);
+    return sb.toString();
+  }
+
+  static String queryPlanUrl(long id, String range, @Nullable Instant from, @Nullable Instant to) {
+    final StringBuilder sb = new StringBuilder("/ux/query-plan?id=")
+      .append(id)
+      .append("&range=").append(urlEncode(range));
+    appendAbsoluteRange(sb, from, to);
+    return sb.toString();
+  }
+
+  static String rangeKey(@Nullable String range, @Nullable Instant from, @Nullable Instant to) {
+    return from == null && to == null ? RangeOptions.resolve(range).key() : RangeOptions.custom().key();
+  }
+
+  private static void appendAbsoluteRange(StringBuilder sb, @Nullable Instant from, @Nullable Instant to) {
+    if (from != null && to != null) {
+      sb.append("&from=").append(urlEncode(from.toString()))
+        .append("&to=").append(urlEncode(to.toString()));
+    }
   }
 
   private static String urlEncode(String value) {
