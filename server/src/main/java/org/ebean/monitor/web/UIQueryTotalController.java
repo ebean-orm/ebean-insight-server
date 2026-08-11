@@ -58,10 +58,12 @@ public class UIQueryTotalController {
 
   private final V1QueryService service;
   private final Jsonb jsonb;
+  private final Jsonb chartJsonb;
 
   public UIQueryTotalController(V1QueryService service, Jsonb jsonb) {
     this.service = service;
     this.jsonb = jsonb;
+    this.chartJsonb = Jsonb.builder().serializeNulls(true).build();
   }
 
   @Get("top")
@@ -193,10 +195,10 @@ public class UIQueryTotalController {
     // Neutralise "</script>" (and any other embedded tag) since group labels
     // are user-supplied query labels — this JSON is inlined into a <script>
     // block in the template.
-    final String chartDataJson = jsonb.type(ChartData.class).toJson(chartData).replace("<", "\\u003c");
-    final String meanMaxMeanJson = jsonb.type(ChartData.class)
+    final String chartDataJson = chartJsonb.type(ChartData.class).toJson(chartData).replace("<", "\\u003c");
+    final String meanMaxMeanJson = chartJsonb.type(ChartData.class)
       .toJson(derivedChartData(data, false)).replace("<", "\\u003c");
-    final String meanMaxMaxJson = jsonb.type(ChartData.class)
+    final String meanMaxMaxJson = chartJsonb.type(ChartData.class)
       .toJson(derivedChartData(data, true)).replace("<", "\\u003c");
     final String topByTimeJson = rankingChartJson(topMetrics(
       selectedApp, "total", selectedEnv, from, to, windowMinutes), false);
@@ -273,13 +275,13 @@ public class UIQueryTotalController {
     return sb.toString();
   }
 
-  static String metricSqlUrl(String app, String env, String range, String label, String hash) {
-    return metricSqlUrl(app, env, range, label, hash, null, null);
+  static String queryHashUrl(String app, String env, String range, String label, String hash) {
+    return queryHashUrl(app, env, range, label, hash, null, null);
   }
 
-  static String metricSqlUrl(String app, String env, String range, String label, String hash,
+  static String queryHashUrl(String app, String env, String range, String label, String hash,
                              @Nullable Instant from, @Nullable Instant to) {
-    final StringBuilder sb = new StringBuilder("/ux/query-sql?app=")
+    final StringBuilder sb = new StringBuilder("/ux/query-hash?app=")
       .append(urlEncode(app))
       .append("&range=").append(urlEncode(range))
       .append("&label=").append(urlEncode(label))

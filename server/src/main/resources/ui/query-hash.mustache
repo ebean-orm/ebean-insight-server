@@ -1,0 +1,57 @@
+{{<fragments/layout}}
+  {{$body}}
+    <link rel="stylesheet" href="/static/query-plan.css">
+
+    <hgroup>
+      <h3>hash: {{hash}}</h3>
+    </hgroup>
+
+    <article class="query-plan-meta">
+      <p><small>Location</small><br><code>{{location}}</code></p>
+      <div class="query-plan-meta-grid">
+        <div><small>Created</small><p>{{createdAt}}</p></div>
+        <div><small>Modified</small><p>{{modifiedAt}}</p></div>
+        <div><small>Total</small><p>{{totalMs}} ms</p></div>
+        <div><small>Mean</small><p>{{meanMs}} ms</p></div>
+        <div><small>Max</small><p>{{maxMs}} ms</p></div>
+        <div><small>Count</small><p>{{count}}</p></div>
+      </div>
+    </article>
+
+    <article class="query-total-section">
+      <header>SQL</header>
+      <pre class="query-plan-sql">{{sql}}</pre>
+    </article>
+
+    <article class="query-total-section">
+      <header>Collected query plans for this hash</header>
+      <table>
+        <thead>
+          <tr>
+            <th>Env</th>
+            <th>Captured (UTC)</th>
+            <th>Query time (ms)</th>
+            <th>Capture count</th>
+            <th>Shape changed</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {{#plans}}
+            <tr>
+              <td>{{env}}</td>
+              <td>{{capturedAt}}</td>
+              <td>{{queryTimeMs}}</td>
+              <td>{{captureCount}}</td>
+              <td>{{#shapeChanged}}<mark>Yes</mark>{{/shapeChanged}}{{^shapeChanged}}&mdash;{{/shapeChanged}}</td>
+              <td><a href="{{url}}">View</a></td>
+            </tr>
+          {{/plans}}
+          {{^plans}}
+            <tr><td colspan="6">No collected query plans for this hash.</td></tr>
+          {{/plans}}
+        </tbody>
+      </table>
+    </article>
+  {{/body}}
+{{/fragments/layout}}

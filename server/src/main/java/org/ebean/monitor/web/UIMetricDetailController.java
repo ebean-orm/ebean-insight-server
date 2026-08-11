@@ -53,11 +53,11 @@ public class UIMetricDetailController {
     DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.US).withZone(ZoneOffset.UTC);
 
   private final V1QueryService service;
-  private final Jsonb jsonb;
+  private final Jsonb chartJsonb;
 
-  public UIMetricDetailController(V1QueryService service, Jsonb jsonb) {
+  public UIMetricDetailController(V1QueryService service) {
     this.service = service;
-    this.jsonb = jsonb;
+    this.chartJsonb = Jsonb.builder().serializeNulls(true).build();
   }
 
   @Get("metric-detail")
@@ -112,13 +112,13 @@ public class UIMetricDetailController {
       hashBreakdown.add(new HashRow(g.key(), color,
         g.loc(), formatNum(microsToMs(g.totalMicros())), formatNum(microsToMs(g.meanMicros())),
         g.sql(),
-        hasSql(g.sql()) ? UIQueryTotalController.metricSqlUrl(
+        hasSql(g.sql()) ? UIQueryTotalController.queryHashUrl(
           selectedApp, selectedEnv, range.key(), label, g.key(), from, to) : null));
     }
     final BucketCharts.HashCharts charts = BucketCharts.buildHashCharts(hashTimeseries, colorByHash);
-    final String totalChartJson = toJson(charts.total());
-    final String meanChartJson = toJson(charts.mean());
-    final String maxChartJson = toJson(charts.max());
+    final String totalChartJson = toChartJson(charts.total());
+    final String meanChartJson = toChartJson(charts.mean());
+    final String maxChartJson = toChartJson(charts.max());
 
     // Plans are recent by collection time, independent of the selected metric range.
     final List<QueryPlanSummary> plans = service.listPlans(selectedApp, env, label, null, null, null,
@@ -162,7 +162,7 @@ public class UIMetricDetailController {
     }
     return LabelFamily.buildTree(familyGroups, root, label).stream()
       .map(n -> new FamilyRow(n.label(), n.display(), n.depth() * 20,
-        formatNum(n.totalMicros() / 1000L), formatNum(n.meanMicros() / 1000L), formatNum(n.count()),
+        formatMs(n.totalMicros()), formatMs(n.meanMicros()), formatNum(n.count()),
         String.format(Locale.US, "%.0f", n.pct()), n.current(),
         UIQueryTotalController.metricDetailUrl(app, env, range.key(), n.label(), from, to)))
       .toList();
@@ -180,10 +180,8 @@ public class UIMetricDetailController {
     }
   }
 
-  private String toJson(ChartData chartData) {
-    // Neutralise "</script>" (and any other embedded tag) since labels/hashes
-    // are user-supplied — this JSON is inlined into a <script> block.
-    return jsonb.type(ChartData.class).toJson(chartData).replace("<", "\\u003c");
+  private String toChartJson(ChartData chartData) {
+    return chartJsonb.type(ChartData.class).toJson(chartData).replace("<", "\\u003c");
   }
 
   private static String emptyChartJson() {
@@ -200,6 +198,18 @@ public class UIMetricDetailController {
 
   private static String formatNum(long value) {
     return String.format(Locale.US, "%,d", value);
+  }
+
+  private static String formatMs(long micros) {
+    final String formatted = String.format(Locale.US, "%,.3f", micros / 1000.0);
+    int end = formatted.length();
+    while (end > 0 && formatted.charAt(end - 1) == '0') {
+      end--;
+    }
+    if (end > 0 && formatted.charAt(end - 1) == '.') {
+      end--;
+    }
+    return formatted.substring(0, end);
   }
 
   private static List<Option> envOptions(List<Env> envs, String selected) {

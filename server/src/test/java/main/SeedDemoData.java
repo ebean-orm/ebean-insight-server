@@ -163,25 +163,25 @@ public class SeedDemoData {
     // realistic multi-level example to show - including a deliberately slow
     // leaf query worth spotting.
     new LabelSpec("CMachine.findByGid", "CMachine", 4.5, 9_000L, null, List.of(
-      new HashSpec("idx", "CMachineRepository.java:31", 1.0, 1.0,
+      new HashSpec("idx", "nz.co.eroad.central.access.repository.MachineRepository.findMachineByGid", 1.0, 1.0,
         "select id, gid, name, status from c_machine where gid = ?",
         "cmachine-idx-v1",
         "Index Scan using c_machine_gid_idx on c_machine  (cost=0.29..8.31 rows=1 width=96)\n  Index Cond: (gid = $1)")
     )),
     new LabelSpec("CMachine.findByGid.organisationMachines", "CMachine", 3.2, 14_000L, null, List.of(
-      new HashSpec("default", "CMachineRepository.java:45", 1.0, 1.0,
+      new HashSpec("default", "nz.co.eroad.central.access.repository.OrganisationMachineRepository.findByMachineId", 1.0, 1.0,
         "select id, machine_id, organisation_id from organisation_machine where machine_id = ?",
         "org-machine-idx-v1",
         "Index Scan using organisation_machine_machine_idx on organisation_machine  (cost=0.29..6.31 rows=4 width=48)\n  Index Cond: (machine_id = $1)")
     )),
     new LabelSpec("CMachine.findByGid.organisationMachines.thirdPartyIdentifiers", "CMachine", 2.0, 6_000L, null, List.of(
-      new HashSpec("default", "OrganisationMachineRepository.java:22", 1.0, 1.0,
+      new HashSpec("default", "nz.co.eroad.central.access.repository.OrganisationMachineRepository.findThirdPartyIdentifiers", 1.0, 1.0,
         "select id, org_machine_id, provider, external_id from third_party_identifier where org_machine_id = ?",
         "third-party-idx-v1",
         "Index Scan using third_party_identifier_org_machine_idx on third_party_identifier  (cost=0.29..4.31 rows=2 width=64)\n  Index Cond: (org_machine_id = $1)")
     )),
     new LabelSpec("CMachine.findByGid.organisationMachines.thirdPartyIdentifiers.query", "CMachine", 4.0, 40_000L, null, List.of(
-      new HashSpec("default", "ThirdPartyIdentifierRepository.java:58", 1.0, 1.0,
+      new HashSpec("default", "nz.co.eroad.central.access.repository.ThirdPartyIdentifierRepository.findByIdWithProvider", 1.0, 1.0,
         "select t.id, t.external_id, p.name, p.status from third_party_identifier t join provider p on p.id = t.provider_id where t.id = ?",
         "third-party-nl-v1",
         "Nested Loop  (cost=0.42..612.30 rows=1 width=80)\n  ->  Index Scan using third_party_identifier_pk on third_party_identifier t\n  ->  Index Scan using provider_pk on provider p")
@@ -328,10 +328,10 @@ public class SeedDemoData {
         if (metric == null) {
           Map<String, String> tags = Map.of("kind", "orm", "type", spec.type(), "label", spec.label());
           metric = new DAppMetric(app, key, METRIC_NAME, tags, true);
-          metric.setLoc(hashSpec.loc());
-          metric.setSql(hashSpec.sql());
-          db.save(metric);
         }
+        metric.setLoc(hashSpec.loc());
+        metric.setSql(hashSpec.sql());
+        db.save(metric);
         hashMetrics.add(new HashMetric(hashSpec, metric));
       }
       result.put(spec.label(), hashMetrics);

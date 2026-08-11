@@ -232,6 +232,18 @@ public final class V1QueryService {
                                                    @Nullable Long sinceHours,
                                                    @Nullable String env) {
     final TimeWindow window = TimeWindow.of(sinceMinutes, sinceHours, DEFAULT_TOP_WINDOW_MINUTES);
+    return getMetricStatsByHash(appName, hash, env, window);
+  }
+
+  /** Metric statistics for a hash over an absolute time window. */
+  public List<AppMetricStats> getMetricStatsByHash(String appName, String hash,
+                                                   @Nullable String env,
+                                                   Instant from, Instant to) {
+    return getMetricStatsByHash(appName, hash, env, TimeWindow.between(from, to));
+  }
+
+  private List<AppMetricStats> getMetricStatsByHash(String appName, String hash,
+                                                    @Nullable String env, TimeWindow window) {
     final DApp app = findApp(appName);
     if (app == null || hash == null || hash.isBlank()) {
       return List.of();

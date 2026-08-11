@@ -64,7 +64,8 @@ final class BucketCharts {
         bucket -> bucket.count() == 0L ? null : (bucket.total() / 1000L) / bucket.count()),
         timeseries.bucketMinutes()),
       new ChartData(labels, timestamps, buildDatasets(timeseries, colors,
-        bucket -> bucket.count() == 0L ? null : bucket.max() / 1000L), timeseries.bucketMinutes()));
+        bucket -> bucket.count() == 0L ? null : bucket.max() / 1000L),
+        timeseries.bucketMinutes()));
   }
 
   private static List<ChartData.ChartDataset> buildDatasets(

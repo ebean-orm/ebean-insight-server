@@ -573,15 +573,16 @@
     title.textContent = hash;
     location.textContent = row.cells[1].textContent.trim();
     content.textContent = source ? formatSql(source) : 'SQL is not available for this hash.';
-    const link = row.querySelector('a[href]');
-    if (link) {
-      open.href = link.href;
+    const hashUrl = document.querySelector(
+      '.hash-query-select[data-hash="' + hash + '"]')?.dataset.hashUrl;
+    if (hashUrl) {
+      open.href = hashUrl;
       open.hidden = false;
     } else {
       open.hidden = true;
     }
   };
-  document.querySelectorAll('.hash-query-select, .hash-sql-show').forEach(function (button) {
+  document.querySelectorAll('.hash-query-select').forEach(function (button) {
     button.addEventListener('click', function () {
       selectHash(button.dataset.hash);
     });

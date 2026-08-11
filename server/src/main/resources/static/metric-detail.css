@@ -60,6 +60,11 @@
   vertical-align: middle;
 }
 
+.hash-location {
+  max-width: 28rem;
+  overflow-wrap: anywhere;
+}
+
 .hash-series-toggle {
   width: auto;
   margin: 0 0.25rem 0 0;
@@ -90,6 +95,11 @@
 
 .family-table td {
   vertical-align: middle;
+}
+
+.family-table .numeric {
+  text-align: right;
+  white-space: nowrap;
 }
 
 .family-table td:first-child {
@@ -129,11 +139,36 @@
 #hash-query-table {
   margin: 0;
   font-size: 0.9rem;
+  table-layout: fixed;
+  width: 100%;
 }
 
 #hash-query-table th,
 #hash-query-table td {
   white-space: nowrap;
+}
+
+#hash-query-table th:nth-child(1),
+#hash-query-table td:nth-child(1) {
+  width: 24%;
+}
+
+#hash-query-table th:nth-child(2),
+#hash-query-table td:nth-child(2) {
+  width: 46%;
+}
+
+#hash-query-table th:nth-child(3),
+#hash-query-table td:nth-child(3),
+#hash-query-table th:nth-child(4),
+#hash-query-table td:nth-child(4) {
+  width: 15%;
+}
+
+#hash-query-table .hash-location,
+#hash-query-table .hash-location code {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .hash-query-row.is-selected {

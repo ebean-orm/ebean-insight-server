@@ -40,6 +40,10 @@ header.container nav {
   flex: 0 0 auto;
 }
 
+.site-nav > nav[aria-label="breadcrumb"] {
+  padding-block: 0;
+}
+
 .site-nav > .header-filters {
   margin-left: auto;
   justify-content: flex-start;
@@ -87,9 +91,26 @@ header.container nav ul li a.brand {
   flex: 0 0 auto;
   height: 1.5rem;
   min-height: 0;
-  margin: 0;
+  margin: 0 0 0 auto;
   padding: 0;
   width: 1.5rem;
+}
+
+.site-logo {
+  align-items: center;
+  display: flex;
+  line-height: 0;
+  margin: 0;
+}
+
+.site-logo img {
+  display: block;
+  height: 1.5rem;
+  width: auto;
+}
+
+.site-nav > .header-filters + .theme-toggle {
+  margin-left: 0;
 }
 
 .theme-toggle:hover,

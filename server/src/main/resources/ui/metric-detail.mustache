@@ -42,7 +42,7 @@
       <div class="metric-detail-chart-layout">
         <div class="metric-detail-chart-column">
           <article class="query-total-section">
-            <header>Total execution time by hash (ms)</header>
+            <header>Total query time</header>
             <div class="chart-toolbar" role="toolbar" aria-label="Total chart controls">
               <button type="button" id="metric-chart-type-bar" class="chart-type-btn"
                       aria-pressed="true">Stacked bar</button>
@@ -57,7 +57,7 @@
 
         <div class="metric-detail-chart-column">
           <article class="query-total-section">
-            <header>Mean and Max execution time by hash (ms)</header>
+            <header>Mean and Max</header>
             <div class="chart-toolbar" role="toolbar" aria-label="Mean and Max chart controls">
               <button type="button" id="metric-mean-mode-both" class="chart-type-btn"
                       aria-pressed="true">Mean + Max</button>
@@ -105,9 +105,8 @@
                 <tr>
                   <th>Hash</th>
                   <th>Location</th>
-                  <th>Total (ms)</th>
-                  <th>Mean (ms)</th>
-                  <th>SQL</th>
+                  <th class="numeric">Total (ms)</th>
+                  <th class="numeric">Mean (ms)</th>
                 </tr>
               </thead>
               <tbody>
@@ -115,34 +114,34 @@
                   <tr class="hash-query-row" data-hash="{{hash}}" data-color="{{color}}">
                     <td>
                       <button type="button" class="hash-query-select"
-                              data-hash="{{hash}}" aria-label="Show SQL for {{hash}}"
+                              data-hash="{{hash}}" data-hash-url="{{hashUrl}}"
+                              aria-label="Show SQL for {{hash}}"
                               title="{{hash}}">
                         <span class="hash-swatch" style="background-color: {{color}}"></span>
                         <code>{{displayHash}}</code>
                       </button>
                     </td>
-                    <td><code>{{location}}</code></td>
-                    <td>{{totalMs}}</td>
-                    <td>{{meanMs}}</td>
-                    <td>
-                      <button type="button" class="hash-sql-show"
-                              data-hash="{{hash}}">Show SQL</button>
-                      {{#sqlUrl}}<a href="{{sqlUrl}}">Open</a>{{/sqlUrl}}
-                      <template class="hash-sql-source" data-hash="{{hash}}">{{sql}}</template>
-                    </td>
+                    <td class="hash-location"><code>{{location}}</code></td>
+                    <td class="numeric">{{totalMs}}</td>
+                    <td class="numeric">{{meanMs}}</td>
                   </tr>
                 {{/hashBreakdown}}
                 {{^hashBreakdown}}
-                  <tr><td colspan="5">No hash-level data.</td></tr>
+                  <tr><td colspan="4">No hash-level data.</td></tr>
                 {{/hashBreakdown}}
               </tbody>
             </table>
+            <div class="hash-sql-sources" hidden>
+              {{#hashBreakdown}}
+                <template class="hash-sql-source" data-hash="{{hash}}">{{sql}}</template>
+              {{/hashBreakdown}}
+            </div>
           </div>
           <aside id="hash-sql-inspector" class="hash-sql-inspector" aria-live="polite">
             <h4 id="hash-sql-title">Select a hash to view SQL</h4>
             <p id="hash-sql-location"></p>
             <pre><code id="hash-sql-content"></code></pre>
-            <a id="hash-sql-open" href="#" hidden>Open full SQL page</a>
+            <a id="hash-sql-open" href="#" hidden>View details</a>
           </aside>
         </div>
       </article>
@@ -190,8 +189,8 @@
               <tr>
                 <th>Label</th>
                 <th>Executions</th>
-                <th>Total (ms)</th>
-                <th>Mean (ms)</th>
+                <th class="numeric">Total (ms)</th>
+                <th class="numeric">Mean (ms)</th>
               </tr>
             </thead>
             <tbody>
@@ -202,8 +201,8 @@
                     <div class="family-bar-track"><div class="family-bar" style="width: {{pct}}%"></div></div>
                   </td>
                   <td>{{count}}</td>
-                  <td>{{totalMs}}</td>
-                  <td>{{meanMs}}</td>
+                  <td class="numeric">{{totalMs}}</td>
+                  <td class="numeric">{{meanMs}}</td>
                 </tr>
               {{/family}}
             </tbody>

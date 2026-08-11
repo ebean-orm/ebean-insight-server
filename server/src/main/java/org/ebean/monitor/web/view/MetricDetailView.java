@@ -36,7 +36,7 @@ public record MetricDetailView(
   /** One ranked row of the "breakdown by hash" table for this label. */
   public record HashRow(String hash, String color, @Nullable String location,
                         String totalMs, String meanMs, @Nullable String sql,
-                        @Nullable String sqlUrl) {
+                        @Nullable String hashUrl) {
 
     public String displayHash() {
       return hash.length() <= 8 ? hash : hash.substring(0, 8) + "...";
