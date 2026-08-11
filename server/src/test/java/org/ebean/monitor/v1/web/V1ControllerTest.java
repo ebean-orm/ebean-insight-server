@@ -96,6 +96,10 @@ class V1ControllerTest {
 
     final List<AppMetric> allMetrics = metricsApi.listAppMetrics(APP, null, null, null, null, null, null);
     assertThat(allMetrics).extracting(AppMetric::name).contains(ORM_LABEL, PLAIN_LABEL);
+    assertThat(allMetrics).allSatisfy(metric -> {
+      assertThat(metric.createdAt()).isNotNull();
+      assertThat(metric.modifiedAt()).isNotNull();
+    });
 
     final List<AppMetric> ormOnly = metricsApi.listAppMetrics(APP, null, null, null, null, true, null);
     assertThat(ormOnly).extracting(AppMetric::name).contains(ORM_LABEL).doesNotContain(PLAIN_LABEL);

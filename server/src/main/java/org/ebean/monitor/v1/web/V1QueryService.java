@@ -1916,6 +1916,8 @@ public final class V1QueryService {
       .key(m.getKey())
       .loc(m.getLoc())
       .sql(m.getSql())
+      .createdAt(m.getWhenCreated())
+      .modifiedAt(m.getWhenModified())
       .build();
   }
 

@@ -806,6 +806,14 @@ components:
           type: string
         sql:
           type: string
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp when Insight first registered this metric identity.
+        modifiedAt:
+          type: string
+          format: date-time
+          description: Timestamp when Insight last modified this metric metadata.
 
     AppMetricStats:
       type: object
