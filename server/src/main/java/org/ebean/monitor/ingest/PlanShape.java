@@ -47,7 +47,6 @@ public final class PlanShape {
     Pattern.compile("_p?(?:19|20)\\d{2}$");
 
   // Predicate masking patterns.
-  private static final Pattern STRING_LITERAL = Pattern.compile("'(?:[^']|'')*'");
   private static final Pattern CAST_MULTIWORD = Pattern.compile(
     "::(?:timestamp without time zone|timestamp with time zone|time without time zone|time with time zone|double precision|character varying|bit varying)");
   private static final Pattern CAST_SIMPLE = Pattern.compile("::\"?[A-Za-z_][A-Za-z0-9_]*\"?(?:\\[\\])?");
@@ -203,7 +202,7 @@ public final class PlanShape {
    * while column/operator structure is preserved.
    */
   static String maskPredicate(String predicate) {
-    String p = STRING_LITERAL.matcher(predicate).replaceAll("?");
+    String p = maskStringLiterals(predicate);
     p = CAST_MULTIWORD.matcher(p).replaceAll("");
     p = CAST_SIMPLE.matcher(p).replaceAll("");
     p = BIND_PARAM.matcher(p).replaceAll("?");
@@ -211,6 +210,41 @@ public final class PlanShape {
     p = VALUE_LIST.matcher(p).replaceAll("?");
     p = p.toLowerCase(Locale.ROOT);
     return WHITESPACE.matcher(p).replaceAll(" ").trim();
+  }
+
+  /**
+   * Masks complete SQL string literals without regex backtracking. An
+   * unmatched opening quote is left unchanged so the remaining normalizers can
+   * still process the predicate safely.
+   */
+  private static String maskStringLiterals(String input) {
+    final StringBuilder out = new StringBuilder(input.length());
+    int start = 0;
+    int quote = input.indexOf('\'');
+    while (quote >= 0) {
+      out.append(input, start, quote);
+      int end = quote + 1;
+      boolean closed = false;
+      while (end < input.length()) {
+        if (input.charAt(end) != '\'') {
+          end++;
+        } else if (end + 1 < input.length() && input.charAt(end + 1) == '\'') {
+          end += 2;
+        } else {
+          closed = true;
+          end++;
+          break;
+        }
+      }
+      if (!closed) {
+        out.append(input, quote, input.length());
+        return out.toString();
+      }
+      out.append('?');
+      start = end;
+      quote = input.indexOf('\'', start);
+    }
+    return out.append(input, start, input.length()).toString();
   }
 
   static String sha256Hex(String s) {

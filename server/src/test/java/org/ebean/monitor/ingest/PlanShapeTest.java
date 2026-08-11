@@ -167,4 +167,13 @@ class PlanShapeTest {
     assertThat(PlanShape.maskPredicate("(t0.gps_accuracy < 25)"))
       .isEqualTo("(t0.gps_accuracy < ?)");
   }
+
+  @Test
+  void maskPredicate_handlesLongUnmatchedStringLiteral() {
+    var predicate = "'" + "x".repeat(100_000);
+
+    assertThat(PlanShape.maskPredicate(predicate))
+      .startsWith("'")
+      .hasSize(100_001);
+  }
 }
