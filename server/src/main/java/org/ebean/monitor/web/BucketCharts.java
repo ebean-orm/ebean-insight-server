@@ -33,11 +33,13 @@ final class BucketCharts {
       labels.add(BUCKET_LABEL_FORMAT.format(bucket.eventTime()));
       final long ms = bucket.total() / 1000L;
       totalMs.add(ms);
-      meanMs.add(bucket.count() == 0L ? 0L : ms / bucket.count());
+      meanMs.add(bucket.count() == 0L ? null : ms / bucket.count());
     }
     final ChartData total = new ChartData(labels,
+      timestamps(buckets),
       List.of(new ChartData.ChartDataset("Total (ms)", totalMs, "#4e79a7")), bucketMinutes);
     final ChartData mean = new ChartData(labels,
+      timestamps(buckets),
       List.of(new ChartData.ChartDataset("Mean (ms)", meanMs, "#f28e2b")), bucketMinutes);
     return new TotalMean(total, mean);
   }
@@ -54,7 +56,7 @@ final class BucketCharts {
         series.buckets().stream().map(bucket -> bucket.total() / 1000L).toList(),
         colors.getOrDefault(series.group(), Palette.OTHER_COLOR)))
       .toList();
-    return new ChartData(labels, datasets, timeseries.bucketMinutes());
+    return new ChartData(labels, timestamps(timeseries), datasets, timeseries.bucketMinutes());
   }
 
   static ChartData buildHashMean(MetricTimeseriesTop timeseries, java.util.Map<String, String> colors) {
@@ -67,11 +69,11 @@ final class BucketCharts {
       .map(series -> new ChartData.ChartDataset(
         series.group(),
         series.buckets().stream()
-          .map(bucket -> bucket.count() == 0L ? 0L : (bucket.total() / 1000L) / bucket.count())
+          .map(bucket -> bucket.count() == 0L ? null : (bucket.total() / 1000L) / bucket.count())
           .toList(),
         colors.getOrDefault(series.group(), Palette.OTHER_COLOR)))
       .toList();
-    return new ChartData(labels, datasets, timeseries.bucketMinutes());
+    return new ChartData(labels, timestamps(timeseries), datasets, timeseries.bucketMinutes());
   }
 
   static ChartData buildHashMax(MetricTimeseriesTop timeseries, java.util.Map<String, String> colors) {
@@ -86,6 +88,16 @@ final class BucketCharts {
         series.buckets().stream().map(bucket -> bucket.max() / 1000L).toList(),
         colors.getOrDefault(series.group(), Palette.OTHER_COLOR)))
       .toList();
-    return new ChartData(labels, datasets, timeseries.bucketMinutes());
+    return new ChartData(labels, timestamps(timeseries), datasets, timeseries.bucketMinutes());
+  }
+
+  private static List<Long> timestamps(List<MetricTimeBucket> buckets) {
+    return buckets.stream().map(bucket -> bucket.eventTime().toEpochMilli()).toList();
+  }
+
+  private static List<Long> timestamps(MetricTimeseriesTop timeseries) {
+    return timeseries.series().isEmpty()
+      ? List.of()
+      : timestamps(timeseries.series().get(0).buckets());
   }
 }

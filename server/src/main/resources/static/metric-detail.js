@@ -11,7 +11,7 @@
 
   const visible = new Map();
 
-  const chartFromData = function (canvas, chartData, style) {
+  const chartFromData = function (canvas, chartData, style, yScale, durationUnit) {
     if (!chartData.labels || chartData.labels.length === 0) {
       return null;
     }
@@ -43,8 +43,8 @@
               borderColor: ds.backgroundColor,
               backgroundColor: ds.backgroundColor,
               showLine: !isPoints,
-              pointRadius: isPoints ? (ds.maxSeries ? 4 : 5) : 0,
-              pointHoverRadius: isPoints ? (ds.maxSeries ? 6 : 7) : 3,
+              pointRadius: isPoints ? (ds.maxSeries ? 2 : 3) : 0,
+              pointHoverRadius: isPoints ? (ds.maxSeries ? 4 : 5) : 3,
               pointStyle: ds.maxSeries ? 'triangle' : 'circle',
               borderWidth: 2,
               tension: 0.15
@@ -57,11 +57,25 @@
         animation: false,
         scales: {
           x: xScale,
-          y: {stacked: isStackedBar}
+          y: {
+            type: yScale || 'linear',
+            stacked: isStackedBar,
+            ticks: durationUnit ? {
+              callback: function (value) {
+                return window.DashboardCharts.compactDuration(value, durationUnit);
+              }
+            } : {}
+          }
         },
         plugins: {
           legend: {display: false},
-          tooltip: window.DashboardCharts.tooltipOptions(chartData.labels)
+          tooltip: window.DashboardCharts.tooltipOptions(chartData.labels, durationUnit ? {
+            label: function (context) {
+              return context.dataset.label + ': '
+                + window.DashboardCharts.detailedDuration(context.raw)
+                + ' (' + context.formattedValue + ' ms)';
+            }
+          } : null)
         }
       }
     });
@@ -78,8 +92,12 @@
 
   let totalChart = null;
   let meanChart = null;
+  let totalStyle = 'stacked-bar';
+  let meanMode = 'both';
+  let meanScale = 'linear';
 
   const renderTotalChart = function (style) {
+    totalStyle = style;
     if (totalChart) {
       totalChart.destroy();
     }
@@ -104,13 +122,15 @@
     });
   };
 
-  const renderMeanChart = function (mode) {
+  const renderMeanChart = function (mode, scale) {
     const meanDataEl = document.getElementById('mean-chart-data');
     const maxDataEl = document.getElementById('max-chart-data');
     const canvas = document.getElementById('mean-chart');
     if (!meanDataEl || !maxDataEl || !canvas) {
       return;
     }
+    meanMode = mode || meanMode;
+    meanScale = scale || meanScale;
     if (meanChart) {
       meanChart.destroy();
     }
@@ -128,11 +148,17 @@
         datasets.push(Object.assign({}, ds, {maxSeries: true}));
       });
     }
+    const maxMeanMs = datasets.reduce(function (max, ds) {
+      return Math.max(max, ds.data.reduce(function (seriesMax, value) {
+        return Math.max(seriesMax, Number(value) || 0);
+      }, 0));
+    }, 0);
+    const durationUnit = window.DashboardCharts.durationUnitFor(maxMeanMs);
     meanChart = chartFromData(canvas, {
       labels: meanData.labels,
       datasets: datasets,
       bucketMinutes: meanData.bucketMinutes
-    }, 'points');
+    }, 'points', meanScale, durationUnit);
     ['only', 'both', 'max'].forEach(function (name) {
       const button = document.getElementById('metric-mean-mode-' + name);
       if (button) {
@@ -142,6 +168,10 @@
           || (mode === 'max' && name === 'max')));
       }
     });
+    const scaleToggle = document.getElementById('metric-mean-scale-log');
+    if (scaleToggle) {
+      scaleToggle.checked = meanScale === 'logarithmic';
+    }
   };
 
   const barButton = document.getElementById('metric-chart-type-bar');
@@ -174,6 +204,18 @@
       renderMeanChart('max');
     });
   }
+  const meanScaleToggle = document.getElementById('metric-mean-scale-log');
+  if (meanScaleToggle) {
+    meanScaleToggle.addEventListener('change', function () {
+      renderMeanChart(meanMode, meanScaleToggle.checked ? 'logarithmic' : 'linear');
+    });
+  }
+
+  window.addEventListener('insight-theme-change', function () {
+    window.DashboardCharts.applyTheme();
+    renderTotalChart(totalStyle);
+    renderMeanChart(meanMode, meanScale);
+  });
 
   const hashSeriesButtons = document.querySelectorAll('.hash-series-toggle');
   hashSeriesButtons.forEach(function (button) {

@@ -27,7 +27,7 @@ import java.util.Random;
  * Dev-only tool that seeds realistic-looking historical query metrics directly
  * into the {@code timed_m1}/{@code timed_m10}/{@code timed_m60} rollup tables
  * so the {@code /ux/top} dashboard has enough data to look right
- * across every time-range option (1h/6h/24h/2d/7d), plus a handful of
+ * across every time-range option (30m/1h/6h/24h/2d/7d), plus a handful of
  * captured {@code query_plan} rows so the {@code /ux/metric-detail}
  * drill-down page (hash breakdown + recent plans) has something to show.
  * <p>
@@ -226,7 +226,7 @@ public class SeedDemoData {
 
     System.out.println("Seeded app=" + APP_NAME + " env=" + ENV_NAME
       + " -> timed_m1:" + m1 + " timed_m10:" + m10 + " timed_m60:" + m60 + " rows, query_plan:" + plans + " rows");
-    System.out.println("View at http://localhost:8091/ux/top?app=" + APP_NAME + "&range=1h");
+    System.out.println("View at http://localhost:8091/ux/top?app=" + APP_NAME + "&range=30m");
   }
 
   /**

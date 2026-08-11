@@ -1,17 +1,26 @@
 {{<fragments/layout}}
   {{$filters}}
     <form class="header-filters" method="get" action="/ux/top">
-      <select name="app" aria-label="Application" onchange="this.form.submit()">
+      <div id="custom-range-controls" class="custom-range-controls" hidden>
+        <label>
+          <input type="datetime-local" id="custom-range-from" aria-label="Custom range start">
+        </label>
+        <label>
+          <input type="datetime-local" id="custom-range-to" aria-label="Custom range end">
+        </label>
+        <button type="submit" class="custom-range-apply">Apply</button>
+      </div>
+      <select name="app" aria-label="Application" onchange="this.form.requestSubmit()">
         {{#apps}}
           <option value="{{value}}"{{#selected}} selected{{/selected}}>{{label}}</option>
         {{/apps}}
       </select>
-      <select name="env" aria-label="Environment" onchange="this.form.submit()">
+      <select name="env" aria-label="Environment" onchange="this.form.requestSubmit()">
         {{#envs}}
           <option value="{{value}}"{{#selected}} selected{{/selected}}>{{label}}</option>
         {{/envs}}
       </select>
-      <select name="range" aria-label="Time range" onchange="this.form.submit()">
+      <select name="range" aria-label="Time range" onchange="this.form.requestSubmit()">
         {{#ranges}}
           <option value="{{value}}"{{#selected}} selected{{/selected}}>{{label}}</option>
         {{/ranges}}
@@ -22,10 +31,6 @@
   {{$body}}
     <link rel="stylesheet" href="/static/query-total.css">
 
-    <hgroup>
-      <h3>Total Query Execution Time</h3>
-    </hgroup>
-
     {{^hasData}}
       <article>
         <p>No data for the selected application / environment / range.</p>
@@ -33,49 +38,65 @@
     {{/hasData}}
 
     {{#hasData}}
-      <article class="query-total-section">
-        <div class="chart-toolbar" role="group">
-          <button type="button" id="chart-type-bar" class="chart-type-btn" aria-pressed="true">Stacked bar</button>
-          <button type="button" id="chart-type-line" class="chart-type-btn" aria-pressed="false">Line</button>
-        </div>
-        <div class="chartjs-wrap">
-          <canvas id="chartjs-canvas"></canvas>
-        </div>
-      </article>
+      <div class="top-primary-grid">
+        <div class="top-primary-column">
+          <article class="query-total-section">
+            <header>Query total time</header>
+            <div class="chart-toolbar" role="toolbar" aria-label="Query total chart controls">
+              <button type="button" id="chart-type-bar" class="chart-type-btn" aria-pressed="true">Stacked bar</button>
+              <button type="button" id="chart-type-line" class="chart-type-btn" aria-pressed="false">Line</button>
+            </div>
+            <div class="chartjs-wrap">
+              <canvas id="chartjs-canvas"></canvas>
+            </div>
+            <div id="chart-range-selection" class="chart-range-selection" hidden>
+              <span id="chart-range-selection-text"></span>
+              <button type="button" id="chart-range-selection-clear">Use preset range</button>
+            </div>
+          </article>
 
-      <div class="top-chart-legend" aria-label="Chart series legend">
-        {{#legend}}
-          <button type="button" class="legend-series-toggle"
-                  data-label="{{group}}" aria-pressed="true"
-                  aria-label="Toggle {{group}}" title="{{group}}">
-            <span class="legend-swatch" style="background-color: {{color}};"></span>
-          </button>
-        {{/legend}}
-      </div>
-
-      <article class="query-total-section top-mean-max-section">
-        <header><h3>Mean and Max execution time</h3></header>
-        <div class="chart-toolbar" role="group">
-          <button type="button" id="top-mean-mode-both" class="chart-type-btn"
-                  aria-pressed="true">Mean + Max</button>
-          <button type="button" id="top-mean-mode-only" class="chart-type-btn"
-                  aria-pressed="false">Mean only</button>
-          <button type="button" id="top-mean-mode-max" class="chart-type-btn"
-                  aria-pressed="false">Max only</button>
+          <div class="top-chart-legend" aria-label="Chart series legend">
+            {{#legend}}
+              <button type="button" class="legend-series-toggle"
+                      data-label="{{group}}" aria-pressed="true"
+                      aria-label="Toggle {{group}}" title="{{group}}">
+                <span class="legend-swatch" style="background-color: {{color}};"></span>
+              </button>
+            {{/legend}}
+          </div>
         </div>
-        <div class="chartjs-wrap">
-          <canvas id="top-mean-max-chart"></canvas>
-        </div>
-      </article>
 
-      <div class="top-chart-legend" aria-label="Chart series legend">
-        {{#legend}}
-          <button type="button" class="legend-series-toggle"
-                  data-label="{{group}}" aria-pressed="true"
-                  aria-label="Toggle {{group}}" title="{{group}}">
-            <span class="legend-swatch" style="background-color: {{color}};"></span>
-          </button>
-        {{/legend}}
+        <div class="top-primary-column">
+          <article class="query-total-section">
+            <header>Mean and Max</header>
+            <div class="chart-toolbar" role="toolbar" aria-label="Mean and Max chart controls">
+              <button type="button" id="top-mean-mode-both" class="chart-type-btn"
+                      aria-pressed="true">Mean + Max</button>
+              <button type="button" id="top-mean-mode-only" class="chart-type-btn"
+                      aria-pressed="false">Mean only</button>
+              <button type="button" id="top-mean-mode-max" class="chart-type-btn"
+                      aria-pressed="false">Max only</button>
+              <label class="chart-scale-toggle">
+                <input type="checkbox" id="top-mean-scale-log"
+                       aria-label="Use logarithmic scale">
+                Log scale
+              </label>
+            </div>
+            <div class="chartjs-wrap">
+              <canvas id="top-mean-max-chart"></canvas>
+            </div>
+          </article>
+
+          <div class="top-chart-legend" aria-label="Chart series legend">
+            {{#legend}}
+              <button type="button" class="legend-series-toggle"
+                      data-label="{{group}}" aria-pressed="true"
+                      aria-label="Toggle {{group}}" title="{{group}}">
+                <span class="legend-swatch" style="background-color: {{color}};"></span>
+              </button>
+            {{/legend}}
+          </div>
+        </div>
       </div>
 
       <div class="top-ranking-grid">

@@ -28,6 +28,23 @@ header.container nav {
   padding-block-start: 0;
 }
 
+.site-nav {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-start;
+}
+
+.site-nav > nav[aria-label="breadcrumb"],
+.site-nav > .header-filters {
+  flex: 0 0 auto;
+}
+
+.site-nav > .header-filters {
+  margin-left: auto;
+  justify-content: flex-start;
+}
+
 header.container nav ul li a.brand {
   font-size: 1.15rem;
   text-decoration: none;
@@ -57,6 +74,40 @@ header.container nav ul li a.brand {
   color: var(--pico-muted-color);
   font-size: 0.85rem;
   white-space: nowrap;
+}
+
+.theme-toggle {
+  align-self: center;
+  appearance: none;
+  -webkit-appearance: none;
+  background: #4a4a4a;
+  border: 0;
+  border-radius: 0.25rem;
+  color: transparent;
+  flex: 0 0 auto;
+  height: 1.5rem;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  width: 1.5rem;
+}
+
+.theme-toggle:hover,
+.theme-toggle:focus,
+.theme-toggle:focus-visible {
+  background: #4a4a4a;
+  box-shadow: 0 0 0 2px var(--pico-primary-focus);
+}
+
+[data-theme="dark"] .theme-toggle,
+[data-theme="dark"] .theme-toggle:hover,
+[data-theme="dark"] .theme-toggle:focus,
+[data-theme="dark"] .theme-toggle:focus-visible {
+  background: #9a9a9a;
+}
+
+.theme-toggle-label {
+  display: none;
 }
 
 .app-env-link {

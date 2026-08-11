@@ -34,7 +34,7 @@
         <div class="metric-detail-chart-stack">
           <article class="query-total-section">
             <header>Total execution time by hash (ms)</header>
-            <div class="chart-toolbar" role="group">
+            <div class="chart-toolbar" role="toolbar" aria-label="Total chart controls">
               <button type="button" id="metric-chart-type-bar" class="chart-type-btn"
                       aria-pressed="true">Stacked bar</button>
               <button type="button" id="metric-chart-type-line" class="chart-type-btn"
@@ -47,13 +47,18 @@
           {{> fragments/hash-legend}}
           <article class="query-total-section">
             <header>Mean and Max execution time by hash (ms)</header>
-            <div class="chart-toolbar" role="group">
+            <div class="chart-toolbar" role="toolbar" aria-label="Mean and Max chart controls">
               <button type="button" id="metric-mean-mode-both" class="chart-type-btn"
                       aria-pressed="true">Mean + Max</button>
               <button type="button" id="metric-mean-mode-only" class="chart-type-btn"
                       aria-pressed="false">Mean only</button>
               <button type="button" id="metric-mean-mode-max" class="chart-type-btn"
                       aria-pressed="false">Max only</button>
+              <label class="chart-scale-toggle">
+                <input type="checkbox" id="metric-mean-scale-log"
+                       aria-label="Use logarithmic scale">
+                Log scale
+              </label>
             </div>
             <div class="chartjs-wrap chartjs-wrap-small">
               <canvas id="mean-chart"></canvas>
