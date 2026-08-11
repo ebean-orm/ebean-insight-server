@@ -11,7 +11,9 @@ public record IndexView(
 ) {
 
   /** One application and its environment-specific Top dashboard links. */
-  public record AppLink(String name, String topUrl, List<EnvLink> envs) {
+  public record AppLink(String name, String topUrl, List<EnvLink> envs,
+                        String datasourcePoolConfigUrl, String webApiConfigUrl,
+                        boolean datasourcePoolEnabled, boolean webApiEnabled) {
   }
 
   public record EnvLink(String name, String topUrl) {

@@ -4,6 +4,7 @@ import io.avaje.htmx.api.Html;
 import io.avaje.http.api.Controller;
 import io.avaje.http.api.Get;
 import io.avaje.http.api.Path;
+import io.avaje.http.api.QueryParam;
 import org.ebean.monitor.v1.web.V1QueryService;
 import org.ebean.monitor.v1.model.Env;
 import org.ebean.monitor.web.view.Breadcrumb;
@@ -34,18 +35,37 @@ public class UIIndexController {
     return new IndexView(Breadcrumb.EMPTY, apps);
   }
 
+  @Get("app-config")
+  IndexView configure(@QueryParam("app") String appName,
+                      @QueryParam("datasourcePool") boolean datasourcePool,
+                      @QueryParam("webApi") boolean webApi) {
+    service.setDashboardConfig(appName, datasourcePool, webApi);
+    return home();
+  }
+
   private AppLink appLink(String appName) {
     final List<Env> envs = service.listAppEnvs(appName);
     if (envs.size() <= 1) {
       final String topUrl = envs.isEmpty()
         ? "/ux/top?app=" + urlEncode(appName) + "&range=4h"
         : topUrl(appName, envs.get(0).name());
-      return new AppLink(appName, topUrl, List.of());
+      return appLink(appName, topUrl, List.of());
     }
     final List<EnvLink> links = envs.stream()
       .map(env -> new EnvLink(env.name(), topUrl(appName, env.name())))
       .toList();
-    return new AppLink(appName, "", links);
+    return appLink(appName, "", links);
+  }
+
+  private AppLink appLink(String appName, String topUrl, List<EnvLink> envs) {
+    final boolean datasourcePool = service.isDatasourcePoolDashboardEnabled(appName);
+    final boolean webApi = service.isWebApiDashboardEnabled(appName);
+    final String datasourcePoolConfigUrl = "/ux/app-config?app=" + urlEncode(appName)
+      + "&datasourcePool=" + !datasourcePool + "&webApi=" + webApi;
+    final String webApiConfigUrl = "/ux/app-config?app=" + urlEncode(appName)
+      + "&datasourcePool=" + datasourcePool + "&webApi=" + !webApi;
+    return new AppLink(appName, topUrl, envs, datasourcePoolConfigUrl, webApiConfigUrl,
+      datasourcePool, webApi);
   }
 
   private static String urlEncode(String value) {

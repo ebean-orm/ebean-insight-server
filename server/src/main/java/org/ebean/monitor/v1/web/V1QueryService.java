@@ -164,6 +164,16 @@ public final class V1QueryService {
     return app != null && app.isWebApiDashboardEnabled();
   }
 
+  public void setDashboardConfig(String appName, boolean datasourcePool, boolean webApi) {
+    final DApp app = findApp(appName);
+    if (app == null) {
+      return;
+    }
+    app.setDatasourcePoolDashboardEnabled(datasourcePool);
+    app.setWebApiDashboardEnabled(webApi);
+    DB.save(app);
+  }
+
   public List<Env> listAppEnvs(String appName) {
     final DApp app = findApp(appName);
     if (app == null) {
@@ -757,7 +767,7 @@ public final class V1QueryService {
       ? TimeWindow.of(sinceMinutes, sinceHours, DEFAULT_TOP_WINDOW_MINUTES)
       : TimeWindow.between(from, to);
     final String table = gaugeTableFor(window.minutes());
-    final long bucketMinutes = bucketMinutesFor(table.replace("gauge_", "timed_"));
+    final long bucketMinutes = gaugeBucketMinutesFor(window.minutes(), table);
     final DApp app = findApp(appName);
     if (app == null) {
       return emptyTimeseriesTop(appName, window.minutes(), bucketMinutes);
@@ -790,7 +800,7 @@ public final class V1QueryService {
                  cast(floor(extract(epoch from t.event_time) / :step) as bigint) * :step
                ) as event_time,
                m.tags ->> :by as grp,
-               sum(t.total)::bigint as total,
+               max(t.total)::bigint as total,
                max(t.max)::bigint as max
         from %s t
         join ebean_insight.app_metric m on m.id = t.metric_id
@@ -2094,7 +2104,7 @@ public final class V1QueryService {
 
   /** Gauge rollup table covering the window (parallels {@link #timedTableFor(long)}). */
   static String gaugeTableFor(long windowMinutes) {
-    if (windowMinutes <= M1_MAX_MINUTES) {
+    if (windowMinutes <= TS_MAX_BUCKETS) {
       return "ebean_insight.gauge_m1";
     }
     if (windowMinutes <= M10_MAX_MINUTES) {
@@ -2104,6 +2114,16 @@ public final class V1QueryService {
       return "ebean_insight.gauge_m60";
     }
     return "ebean_insight.gauge_d1";
+  }
+
+  static long gaugeBucketMinutesFor(long windowMinutes, String table) {
+    if ("ebean_insight.gauge_m1".equals(table)) {
+      return topBucketMinutesFor(windowMinutes, "ebean_insight.timed_m1");
+    }
+    if ("ebean_insight.gauge_m10".equals(table)) {
+      return topBucketMinutesFor(windowMinutes, "ebean_insight.timed_m10");
+    }
+    return bucketMinutesFor(table.replace("gauge_", "timed_"));
   }
 
   /**

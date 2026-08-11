@@ -10,6 +10,17 @@
             {{#envs}}
               <a class="app-env-link" href="{{topUrl}}">{{name}}</a>
             {{/envs}}
+            <small>
+              <a href="{{datasourcePoolConfigUrl}}">
+                {{#datasourcePoolEnabled}}Disable{{/datasourcePoolEnabled}}
+                {{^datasourcePoolEnabled}}Enable{{/datasourcePoolEnabled}} datasource pool
+              </a>
+              ·
+              <a href="{{webApiConfigUrl}}">
+                {{#webApiEnabled}}Disable{{/webApiEnabled}}
+                {{^webApiEnabled}}Enable{{/webApiEnabled}} web API
+              </a>
+            </small>
           </li>
         {{/apps}}
       </ul>
