@@ -10,6 +10,75 @@
   height: 320px;
 }
 
+.chartjs-wrap canvas {
+  touch-action: none;
+}
+
+.chart-range-selection {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  color: var(--pico-muted-color);
+  font-size: 0.8rem;
+}
+
+.chart-range-selection button {
+  width: auto;
+  margin: 0;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+.custom-range-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.custom-range-controls[hidden] {
+  display: none;
+}
+
+.custom-range-controls label {
+  display: block;
+  margin: 0;
+}
+
+.custom-range-controls input {
+  width: 11rem;
+  height: 2rem;
+  margin: 0;
+  padding: 0 0.5rem;
+  font-size: 0.65rem;
+  line-height: 1.25;
+}
+
+.custom-range-controls input::-webkit-datetime-edit,
+.custom-range-controls input::-webkit-datetime-edit-fields-wrapper {
+  padding: 0;
+}
+
+.custom-range-apply {
+  width: auto;
+  height: 2rem;
+  margin: 0;
+  padding: 0 0.5rem;
+  font-size: 0.7rem;
+}
+
+.top-primary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.top-primary-column {
+  min-width: 0;
+}
+
 .top-ranking-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -29,15 +98,15 @@
   margin: 0.5rem 0 1.5rem;
 }
 
-.top-mean-max-section {
-  margin-bottom: 1rem;
-}
-
 .top-chart-legend .legend-series-toggle {
   margin: 0;
 }
 
 @media (max-width: 900px) {
+  .top-primary-grid {
+    grid-template-columns: 1fr;
+  }
+
   .top-ranking-grid {
     grid-template-columns: 1fr;
   }
@@ -64,6 +133,64 @@
   background: var(--pico-muted-border-color);
   color: #000;
   border-color: var(--pico-muted-border-color);
+}
+
+[data-theme="dark"] .chart-type-btn[aria-pressed="true"] {
+  background: #3a4655;
+  color: #f1f3f5;
+  border-color: #61748b;
+}
+
+.chart-toolbar .chart-type-btn:focus,
+.chart-toolbar .chart-type-btn:focus-visible,
+.chart-toolbar .chart-type-btn:active {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.chart-scale-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: auto;
+  margin: 0;
+  color: var(--pico-muted-color);
+  font-size: 0.8rem;
+}
+
+.chart-scale-toggle input {
+  appearance: none;
+  -webkit-appearance: none;
+  width: auto;
+  height: 1rem;
+  aspect-ratio: 1;
+  margin: 0;
+  border: var(--pico-border-width) solid var(--pico-muted-border-color);
+  border-radius: 2px;
+  background: transparent;
+  display: grid;
+  place-content: center;
+  cursor: pointer;
+}
+
+.chart-scale-toggle input::before {
+  content: "";
+  width: 0.55rem;
+  height: 0.55rem;
+  transform: scale(0);
+  transition: transform 120ms ease-in-out;
+  box-shadow: inset 1rem 1rem var(--pico-primary);
+  clip-path: polygon(14% 44%, 0 59%, 39% 100%, 100% 16%, 84% 0, 37% 62%);
+}
+
+.chart-scale-toggle input:checked::before {
+  transform: scale(1);
+}
+
+.chart-scale-toggle input:focus,
+.chart-scale-toggle input:focus-visible {
+  outline: none;
+  box-shadow: none;
 }
 
 .legend-swatch {

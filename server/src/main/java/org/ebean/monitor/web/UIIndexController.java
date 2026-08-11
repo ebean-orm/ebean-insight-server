@@ -7,7 +7,6 @@ import io.avaje.http.api.Path;
 import org.ebean.monitor.v1.web.V1QueryService;
 import org.ebean.monitor.v1.model.Env;
 import org.ebean.monitor.web.view.Breadcrumb;
-import org.ebean.monitor.web.view.HelloView;
 import org.ebean.monitor.web.view.IndexView;
 import org.ebean.monitor.web.view.IndexView.AppLink;
 import org.ebean.monitor.web.view.IndexView.EnvLink;
@@ -47,11 +46,6 @@ public class UIIndexController {
       .map(env -> new EnvLink(env.name(), topUrl(appName, env.name())))
       .toList();
     return new AppLink(appName, "", links);
-  }
-
-  @Get("hello")
-  HelloView hello() {
-    return new HelloView(Breadcrumb.EMPTY, "hello page");
   }
 
   private static String urlEncode(String value) {

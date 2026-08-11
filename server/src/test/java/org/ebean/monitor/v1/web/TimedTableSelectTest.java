@@ -70,4 +70,15 @@ class TimedTableSelectTest {
     assertThat(V1QueryService.timeseriesTableFor(120 * DAY)).isEqualTo("ebean_insight.timed_d1");
     assertThat(V1QueryService.timeseriesTableFor(2000 * DAY)).isEqualTo("ebean_insight.timed_d1");
   }
+
+  @Test
+  void topBuckets_useTwoMinutesOnlyBetweenThreeAndFourHours() {
+    final String m1 = "ebean_insight.timed_m1";
+    assertThat(V1QueryService.topBucketMinutesFor(3 * HOUR, m1)).isEqualTo(1L);
+    assertThat(V1QueryService.topBucketMinutesFor(4 * HOUR, m1)).isEqualTo(2L);
+    assertThat(V1QueryService.topBucketMinutesFor(5 * HOUR, m1)).isEqualTo(5L);
+    assertThat(V1QueryService.topBucketMinutesFor(6 * HOUR, m1)).isEqualTo(5L);
+    assertThat(V1QueryService.topBucketMinutesFor(12 * HOUR, m1)).isEqualTo(5L);
+    assertThat(V1QueryService.topBucketMinutesFor(13 * HOUR, "ebean_insight.timed_m10")).isEqualTo(10L);
+  }
 }

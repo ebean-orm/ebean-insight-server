@@ -6,6 +6,7 @@ import io.avaje.http.api.Get;
 import io.avaje.http.api.Path;
 import io.avaje.http.api.QueryParam;
 import io.avaje.jsonb.Jsonb;
+import io.avaje.jex.http.BadRequestException;
 import org.ebean.monitor.v1.model.App;
 import org.ebean.monitor.v1.model.Env;
 import org.ebean.monitor.v1.model.MetricTimeBucket;
@@ -23,7 +24,10 @@ import org.jspecify.annotations.Nullable;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.ZoneOffset;
+import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.time.format.DateTimeFormatter;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -47,7 +51,7 @@ public class UIQueryTotalController {
   private static final String METRIC_NAME = "ebean.query";
 
   /** Top-N stacked series before the remainder is folded into "Other". */
-  private static final int SERIES_LIMIT = 8;
+  private static final int SERIES_LIMIT = 10;
 
   private static final DateTimeFormatter BUCKET_LABEL_FORMAT =
     DateTimeFormatter.ofPattern("MM-dd HH:mm", Locale.US).withZone(ZoneOffset.UTC);
@@ -63,7 +67,9 @@ public class UIQueryTotalController {
   @Get("top")
   QueryTotalView queryTotal(@QueryParam("app") @Nullable String appParam,
                             @QueryParam("env") @Nullable String envParam,
-                            @QueryParam("range") @Nullable String rangeParam) {
+                            @QueryParam("range") @Nullable String rangeParam,
+                            @QueryParam("from") @Nullable String fromParam,
+                            @QueryParam("to") @Nullable String toParam) {
 
     final List<App> apps = service.listApps(null, null);
     final List<Env> envs = service.listEnvs();
@@ -71,23 +77,76 @@ public class UIQueryTotalController {
       ? appParam
       : apps.isEmpty() ? "" : apps.get(0).name();
     final String selectedEnv = envParam == null ? "" : envParam;
-    final RangeOption range = RangeOptions.resolve(rangeParam);
+    final Instant from = parseInstant(fromParam, "from");
+    final Instant to = parseInstant(toParam, "to");
+    if ((from == null) != (to == null)) {
+      throw new BadRequestException("Both from and to timestamps are required");
+    }
+    final RangeOption range = from == null
+      ? RangeOptions.resolve(rangeParam)
+      : RangeOptions.custom();
+    final long windowMinutes = from == null ? range.minutes() : windowMinutes(from, to);
     final Breadcrumb breadcrumb = new Breadcrumb(List.of(new Breadcrumb.Item("Top")));
 
     if (selectedApp.isBlank()) {
       return emptyView(breadcrumb, apps, envs, selectedEnv, range);
     }
 
-    final MetricTimeseriesTop data = service.getTopAppMetricsTimeseries(
-      selectedApp, METRIC_NAME, null, null, "total",
-      (long) range.minutes(), null, SERIES_LIMIT, null,
-      selectedEnv.isBlank() ? null : selectedEnv);
+    final MetricTimeseriesTop data = topTimeseries(
+      selectedApp, selectedEnv, from, to, windowMinutes);
 
-    return buildView(breadcrumb, apps, envs, selectedApp, selectedEnv, range, data);
+    return buildView(breadcrumb, apps, envs, selectedApp, selectedEnv, range, windowMinutes, from, to, data);
+  }
+
+  private MetricTimeseriesTop topTimeseries(String app, String selectedEnv,
+                                            @Nullable Instant from, @Nullable Instant to,
+                                            long windowMinutes) {
+    final String env = selectedEnv.isBlank() ? null : selectedEnv;
+    if (from != null) {
+      return service.getTopAppMetricsTimeseries(
+        app, METRIC_NAME, null, null, "total", SERIES_LIMIT, null, env, from, to);
+    }
+    return service.getTopAppMetricsTimeseries(
+      app, METRIC_NAME, null, null, "total", windowMinutes, null, SERIES_LIMIT, null, env);
+  }
+
+  private List<TopGroup> topMetrics(String app, String orderBy, String selectedEnv,
+                                    @Nullable Instant from, @Nullable Instant to,
+                                    long windowMinutes) {
+    final String env = selectedEnv.isBlank() ? null : selectedEnv;
+    if (from != null) {
+      return service.topAppMetrics(
+        app, "label", METRIC_NAME, null, null, null, orderBy,
+        10, null, env, from, to);
+    }
+    return service.topAppMetrics(
+      app, "label", METRIC_NAME, null, null, null, orderBy,
+      windowMinutes, null, 10, null, env);
+  }
+
+  private static long windowMinutes(Instant from, Instant to) {
+    if (!from.isBefore(to)) {
+      throw new BadRequestException("The from timestamp must be before the to timestamp");
+    }
+    final long seconds = Duration.between(from, to).toSeconds();
+    return Math.max(1L, (seconds + 59L) / 60L);
+  }
+
+  @Nullable
+  private static Instant parseInstant(@Nullable String value, String parameter) {
+    if (value == null || value.isBlank()) {
+      return null;
+    }
+    try {
+      return Instant.parse(value);
+    } catch (DateTimeParseException e) {
+      throw new BadRequestException("Invalid " + parameter + " timestamp");
+    }
   }
 
   private QueryTotalView buildView(Breadcrumb breadcrumb, List<App> apps, List<Env> envs,
-                                    String selectedApp, String selectedEnv, RangeOption range,
+                                    String selectedApp, String selectedEnv, RangeOption range, long windowMinutes,
+                                    @Nullable Instant from, @Nullable Instant to,
                                     MetricTimeseriesTop data) {
     final List<MetricTimeseriesTopSeries> series = data.series();
     if (series.isEmpty()) {
@@ -129,7 +188,8 @@ public class UIQueryTotalController {
         formatNum(avgMs), formatNum(s.hashCount()), s.other(), detailUrl));
     }
 
-    final ChartData chartData = new ChartData(labels, datasets, data.bucketMinutes());
+    final List<Long> timestamps = firstBuckets.stream().map(bucket -> bucket.eventTime().toEpochMilli()).toList();
+    final ChartData chartData = new ChartData(labels, timestamps, datasets, data.bucketMinutes());
     // Neutralise "</script>" (and any other embedded tag) since group labels
     // are user-supplied query labels — this JSON is inlined into a <script>
     // block in the template.
@@ -138,12 +198,10 @@ public class UIQueryTotalController {
       .toJson(derivedChartData(data, false)).replace("<", "\\u003c");
     final String meanMaxMaxJson = jsonb.type(ChartData.class)
       .toJson(derivedChartData(data, true)).replace("<", "\\u003c");
-    final String topByTimeJson = rankingChartJson(service.topAppMetrics(
-      selectedApp, "label", METRIC_NAME, null, null, null, "total",
-      (long) range.minutes(), null, 10, null, selectedEnv.isBlank() ? null : selectedEnv), false);
-    final String topByMeanJson = rankingChartJson(service.topAppMetrics(
-      selectedApp, "label", METRIC_NAME, null, null, null, "mean",
-      (long) range.minutes(), null, 10, null, selectedEnv.isBlank() ? null : selectedEnv), true);
+    final String topByTimeJson = rankingChartJson(topMetrics(
+      selectedApp, "total", selectedEnv, from, to, windowMinutes), false);
+    final String topByMeanJson = rankingChartJson(topMetrics(
+      selectedApp, "mean", selectedEnv, from, to, windowMinutes), true);
 
     return new QueryTotalView(breadcrumb, true, selectedApp, appOptions(apps, selectedApp),
       selectedEnv, envOptions(envs, selectedEnv), range.key(), RangeOptions.options(range.key()),
@@ -163,6 +221,9 @@ public class UIQueryTotalController {
     final List<String> labels = series.isEmpty() ? List.of() : series.get(0).buckets().stream()
       .map(bucket -> BUCKET_LABEL_FORMAT.format(bucket.eventTime()))
       .toList();
+    final List<Long> timestamps = series.isEmpty() ? List.of() : series.get(0).buckets().stream()
+      .map(bucket -> bucket.eventTime().toEpochMilli())
+      .toList();
     final List<ChartData.ChartDataset> datasets = new ArrayList<>(series.size());
     int colorIndex = 0;
     for (MetricTimeseriesTopSeries s : series) {
@@ -174,7 +235,7 @@ public class UIQueryTotalController {
         .toList();
       datasets.add(new ChartData.ChartDataset(s.group(), values, color));
     }
-    return new ChartData(labels, datasets, data.bucketMinutes());
+    return new ChartData(labels, timestamps, datasets, data.bucketMinutes());
   }
 
   private String rankingChartJson(List<TopGroup> groups, boolean mean) {
@@ -182,7 +243,7 @@ public class UIQueryTotalController {
     final List<Long> values = groups.stream()
       .map(g -> (mean ? g.meanMicros() : g.totalMicros()) / 1000L)
       .toList();
-    final ChartData chartData = new ChartData(labels,
+    final ChartData chartData = new ChartData(labels, List.of(),
       List.of(new ChartData.ChartDataset("Top", values, "#b7d5f7")), 0L);
     return jsonb.type(ChartData.class).toJson(chartData).replace("<", "\\u003c");
   }

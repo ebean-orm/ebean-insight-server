@@ -12,7 +12,7 @@ import java.util.List;
  * milliseconds, one dataset per series).
  */
 @Json
-record ChartData(List<String> labels, List<ChartDataset> datasets, long bucketMinutes) {
+record ChartData(List<String> labels, List<Long> timestamps, List<ChartDataset> datasets, long bucketMinutes) {
 
   @Json
   record ChartDataset(String label, List<Long> data, String backgroundColor) {

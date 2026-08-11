@@ -2,6 +2,7 @@ package org.ebean.monitor.v1.web;
 
 import io.avaje.jex.http.BadRequestException;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
@@ -11,11 +12,11 @@ import java.time.temporal.ChronoUnit;
  * <p>Endpoints accept either {@code xxxMinutes} or {@code xxxHours}
  * (mutually exclusive). Supplying both yields {@link BadRequestException}.
  *
- * <p>{@link #from()} is null when the window is "no filter" (callers should
- * skip the lower-bound clause). {@link #minutes()} is the window size in
- * minutes (zero when "no filter").
+ * <p>{@link #from()} and {@link #to()} are null when the window is "no filter"
+ * (callers should skip the time-bound clauses). {@link #minutes()} is the
+ * window size in minutes (zero when "no filter").
  */
-record TimeWindow(Instant from, long minutes) {
+record TimeWindow(Instant from, Instant to, long minutes) {
 
   /**
    * Build a time window from caller-supplied minute / hour parameters.
@@ -41,13 +42,34 @@ record TimeWindow(Instant from, long minutes) {
       m = defaultMinutes;
     }
     if (m <= 0L) {
-      return new TimeWindow(null, 0L);
+      return new TimeWindow(null, null, 0L);
     }
-    return new TimeWindow(Instant.now().minus(m, ChronoUnit.MINUTES), m);
+    final Instant to = Instant.now();
+    return new TimeWindow(to.minus(m, ChronoUnit.MINUTES), to, m);
+  }
+
+  /**
+   * Build a window from absolute UTC timestamps.
+   *
+   * @throws BadRequestException if either timestamp is missing or the window
+   *                             is empty or reversed
+   */
+  static TimeWindow between(Instant from, Instant to) {
+    if (from == null || to == null || !from.isBefore(to)) {
+      throw new BadRequestException("The from timestamp must be before the to timestamp");
+    }
+    final long seconds = Duration.between(from, to).toSeconds();
+    final long minutes = Math.max(1L, (seconds + 59L) / 60L);
+    return new TimeWindow(from, to, minutes);
   }
 
   /** True when this window has a lower-bound timestamp. */
   boolean hasFrom() {
     return from != null;
+  }
+
+  /** True when this window has an upper-bound timestamp. */
+  boolean hasTo() {
+    return to != null;
   }
 }

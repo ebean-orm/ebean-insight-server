@@ -401,16 +401,19 @@ public final class V1QueryService {
 
   /**
    * Bucket step for the "Top" stacked-bar chart ({@link #getTopAppMetricsTimeseries}).
-   * Windows over 4h but within the {@code timed_m1} table's range (up to 12h,
-   * see {@link #timeseriesTableFor}) would otherwise render one bar per raw
-   * 1-minute row — far too many/thin columns for a stacked bar chart — so
-   * those windows are aggregated up to 5-minute bars instead. Shorter windows
-   * (<=4h) keep 1-minute bars, and longer windows already fall onto a coarser
-   * table (10-minute/60-minute) via {@link #bucketMinutesFor}.
+   * Windows over 3h but up to 4h use 2-minute bars, windows over 4h but within
+   * the {@code timed_m1} table's range (up to 12h, see {@link #timeseriesTableFor})
+   * use 5-minute bars, and longer windows already fall onto a coarser table
+   * (10-minute/60-minute) via {@link #bucketMinutesFor}.
    */
   static long topBucketMinutesFor(long windowMinutes, String table) {
-    if ("ebean_insight.timed_m1".equals(table) && windowMinutes > 240L) {
-      return 5L;
+    if ("ebean_insight.timed_m1".equals(table)) {
+      if (windowMinutes > 240L) {
+        return 5L;
+      }
+      if (windowMinutes > 180L) {
+        return 2L;
+      }
     }
     return bucketMinutesFor(table);
   }
@@ -514,6 +517,28 @@ public final class V1QueryService {
                                       @Nullable Integer limit, @Nullable Boolean planCapable,
                                       @Nullable String env) {
     final TimeWindow window = TimeWindow.of(sinceMinutes, sinceHours, DEFAULT_TOP_WINDOW_MINUTES);
+    return topAppMetrics(appName, by, name, label, kind, type, orderBy, window, limit, planCapable, env);
+  }
+
+  /**
+   * Ranked application metrics over an absolute time window. This overload is
+   * used by the dashboard's custom chart selection; the public API continues
+   * to expose relative since-minute / since-hour windows.
+   */
+  public List<TopGroup> topAppMetrics(String appName, @Nullable String by, @Nullable String name,
+                                      @Nullable String label, @Nullable String kind, @Nullable String type,
+                                      @Nullable String orderBy,
+                                      @Nullable Integer limit, @Nullable Boolean planCapable,
+                                      @Nullable String env, Instant from, Instant to) {
+    return topAppMetrics(appName, by, name, label, kind, type, orderBy,
+      TimeWindow.between(from, to), limit, planCapable, env);
+  }
+
+  private List<TopGroup> topAppMetrics(String appName, @Nullable String by, @Nullable String name,
+                                       @Nullable String label, @Nullable String kind, @Nullable String type,
+                                       @Nullable String orderBy, TimeWindow window,
+                                       @Nullable Integer limit, @Nullable Boolean planCapable,
+                                       @Nullable String env) {
     final DApp app = findApp(appName);
     if (app == null) {
       return List.of();
@@ -573,6 +598,29 @@ public final class V1QueryService {
                                                         @Nullable Integer seriesLimit,
                                                         @Nullable Boolean planCapable, @Nullable String env) {
     final TimeWindow window = TimeWindow.of(sinceMinutes, sinceHours, DEFAULT_TOP_WINDOW_MINUTES);
+    return getTopAppMetricsTimeseries(appName, name, kind, type, orderBy, window,
+      seriesLimit, planCapable, env);
+  }
+
+  /**
+   * Per-bucket top application metrics over an absolute time window. This
+   * overload is used by the dashboard's custom chart selection.
+   */
+  public MetricTimeseriesTop getTopAppMetricsTimeseries(String appName, @Nullable String name,
+                                                        @Nullable String kind, @Nullable String type,
+                                                        @Nullable String orderBy,
+                                                        @Nullable Integer seriesLimit,
+                                                        @Nullable Boolean planCapable, @Nullable String env,
+                                                        Instant from, Instant to) {
+    return getTopAppMetricsTimeseries(appName, name, kind, type, orderBy,
+      TimeWindow.between(from, to), seriesLimit, planCapable, env);
+  }
+
+  private MetricTimeseriesTop getTopAppMetricsTimeseries(String appName, @Nullable String name,
+                                                         @Nullable String kind, @Nullable String type,
+                                                         @Nullable String orderBy, TimeWindow window,
+                                                         @Nullable Integer seriesLimit,
+                                                         @Nullable Boolean planCapable, @Nullable String env) {
     final long minutes = window.minutes();
     final String table = timeseriesTableFor(minutes);
     final long bucketMinutes = topBucketMinutesFor(minutes, table);
@@ -662,6 +710,7 @@ public final class V1QueryService {
       where t.event_time > :from
         and m.app_id = :appId
       """
+      + (window.hasTo() ? "  and t.event_time <= :to\n" : "")
       + (isBlank(name) ? "" : "  and m.name = :name\n")
       + (isBlank(kind) ? "" : "  and m.tags ->> 'kind' = :kind\n")
       + (isBlank(type) ? "" : "  and m.tags ->> 'type' = :type\n")
@@ -678,6 +727,9 @@ public final class V1QueryService {
       .setParameter("from", window.from())
       .setParameter("appId", app.getId())
       .setParameter("limit", limit);
+    if (window.hasTo()) {
+      query.setParameter("to", window.to());
+    }
     bindCommonFilters(query, name, kind, type, planCapable, envId);
     return query
       .mapTo((rs, _) -> new RankedLabel(rs.getString("grp"), rs.getLong("hash_count"), rs.getLong("agg_total")))
@@ -718,7 +770,7 @@ public final class V1QueryService {
         select to_timestamp(s) as event_time
         from generate_series(
                (cast(floor(extract(epoch from cast(:from as timestamptz)) / :step) as bigint) + 1) * :step,
-               (cast(floor(extract(epoch from now()) / :step) as bigint)) * :step,
+               (cast(floor(extract(epoch from cast(:to as timestamptz)) / :step) as bigint)) * :step,
                :step
              ) as s
       ),
@@ -735,6 +787,7 @@ public final class V1QueryService {
         from %s t
         join ebean_insight.app_metric m on m.id = t.metric_id
         where t.event_time > :from
+          and t.event_time <= :to
           and m.app_id = :appId
         """
       + (isBlank(name) ? "" : "    and m.name = :name\n")
@@ -759,6 +812,7 @@ public final class V1QueryService {
 
     final SqlQuery query = DB.sqlQuery(sql)
       .setParameter("from", window.from())
+      .setParameter("to", window.to())
       .setParameter("step", stepSeconds)
       .setParameter("appId", app.getId());
     for (int i = 0; i < ranked.size(); i++) {
@@ -1000,6 +1054,7 @@ public final class V1QueryService {
       join ebean_insight.app a        on a.id = m.app_id
       where t.event_time > :from
       """
+      + (window.hasTo() ? "  and t.event_time <= :to\n" : "")
       + (app == null ? "" : "  and a.id = :appId\n")
       + (isBlank(name) ? "" : "  and m.name = :name\n")
       + (isBlank(label) ? "" : "  and m.tags ->> 'label' = :label\n")
@@ -1017,6 +1072,9 @@ public final class V1QueryService {
     final SqlQuery sqlQuery = DB.sqlQuery(sql)
       .setParameter("from", window.from())
       .setParameter("limit", limit);
+    if (window.hasTo()) {
+      sqlQuery.setParameter("to", window.to());
+    }
     if (app != null) {
       sqlQuery.setParameter("appId", app.getId());
     }

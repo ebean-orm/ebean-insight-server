@@ -6,6 +6,25 @@
  */
 window.DashboardCharts = (function () {
 
+  function themeColors() {
+    const styles = getComputedStyle(document.documentElement);
+    return {
+      background: styles.getPropertyValue('--pico-background-color').trim() || '#ffffff',
+      codeBackground: styles.getPropertyValue('--pico-code-background-color').trim() || '#1a1a1a',
+      grid: styles.getPropertyValue('--pico-muted-border-color').trim() || 'rgba(127, 127, 127, 0.25)',
+      text: styles.getPropertyValue('--pico-color').trim() || '#373c44'
+    };
+  }
+
+  function applyTheme() {
+    if (typeof Chart === 'undefined') {
+      return;
+    }
+    const colors = themeColors();
+    Chart.defaults.color = colors.text;
+    Chart.defaults.borderColor = colors.grid;
+  }
+
   // Bucket labels are pre-formatted server-side as fixed-width "MM-dd HH:mm"
   // (see BUCKET_LABEL_FORMAT in the UI controllers), so the time-only portion
   // is always the last 5 characters.
@@ -31,6 +50,40 @@ window.DashboardCharts = (function () {
     return 1440;
   }
 
+  function durationUnitFor(maxMs) {
+    if (maxMs < 1000) {
+      return 'ms';
+    }
+    if (maxMs < 60000) {
+      return 's';
+    }
+    if (maxMs < 3600000) {
+      return 'min';
+    }
+    return 'h';
+  }
+
+  function compactDuration(value, unit) {
+    const divisor = unit === 's' ? 1000 : unit === 'min' ? 60000 : unit === 'h' ? 3600000 : 1;
+    const amount = value / divisor;
+    const rounded = Math.round(amount * 10) / 10;
+    return String(rounded).replace(/\.0$/, '') + ' ' + unit;
+  }
+
+  function detailedDuration(value) {
+    if (value < 1000) {
+      return Math.round(value) + ' ms';
+    }
+    if (value < 60000) {
+      return compactDuration(value, 's');
+    }
+    if (value < 3600000) {
+      return Math.floor(value / 60000) + 'm ' + Math.round((value % 60000) / 1000) + 's';
+    }
+    return Math.floor(value / 3600000) + 'h '
+      + Math.floor((value % 3600000) / 60000) + 'm';
+  }
+
   /**
    * Builds a Chart.js category-scale x-axis config: un-rotated, time-only
    * (date included only once the range spans multiple days) tick labels
@@ -48,10 +101,14 @@ window.DashboardCharts = (function () {
           return label !== undefined && minutesOfDay(label) % tickIntervalMinutes === 0;
         });
       },
+      grid: {
+        color: themeColors().grid
+      },
       ticks: {
         autoSkip: false,
         maxRotation: 0,
         minRotation: 0,
+        color: themeColors().text,
         callback: function (value) {
           const label = labels[value];
           return showDate ? label : timeOnly(label);
@@ -62,8 +119,12 @@ window.DashboardCharts = (function () {
 
   /** Solid (non-transparent), ~20% larger-font tooltip styling shared by all charts. */
   function tooltipOptions(labels, extraCallbacks) {
+    const colors = themeColors();
     return {
-      backgroundColor: '#1a1a1a',
+      backgroundColor: colors.codeBackground,
+      titleColor: colors.text,
+      bodyColor: colors.text,
+      footerColor: colors.text,
       titleFont: {size: 17},
       bodyFont: {size: 14},
       footerFont: {size: 14},
@@ -76,6 +137,9 @@ window.DashboardCharts = (function () {
     };
   }
 
+  applyTheme();
+  window.addEventListener('insight-theme-change', applyTheme);
+
   /** Sets a pointer cursor while hovering a clickable chart element. */
   function pointerOnHover(evt, elements) {
     if (evt.native && evt.native.target) {
@@ -83,5 +147,9 @@ window.DashboardCharts = (function () {
     }
   }
 
-  return {timeOnly, minutesOfDay, pickIntervalMinutes, buildXScale, tooltipOptions, pointerOnHover};
+  return {
+    timeOnly, minutesOfDay, pickIntervalMinutes, buildXScale, tooltipOptions,
+    pointerOnHover, durationUnitFor, compactDuration, detailedDuration,
+    themeColors, applyTheme
+  };
 })();

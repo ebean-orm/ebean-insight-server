@@ -4,14 +4,20 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ebean insight</title>
+  <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+  <script src="/static/theme.js"></script>
   <link rel="stylesheet" href="/static/vendor/pico.min.css">
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 <header class="container">
-  <nav>
+  <nav class="site-nav">
     {{> fragments/breadcrumb}}
     {{$filters}}{{/filters}}
+    <button type="button" id="theme-toggle" class="theme-toggle"
+            aria-label="Switch to dark mode" aria-pressed="false">
+      <span id="theme-toggle-label" class="theme-toggle-label">Dark mode</span>
+    </button>
   </nav>
 </header>
 <main class="container">
