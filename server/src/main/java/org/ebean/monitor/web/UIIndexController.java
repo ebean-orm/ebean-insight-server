@@ -32,7 +32,7 @@ public class UIIndexController {
     final List<AppLink> apps = service.listApps(null, null).stream()
       .map(app -> appLink(app.name()))
       .toList();
-    return new IndexView(Breadcrumb.EMPTY, apps);
+    return new IndexView(Breadcrumb.EMPTY, apps, !apps.isEmpty());
   }
 
   @Get("app-config")

@@ -75,8 +75,10 @@ kill <PID>
 ```
 
 Rebuild and restart after changing Java classes, Mustache templates, or static
-resources. A browser refresh alone is not sufficient when the running process
-has loaded the previous build.
+resources. Mustache templates are compiled into server-side generated code
+during the Maven build, so the running process does not use template source
+changes directly. A browser refresh alone is not sufficient when the running
+process has loaded the previous build.
 
 The normal restart loop is:
 
@@ -90,9 +92,9 @@ mvn -q -pl server -am package -DskipTests
 
 Changes under `server/src/main/resources/static` and
 `server/src/main/resources/ui` are copied into `server/target` during the
-build. Rebuild and restart the server after changing them. If a browser still
-shows old JavaScript or CSS, perform a hard refresh and confirm the served
-resource:
+build; UI templates are also compiled into generated server-side code.
+Rebuild and restart the server after changing them. If a browser still shows
+old JavaScript or CSS, perform a hard refresh and confirm the served resource:
 
 ```shell
 curl -s http://localhost:8091/static/query-total.js

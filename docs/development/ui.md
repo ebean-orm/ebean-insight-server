@@ -58,11 +58,13 @@ optional infrastructure metrics.
 
 ## Templates and static assets
 
-Templates are packaged during the Maven build. After changing a template,
-JavaScript, or CSS file:
+Mustache templates are compiled into server-side generated code during the
+Maven build; the running server does not read template source files directly.
+After changing a template, JavaScript, or CSS file:
 
 1. Run the relevant syntax/build checks.
-2. Rebuild the server.
+2. Rebuild the server so the generated template code and packaged resources
+   are updated.
 3. Restart the running server.
 4. Hard-refresh the browser if the old asset is cached.
 

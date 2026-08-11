@@ -1,29 +1,57 @@
 {{<fragments/layout}}
   {{$body}}
-    <article>
+    <link rel="stylesheet" href="/static/index.css">
+    <article class="applications-card">
       <header>Applications</header>
-      <ul>
-        {{#apps}}
-          <li>
-            {{#topUrl}}<a href="{{topUrl}}">{{name}}</a>{{/topUrl}}
-            {{^topUrl}}<span>{{name}}</span>{{/topUrl}}
-            {{#envs}}
-              <a class="app-env-link" href="{{topUrl}}">{{name}}</a>
-            {{/envs}}
-            <small>
-              <a href="{{datasourcePoolConfigUrl}}">
-                {{#datasourcePoolEnabled}}Disable{{/datasourcePoolEnabled}}
-                {{^datasourcePoolEnabled}}Enable{{/datasourcePoolEnabled}} datasource pool
-              </a>
-              ·
-              <a href="{{webApiConfigUrl}}">
-                {{#webApiEnabled}}Disable{{/webApiEnabled}}
-                {{^webApiEnabled}}Enable{{/webApiEnabled}} web API
-              </a>
-            </small>
-          </li>
-        {{/apps}}
-      </ul>
+      {{#hasApps}}
+        <div class="applications-table-wrap">
+          <table class="applications-table">
+            <thead>
+              <tr>
+                <th scope="col">Application</th>
+                <th scope="col">Environments</th>
+                <th scope="col">Dashboards</th>
+              </tr>
+            </thead>
+            <tbody>
+              {{#apps}}
+              <tr>
+                <th scope="row">
+                  {{#topUrl}}<a class="application-name" href="{{topUrl}}">{{name}}</a>{{/topUrl}}
+                  {{^topUrl}}<span class="application-name">{{name}}</span>{{/topUrl}}
+                </th>
+                <td>
+                  <div class="application-environments">
+                    {{#envs}}
+                      <a class="app-env-link" href="{{topUrl}}">{{name}}</a>
+                    {{/envs}}
+                    {{^envs}}
+                      <span class="application-default-env">Default</span>
+                    {{/envs}}
+                  </div>
+                </td>
+                <td>
+                  <div class="app-dashboard-actions">
+                    <a class="dashboard-toggle{{#datasourcePoolEnabled}} is-enabled{{/datasourcePoolEnabled}}"
+                       href="{{datasourcePoolConfigUrl}}">
+                      <span class="dashboard-toggle-indicator" aria-hidden="true"></span>
+                      {{#datasourcePoolEnabled}}Datasource pool{{/datasourcePoolEnabled}}
+                      {{^datasourcePoolEnabled}}Enable datasource pool{{/datasourcePoolEnabled}}
+                    </a>
+                    <a class="dashboard-toggle{{#webApiEnabled}} is-enabled{{/webApiEnabled}}"
+                       href="{{webApiConfigUrl}}">
+                      <span class="dashboard-toggle-indicator" aria-hidden="true"></span>
+                      {{#webApiEnabled}}Web API{{/webApiEnabled}}
+                      {{^webApiEnabled}}Enable Web API{{/webApiEnabled}}
+                    </a>
+                  </div>
+                </td>
+              </tr>
+              {{/apps}}
+            </tbody>
+          </table>
+        </div>
+      {{/hasApps}}
       {{^apps}}
         <p>No applications reporting yet.</p>
       {{/apps}}
