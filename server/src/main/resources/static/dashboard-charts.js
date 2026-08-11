@@ -41,7 +41,7 @@ window.DashboardCharts = (function () {
   // per bucket. Interval widens with the selected range (e.g. every 15min for
   // a 1h window, every 30min for up to 6h, etc.).
   function pickIntervalMinutes(totalMinutes) {
-    const steps = [[60, 15], [360, 30], [720, 60], [1440, 120], [2880, 240], [10080, 720]];
+    const steps = [[60, 15], [360, 30], [720, 60], [1440, 120], [2880, 360], [10080, 1440]];
     for (const [maxMinutes, interval] of steps) {
       if (totalMinutes <= maxMinutes) {
         return interval;

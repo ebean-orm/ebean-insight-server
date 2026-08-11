@@ -178,7 +178,7 @@ public class UIQueryTotalController {
       final List<MetricTimeBucket> buckets = s.buckets();
       for (int i = 0; i < bucketCount; i++) {
         final MetricTimeBucket bucket = buckets.get(i);
-        final long ms = bucket.total() / 1000L;
+        final long ms = bucket.total() / 1000L / data.bucketMinutes();
         valuesMs.add(ms);
         execCount += bucket.count();
       }
@@ -329,7 +329,7 @@ public class UIQueryTotalController {
         return switch (mode) {
           case "mean" -> bucket.count() == 0L ? null : (bucket.total() / bucket.count()) / 1000L;
           case "max" -> bucket.count() == 0L ? null : bucket.max() / 1000L;
-          default -> bucket.total() / 1000L;
+          default -> bucket.total() / 1000L / data.bucketMinutes();
         };
       }).toList();
       datasets.add(new ChartData.ChartDataset(series.group(), values, Palette.colorFor(colorIndex++)));

@@ -617,6 +617,26 @@
       }
       return String(Math.round(value));
     };
+    const rankingElementsAtEvent = function (chart, event, elements) {
+      if (elements.length) {
+        return elements;
+      }
+      const meta = chart.getDatasetMeta(0);
+      let closestIndex = -1;
+      let closestDistance = Infinity;
+      meta.data.forEach(function (bar, index) {
+        const distance = Math.abs(bar.y - event.y);
+        if (distance <= bar.height / 2 && distance < closestDistance) {
+          closestIndex = index;
+          closestDistance = distance;
+        }
+      });
+      return closestIndex < 0 ? [] : [{
+        datasetIndex: 0,
+        index: closestIndex,
+        element: meta.data[closestIndex]
+      }];
+    };
     const rankingChart = new Chart(rankingCanvas.getContext('2d'), {
       type: 'bar',
       data: {
@@ -655,13 +675,16 @@
           }
         },
         onClick: function (evt, elements) {
-          if (elements.length) {
-            window.location.href = detailUrlFor(rankingData.labels[elements[0].index]);
+          const activeElements = rankingElementsAtEvent(this, evt, elements);
+          if (activeElements.length) {
+            window.location.href = detailUrlFor(rankingData.labels[activeElements[0].index]);
           }
         },
         onHover: function (event, elements) {
-          window.DashboardCharts.pointerOnHover(event, elements);
-          const label = elements.length ? rankingData.labels[elements[0].index] : null;
+          const activeElements = rankingElementsAtEvent(this, event, elements);
+          window.DashboardCharts.pointerOnHover(event, activeElements);
+          this.setActiveElements(activeElements);
+          const label = activeElements.length ? rankingData.labels[activeElements[0].index] : null;
           setRankingHover(label);
         },
         plugins: {
