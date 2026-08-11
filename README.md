@@ -25,6 +25,10 @@ For the server's full configuration / mode reference see
 bearer auth on the server's endpoints see [`docs/auth.md`](docs/auth.md). For
 day-to-day CLI usage see [`cli/README.md`](cli/README.md).
 
+For repository development and maintenance, see
+[`docs/development/README.md`](docs/development/README.md) and
+[`AGENTS.md`](AGENTS.md).
+
 Playbooks — task-oriented guides that drive the API/CLI/MCP to an outcome:
 
 - [`docs/playbook-slow-query-trace.md`](docs/playbook-slow-query-trace.md) — a slow-query trace → root cause
