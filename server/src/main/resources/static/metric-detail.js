@@ -134,8 +134,7 @@
           tooltip: window.DashboardCharts.tooltipOptions(chartData.labels, durationUnit ? {
             label: function (context) {
               return context.dataset.label + ': '
-                + window.DashboardCharts.detailedDuration(context.raw)
-                + ' (' + context.formattedValue + ' ms)';
+                + window.DashboardCharts.detailedDuration(context.raw);
             }
           } : null)
         },

@@ -276,19 +276,23 @@
         onHover: function (event, elements) {
           window.DashboardCharts.pointerOnHover(event, elements);
           setSharedHover(elements.length ? elements[0].index : null);
+          const label = elements.length
+            ? chartData.datasets[elements[0].datasetIndex].label : null;
+          setRankingHover(label === 'Other' ? null : label);
         },
         plugins: {
           legend: {display: false},
           tooltip: window.DashboardCharts.tooltipOptions(chartData.labels, {
             label: function (context) {
-              return context.dataset.label + ': ' + window.DashboardCharts.detailedDuration(context.raw)
-                + ' (' + context.formattedValue + ' ms)';
+              return context.dataset.label + ': '
+                + window.DashboardCharts.detailedDuration(context.raw);
             }
           })
         }
       },
       plugins: [sharedTimeCrosshair]
     });
+    canvas.onmouseleave = clearRankingHover;
   };
 
   const attachDragHandlers = function (dragCanvas, chartSupplier) {
@@ -485,6 +489,9 @@
       }
       updateChartVisibility();
       updateLegend();
+      rankingCharts.forEach(function (entry) {
+        entry.chart.update('none');
+      });
     });
   });
 
@@ -530,6 +537,24 @@
     return color;
   };
 
+  const clearRankingHover = function () {
+    rankingHoverLabel = null;
+    rankingCharts.forEach(function (entry) {
+      entry.chart.setActiveElements([]);
+      entry.chart.update('none');
+    });
+  };
+
+  const setRankingHover = function (label) {
+    if (rankingHoverLabel === label) {
+      return;
+    }
+    rankingHoverLabel = label;
+    rankingCharts.forEach(function (entry) {
+      entry.chart.update('none');
+    });
+  };
+
   const rankingHighlight = {
     id: 'ranking-highlight',
     afterDatasetsDraw: function (currentChart) {
@@ -545,12 +570,13 @@
       if (!activeElement) {
         return;
       }
+      const highlightColor = getComputedStyle(document.documentElement)
+        .getPropertyValue('--insight-ranking-hover').trim();
+      const properties = activeElement.getProps(['base', 'x', 'y', 'height'], true);
       const context = currentChart.ctx;
       context.save();
-      const properties = activeElement.getProps(['base', 'x', 'y', 'height'], true);
-      context.strokeStyle = window.DashboardCharts.themeColors().text;
-      context.lineWidth = 2;
-      context.strokeRect(
+      context.fillStyle = highlightColor;
+      context.fillRect(
         Math.min(properties.base, properties.x),
         properties.y - properties.height / 2,
         Math.abs(properties.x - properties.base),
@@ -574,12 +600,22 @@
       return Math.max(max, Number(value) || 0);
     }, 0);
     const durationUnit = window.DashboardCharts.durationUnitFor(maxValue);
-    const colorsByLabel = new Map(chartData.datasets.map(function (ds) {
-      return [ds.label, ds.backgroundColor];
+    const styles = getComputedStyle(document.documentElement);
+    const barColor = styles.getPropertyValue('--insight-ranking-bar').trim();
+    const hoverColor = styles.getPropertyValue('--insight-ranking-hover').trim();
+    const colorsByLabel = new Map(chartData.datasets.map(function (entry) {
+      return [entry.label, entry.backgroundColor];
     }));
-    const barColors = rankingData.labels.map(function (label) {
-      return colorsByLabel.get(label) || dataset.backgroundColor;
-    });
+    const compactValue = function (value) {
+      const absolute = Math.abs(value);
+      if (absolute >= 1000000) {
+        return (value / 1000000).toFixed(1).replace(/\.0$/, '') + 'm';
+      }
+      if (absolute >= 1000) {
+        return (value / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+      }
+      return String(Math.round(value));
+    };
     const rankingChart = new Chart(rankingCanvas.getContext('2d'), {
       type: 'bar',
       data: {
@@ -587,15 +623,11 @@
         datasets: [{
           label: dataset.label,
           data: dataset.data,
-          backgroundColor: barColors.map(function (color) {
-            return withAlpha(color, 0.3);
-          }),
-          hoverBackgroundColor: barColors.map(function (color) {
-            return withAlpha(color, 0.55);
-          }),
+          backgroundColor: barColor,
+          hoverBackgroundColor: hoverColor,
           borderWidth: 0,
-          barPercentage: 0.8,
-          categoryPercentage: 0.9
+          barPercentage: 1.0,
+          categoryPercentage: 1.0
         }]
       },
       options: {
@@ -603,6 +635,9 @@
         responsive: true,
         maintainAspectRatio: false,
         animation: false,
+        layout: {
+          padding: {left: 68}
+        },
         scales: {
           x: {
             beginAtZero: true,
@@ -626,22 +661,11 @@
         onHover: function (event, elements) {
           window.DashboardCharts.pointerOnHover(event, elements);
           const label = elements.length ? rankingData.labels[elements[0].index] : null;
-          if (rankingHoverLabel !== label) {
-            rankingHoverLabel = label;
-            rankingCharts.forEach(function (entry) {
-              entry.chart.update('none');
-            });
-          }
+          setRankingHover(label);
         },
         plugins: {
           legend: {display: false},
-          tooltip: window.DashboardCharts.tooltipOptions(rankingData.labels, unit ? {
-            label: function (context) {
-              return context.dataset.label + ': '
-                + window.DashboardCharts.detailedDuration(context.raw)
-                + ' (' + context.formattedValue + ' ' + unit + ')';
-            }
-          } : null),
+          tooltip: {enabled: false},
           rankingLabels: {}
         },
         interaction: {mode: 'nearest', intersect: true}
@@ -653,22 +677,38 @@
           const context = chart.ctx;
           const colors = window.DashboardCharts.themeColors();
           context.save();
-          context.font = '14px sans-serif';
+          context.font = '12px sans-serif';
           context.fillStyle = colors.text;
-          context.strokeStyle = colors.background;
-          context.lineWidth = 1.5;
           context.lineJoin = 'round';
           context.textBaseline = 'middle';
           meta.data.forEach(function (bar, index) {
             const x = bar.base + 8;
             const y = bar.y;
-            context.strokeText(rankingData.labels[index], x, y);
+            const value = compactValue(rankingData.datasets[0].data[index]);
+            const valueX = bar.base - 8;
             context.fillText(rankingData.labels[index], x, y);
+            context.textAlign = 'right';
+            context.fillText(value, valueX, y);
+            const hasHiddenSeries = chartData.datasets.some(function (entry) {
+              return !visible.get(entry.label);
+            });
+            const seriesActive = hasHiddenSeries && visible.get(rankingData.labels[index]);
+            if (rankingHoverLabel === rankingData.labels[index] || seriesActive) {
+              context.fillStyle = colorsByLabel.get(rankingData.labels[index]) || colors.text;
+              const markerSize = 14;
+              context.fillRect(
+                valueX - context.measureText(value).width - markerSize - 4,
+                y - markerSize / 2, markerSize, markerSize);
+              context.fillStyle = colors.text;
+            }
+            context.textAlign = 'left';
           });
           context.restore();
         }
       }]
     });
+    rankingCanvas.onmouseleave = clearRankingHover;
+    rankingCanvas.onpointerleave = clearRankingHover;
     rankingCharts.push({chart: rankingChart, labels: rankingData.labels});
   };
 
@@ -750,8 +790,7 @@
           tooltip: window.DashboardCharts.tooltipOptions(meanData.labels, {
             label: function (context) {
               return context.dataset.label + ': '
-                + window.DashboardCharts.detailedDuration(context.raw)
-                + ' (' + context.formattedValue + ' ms)';
+                + window.DashboardCharts.detailedDuration(context.raw);
             }
           })
         }

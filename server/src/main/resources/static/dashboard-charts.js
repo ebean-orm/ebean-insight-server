@@ -129,6 +129,7 @@ window.DashboardCharts = (function () {
       bodyFont: {size: 14},
       footerFont: {size: 14},
       padding: 10,
+      caretPadding: 12,
       callbacks: Object.assign({
         title: function (items) {
           return items.length ? labels[items[0].dataIndex] : '';

@@ -53,6 +53,20 @@
               <canvas id="total-chart"></canvas>
             </div>
           </article>
+          <div class="hash-legend" aria-label="Query hash legend">
+            <ul>
+              {{#hashBreakdown}}
+                <li class="hash-legend-item">
+                  <button type="button" class="hash-series-toggle"
+                          data-label="{{hash}}" aria-pressed="true"
+                          aria-label="Toggle {{hash}}" title="{{hash}}">
+                    <span class="hash-swatch" style="background-color: {{color}}"
+                          aria-hidden="true"></span>
+                  </button>
+                </li>
+              {{/hashBreakdown}}
+            </ul>
+          </div>
         </div>
 
         <div class="metric-detail-chart-column">
@@ -75,27 +89,26 @@
               <canvas id="mean-chart"></canvas>
             </div>
           </article>
+          <div class="hash-legend" aria-label="Query hash legend">
+            <ul>
+              {{#hashBreakdown}}
+                <li class="hash-legend-item">
+                  <button type="button" class="hash-series-toggle"
+                          data-label="{{hash}}" aria-pressed="true"
+                          aria-label="Toggle {{hash}}" title="{{hash}}">
+                    <span class="hash-swatch" style="background-color: {{color}}"
+                          aria-hidden="true"></span>
+                  </button>
+                </li>
+              {{/hashBreakdown}}
+            </ul>
+          </div>
         </div>
         <div id="metric-chart-range-selection" class="chart-range-selection" hidden>
           <span id="metric-chart-range-selection-text"></span>
           <button type="button" id="metric-chart-range-selection-clear">Use preset range</button>
         </div>
       </div>
-      <div class="hash-legend" aria-label="Query hash legend">
-        <ul>
-          {{#hashBreakdown}}
-            <li class="hash-legend-item">
-              <button type="button" class="hash-series-toggle"
-                      data-label="{{hash}}" aria-pressed="true"
-                      aria-label="Toggle {{hash}}" title="{{hash}}">
-                <span class="hash-swatch" style="background-color: {{color}}"
-                      aria-hidden="true"></span>
-              </button>
-            </li>
-          {{/hashBreakdown}}
-        </ul>
-      </div>
-
       <article class="query-total-section hash-query-section">
         <header>Query hashes</header>
         <div class="hash-query-browser">

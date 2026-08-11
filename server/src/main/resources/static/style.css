@@ -6,6 +6,13 @@
 
 :root {
   --pico-font-size: 100%;
+  --insight-ranking-bar: #b9d7f5;
+  --insight-ranking-hover: #8ebcf0;
+}
+
+[data-theme="dark"] {
+  --insight-ranking-bar: #0869a0;
+  --insight-ranking-hover: #0b8fce;
 }
 
 header.container,

@@ -235,7 +235,7 @@ public class UIQueryTotalController {
           if (max) {
             return bucket.count() == 0L ? null : Long.valueOf(bucket.max() / 1000L);
           }
-          return bucket.count() == 0L ? 0L : (bucket.total() / 1000L) / bucket.count();
+          return bucket.count() == 0L ? null : Long.valueOf((bucket.total() / 1000L) / bucket.count());
         })
         .toList();
       datasets.add(new ChartData.ChartDataset(s.group(), values, color));

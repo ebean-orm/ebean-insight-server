@@ -13,7 +13,7 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
-  margin-bottom: 1.5rem;
+  margin-bottom: 0;
 }
 
 .metric-detail-chart-layout > .chart-range-selection {
@@ -25,7 +25,7 @@
 }
 
 .hash-legend {
-  margin: 0;
+  margin: 0.5rem 0 1.5rem;
 }
 
 .hash-legend ul {
