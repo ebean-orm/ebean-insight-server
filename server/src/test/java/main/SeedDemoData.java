@@ -13,6 +13,7 @@ import org.ebean.monitor.domain.query.QDAppMetric;
 import org.ebean.monitor.domain.query.QDEnv;
 
 import java.time.DayOfWeek;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -253,9 +254,15 @@ public class SeedDemoData {
   void run() {
     extendPartitions();
     DApp app = findOrCreateApp();
+    app.setDatasourcePoolDashboardEnabled(true);
+    app.setWebApiDashboardEnabled(true);
+    db.save(app);
     DEnv env = findOrCreateEnv();
     DAppDatabase appDb = findOrCreateAppDb(app);
     Map<String, List<HashMetric>> metricsByLabel = findOrCreateMetrics(app);
+    Map<String, DAppMetric> poolMetrics = findOrCreatePoolMetrics(app);
+    Map<String, DAppMetric> poolTimingMetrics = findOrCreatePoolTimingMetrics(app);
+    Map<String, DAppMetric> webApiMetrics = findOrCreateWebApiMetrics(app);
 
     Instant now = Instant.now().truncatedTo(ChronoUnit.MINUTES);
     deleteExisting(app);
@@ -263,11 +270,31 @@ public class SeedDemoData {
     int m1 = seedTier("timed_m1", roundDown(now.minus(4, ChronoUnit.HOURS), 1), now, 1, env, appDb, metricsByLabel);
     int m10 = seedTier("timed_m10", roundDown(now.minus(3, ChronoUnit.DAYS), 10), now, 10, env, appDb, metricsByLabel);
     int m60 = seedTier("timed_m60", roundDown(now.minus(9, ChronoUnit.DAYS), 60), now, 60, env, appDb, metricsByLabel);
+    seedPoolTiming("timed_m1", roundDown(now.minus(4, ChronoUnit.HOURS), 1), now, 1,
+      env, app, poolTimingMetrics);
+    seedPoolTiming("timed_m10", roundDown(now.minus(2, ChronoUnit.DAYS), 10), now, 10,
+      env, app, poolTimingMetrics);
+    seedPoolTiming("timed_m60", roundDown(now.minus(7, ChronoUnit.DAYS), 60), now, 60,
+      env, app, poolTimingMetrics);
+    seedWebApi("timed_m1", roundDown(now.minus(4, ChronoUnit.HOURS), 1), now, 1,
+      env, app, webApiMetrics);
+    seedWebApi("timed_m10", roundDown(now.minus(2, ChronoUnit.DAYS), 10), now, 10,
+      env, app, webApiMetrics);
+    seedWebApi("timed_m60", roundDown(now.minus(7, ChronoUnit.DAYS), 60), now, 60,
+      env, app, webApiMetrics);
+    int poolM1 = seedPoolGauge("gauge_m1", roundDown(now.minus(4, ChronoUnit.HOURS), 1), now,
+      1, env, app, poolMetrics);
+    int poolM10 = seedPoolGauge("gauge_m10", roundDown(now.minus(2, ChronoUnit.DAYS), 10), now,
+      10, env, app, poolMetrics);
+    int poolM60 = seedPoolGauge("gauge_m60", roundDown(now.minus(7, ChronoUnit.DAYS), 60), now,
+      60, env, app, poolMetrics);
 
     int plans = seedQueryPlans(app, env, metricsByLabel);
 
     System.out.println("Seeded app=" + APP_NAME + " env=" + ENV_NAME
-      + " -> timed_m1:" + m1 + " timed_m10:" + m10 + " timed_m60:" + m60 + " rows, query_plan:" + plans + " rows");
+      + " -> timed_m1:" + m1 + " timed_m10:" + m10 + " timed_m60:" + m60
+      + " gauge_m1:" + poolM1 + " gauge_m10:" + poolM10 + " gauge_m60:" + poolM60
+      + " query_plan:" + plans + " rows");
     System.out.println("View at http://localhost:8091/ux/top?app=" + APP_NAME + "&range=30m");
   }
 
@@ -279,7 +306,7 @@ public class SeedDemoData {
    */
   private void extendPartitions() {
     LocalDate from = LocalDate.now(ZoneOffset.UTC).minusDays(10);
-    for (String table : List.of("timed_m1", "timed_m10", "timed_m60")) {
+    for (String table : List.of("timed_m1", "timed_m10", "timed_m60", "gauge_m1", "gauge_m10", "gauge_m60")) {
       db.sqlQuery("select partition(:mode, :table, :count, :schema, :from)")
         .setParameter("mode", "day")
         .setParameter("table", table)
@@ -291,7 +318,7 @@ public class SeedDemoData {
   }
 
   private DApp findOrCreateApp() {
-    DApp app = new QDApp(db).name.eq(APP_NAME).findOne();
+    DApp app = db.find(DApp.class).where().eq("name", APP_NAME).findOne();
     if (app == null) {
       app = new DApp(APP_NAME);
       db.save(app);
@@ -300,7 +327,7 @@ public class SeedDemoData {
   }
 
   private DEnv findOrCreateEnv() {
-    DEnv env = new QDEnv(db).name.ieq(ENV_NAME).findOne();
+    DEnv env = db.find(DEnv.class).where().eq("name", ENV_NAME).findOne();
     if (env == null) {
       env = new DEnv(ENV_NAME);
       db.save(env);
@@ -309,7 +336,8 @@ public class SeedDemoData {
   }
 
   private DAppDatabase findOrCreateAppDb(DApp app) {
-    DAppDatabase appDb = new QDAppDatabase(db).app.eq(app).name.eq("db").findOne();
+    DAppDatabase appDb = db.find(DAppDatabase.class)
+      .where().eq("app", app).eq("name", "db").findOne();
     if (appDb == null) {
       appDb = new DAppDatabase(app, "db");
       db.save(appDb);
@@ -324,17 +352,68 @@ public class SeedDemoData {
       List<HashMetric> hashMetrics = new ArrayList<>(spec.hashes().size());
       for (HashSpec hashSpec : spec.hashes()) {
         String key = seedKey(spec.label(), hashSpec.suffix());
-        DAppMetric metric = new QDAppMetric(db).app.eq(app).key.eq(key).findOne();
+        DAppMetric metric = db.find(DAppMetric.class)
+          .where().eq("app", app).eq("key", key).findOne();
         if (metric == null) {
           Map<String, String> tags = Map.of("kind", "orm", "type", spec.type(), "label", spec.label());
           metric = new DAppMetric(app, key, METRIC_NAME, tags, true);
         }
+
         metric.setLoc(hashSpec.loc());
         metric.setSql(hashSpec.sql());
         db.save(metric);
         hashMetrics.add(new HashMetric(hashSpec, metric));
       }
       result.put(spec.label(), hashMetrics);
+    }
+    return result;
+  }
+
+  private Map<String, DAppMetric> findOrCreatePoolMetrics(DApp app) {
+    var result = new LinkedHashMap<String, DAppMetric>();
+    for (String type : List.of("readonly", "main")) {
+      String key = "seed-datasource-pool-" + type;
+      DAppMetric metric = db.find(DAppMetric.class)
+        .where().eq("app", app).eq("key", key).findOne();
+      if (metric == null) {
+        metric = new DAppMetric(app, key, "datasource.pool.size",
+          Map.of("type", type), false);
+      }
+      db.save(metric);
+      result.put(type, metric);
+    }
+    return result;
+  }
+
+  private Map<String, DAppMetric> findOrCreatePoolTimingMetrics(DApp app) {
+    var result = new LinkedHashMap<String, DAppMetric>();
+    for (String name : List.of("datasource.pool.wait.total", "datasource.pool.acquire.total")) {
+      for (String type : List.of("readonly", "main")) {
+        String operation = name.contains(".wait.") ? "wait" : "acquire";
+        String key = "seed-pool-" + operation + "-" + type;
+        DAppMetric metric = db.find(DAppMetric.class)
+          .where().eq("app", app).eq("key", key).findOne();
+        if (metric == null) {
+          metric = new DAppMetric(app, key, name, Map.of("type", type), false);
+        }
+        db.save(metric);
+        result.put(name + "|" + type, metric);
+      }
+    }
+    return result;
+  }
+
+  private Map<String, DAppMetric> findOrCreateWebApiMetrics(DApp app) {
+    var result = new LinkedHashMap<String, DAppMetric>();
+    for (String label : List.of("Orders.list", "Orders.create", "Health.get")) {
+      String key = "seed-web-api-" + label.toLowerCase().replace('.', '-');
+      DAppMetric metric = db.find(DAppMetric.class)
+        .where().eq("app", app).eq("key", key).findOne();
+      if (metric == null) {
+        metric = new DAppMetric(app, key, "web.api", Map.of("label", label), false);
+      }
+      db.save(metric);
+      result.put(label, metric);
     }
     return result;
   }
@@ -357,11 +436,117 @@ public class SeedDemoData {
   }
 
   private void deleteExisting(DApp app) {
-    for (String table : List.of("timed_m1", "timed_m10", "timed_m60")) {
+    for (String table : List.of("timed_m1", "timed_m10", "timed_m60", "gauge_m1", "gauge_m10", "gauge_m60")) {
       db.sqlUpdate("delete from ebean_insight." + table + " where app_id = :appId")
         .setParameter("appId", app.getId())
         .execute();
     }
+  }
+
+  private int seedPoolGauge(String table, Instant from, Instant to, int bucketMinutes,
+                             DEnv env, DApp app, Map<String, DAppMetric> metrics) {
+    String sql = "insert into ebean_insight." + table
+      + " (event_time, metric_id, env_id, app_id, count, total, max, mean)"
+      + " values (:eventTime, :metricId, :envId, :appId, 1, :total, :max, :mean)";
+    int inserted = 0;
+    try (Transaction txn = db.beginTransaction()) {
+      txn.setBatchMode(true);
+      for (Instant t = from; !t.isAfter(to); t = t.plus(bucketMinutes, ChronoUnit.MINUTES)) {
+        int minute = t.atZone(ZoneOffset.UTC).getMinute();
+        double wave = Math.sin(minute / 60.0 * Math.PI * 2.0) * 2.0;
+        for (String type : List.of("readonly", "main")) {
+          double value = ("readonly".equals(type) ? 96.0 : 24.0) + wave;
+          if (t.isAfter(to.minus(45, ChronoUnit.MINUTES))) {
+            value += ("readonly".equals(type) ? 105.0 : 42.0)
+              * Math.max(0.0, 1.0 - Duration.between(to.minus(45, ChronoUnit.MINUTES), t).toMinutes() / 20.0);
+          }
+          db.sqlUpdate(sql)
+            .setParameter("eventTime", t)
+            .setParameter("metricId", metrics.get(type).getId())
+            .setParameter("envId", env.getId())
+            .setParameter("appId", app.getId())
+            .setParameter("total", value)
+            .setParameter("max", value)
+            .setParameter("mean", value)
+            .execute();
+          inserted++;
+        }
+      }
+      txn.commit();
+    }
+    return inserted;
+  }
+
+  private int seedPoolTiming(String table, Instant from, Instant to, int bucketMinutes,
+                             DEnv env, DApp app, Map<String, DAppMetric> metrics) {
+    String sql = "insert into ebean_insight." + table
+      + " (event_time, metric_id, env_id, app_id, count, mean, max, total)"
+      + " values (:eventTime, :metricId, :envId, :appId, :count, :mean, :max, :total)";
+    int inserted = 0;
+    try (Transaction txn = db.beginTransaction()) {
+      txn.setBatchMode(true);
+      for (Instant t = from; !t.isAfter(to); t = t.plus(bucketMinutes, ChronoUnit.MINUTES)) {
+        int minute = t.atZone(ZoneOffset.UTC).getMinute();
+        double wave = Math.max(0.0, Math.sin(minute / 60.0 * Math.PI * 2.0));
+        for (String type : List.of("readonly", "main")) {
+          long wait = Math.round(("readonly".equals(type) ? 1.0 : 0.4) + wave * 8.0);
+          long acquire = Math.round(("readonly".equals(type) ? 2.0 : 0.8) + wave * 12.0);
+          for (var entry : List.of(
+            Map.entry("datasource.pool.wait.total", wait),
+            Map.entry("datasource.pool.acquire.total", acquire))) {
+            long total = entry.getValue() * 1000L;
+            db.sqlUpdate(sql)
+              .setParameter("eventTime", t)
+              .setParameter("metricId", metrics.get(entry.getKey() + "|" + type).getId())
+              .setParameter("envId", env.getId())
+              .setParameter("appId", app.getId())
+              .setParameter("count", 1L)
+              .setParameter("mean", total)
+              .setParameter("max", total)
+              .setParameter("total", total)
+              .execute();
+            inserted++;
+          }
+        }
+      }
+      txn.commit();
+    }
+    return inserted;
+  }
+
+  private int seedWebApi(String table, Instant from, Instant to, int bucketMinutes,
+                         DEnv env, DApp app, Map<String, DAppMetric> metrics) {
+    String sql = "insert into ebean_insight." + table
+      + " (event_time, metric_id, env_id, app_id, count, mean, max, total)"
+      + " values (:eventTime, :metricId, :envId, :appId, :count, :mean, :max, :total)";
+    int inserted = 0;
+    try (Transaction txn = db.beginTransaction()) {
+      txn.setBatchMode(true);
+      for (Instant t = from; !t.isAfter(to); t = t.plus(bucketMinutes, ChronoUnit.MINUTES)) {
+        int minute = t.atZone(ZoneOffset.UTC).getMinute();
+        for (var entry : List.of(
+          Map.entry("Orders.list", 12L + minute % 5),
+          Map.entry("Orders.create", 28L + minute % 9),
+          Map.entry("Health.get", 3L + minute % 2))) {
+          long count = 10L + minute % 6;
+          long mean = entry.getValue() * 1000L;
+          long total = mean * count;
+          db.sqlUpdate(sql)
+            .setParameter("eventTime", t)
+            .setParameter("metricId", metrics.get(entry.getKey()).getId())
+            .setParameter("envId", env.getId())
+            .setParameter("appId", app.getId())
+            .setParameter("count", count)
+            .setParameter("mean", mean)
+            .setParameter("max", mean * 2L)
+            .setParameter("total", total)
+            .execute();
+          inserted++;
+        }
+      }
+      txn.commit();
+    }
+    return inserted;
   }
 
   /**

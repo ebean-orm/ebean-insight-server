@@ -86,6 +86,35 @@
   margin-bottom: 1.5rem;
 }
 
+.datasource-pool-section {
+  margin-top: 1.5rem;
+}
+
+.datasource-pool-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+}
+
+.web-api-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+@media (max-width: 900px) {
+  .web-api-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .datasource-pool-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .ranking-chart-wrap {
   position: relative;
   height: 360px;
@@ -117,6 +146,38 @@
   justify-content: flex-end;
   gap: 0.5rem;
   margin-bottom: 0.5rem;
+}
+
+.chart-control-group {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 0;
+}
+
+.chart-control-label {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 0.4rem;
+  color: var(--pico-muted-color);
+  font-size: 0.75rem;
+}
+
+.chart-control-group .chart-type-btn + .chart-type-btn {
+  margin-left: -1px;
+}
+
+.chart-control-group .chart-type-btn {
+  border-radius: 0;
+}
+
+.chart-control-group .chart-type-btn:first-child {
+  border-top-left-radius: var(--pico-border-radius);
+  border-bottom-left-radius: var(--pico-border-radius);
+}
+
+.chart-control-group .chart-type-btn:last-child {
+  border-top-right-radius: var(--pico-border-radius);
+  border-bottom-right-radius: var(--pico-border-radius);
 }
 
 .chart-type-btn {

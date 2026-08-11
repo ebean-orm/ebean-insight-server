@@ -40,6 +40,7 @@
   let rankingHoverLabel = null;
   let meanMaxMode = ['both', 'only', 'max'].includes(initialUrlState.get('mean'))
     ? initialUrlState.get('mean') : 'both';
+  let meanMaxView = initialUrlState.get('meanView') === 'lines' ? 'lines' : 'dots';
   let meanMaxScale = initialUrlState.get('scale') === 'log' ? 'logarithmic' : 'linear';
   let sharedHoverIndex = null;
   let selectedRange = null;
@@ -712,7 +713,7 @@
     rankingCharts.push({chart: rankingChart, labels: rankingData.labels});
   };
 
-  const renderMeanMaxChart = function (mode, scale) {
+  const renderMeanMaxChart = function (mode, scale, view) {
     const meanDataEl = document.getElementById('top-mean-data');
     const maxDataEl = document.getElementById('top-max-data');
     const meanCanvas = document.getElementById('top-mean-max-chart');
@@ -721,6 +722,7 @@
     }
     meanMaxMode = mode || meanMaxMode;
     meanMaxScale = scale || meanMaxScale;
+    meanMaxView = view || meanMaxView;
     if (meanMaxChart) {
       meanMaxChart.destroy();
     }
@@ -735,9 +737,12 @@
           hidden: !visible.get(ds.label),
           borderColor: ds.backgroundColor,
           backgroundColor: ds.backgroundColor,
-          showLine: false,
-          pointRadius: 3,
-          pointHoverRadius: 5,
+          showLine: meanMaxView === 'lines',
+          pointRadius: meanMaxView === 'lines' ? 0 : 3,
+          pointHoverRadius: meanMaxView === 'lines' ? 0 : 5,
+          borderWidth: meanMaxView === 'lines' ? 2 : 1,
+          tension: 0.15,
+          spanGaps: meanMaxView === 'lines',
           pointStyle: 'circle'
         });
       });
@@ -750,9 +755,12 @@
           hidden: !visible.get(ds.label),
           borderColor: ds.backgroundColor,
           backgroundColor: ds.backgroundColor,
-          showLine: false,
-          pointRadius: 2,
-          pointHoverRadius: 4,
+          showLine: meanMaxView === 'lines',
+          pointRadius: meanMaxView === 'lines' ? 0 : 2,
+          pointHoverRadius: meanMaxView === 'lines' ? 0 : 4,
+          borderWidth: meanMaxView === 'lines' ? 2 : 1,
+          tension: 0.15,
+          spanGaps: meanMaxView === 'lines',
           pointStyle: 'triangle'
         });
       });
@@ -810,6 +818,12 @@
     if (scaleToggle) {
       scaleToggle.checked = meanMaxScale === 'logarithmic';
     }
+    ['dots', 'lines'].forEach(function (name) {
+      const button = document.getElementById('top-mean-view-' + name);
+      if (button) {
+        button.setAttribute('aria-pressed', String(meanMaxView === name));
+      }
+    });
   };
 
   ['both', 'only', 'max'].forEach(function (mode) {
@@ -818,6 +832,15 @@
       button.addEventListener('click', function () {
         renderMeanMaxChart(mode);
         setChartStateUrl('mean', mode);
+      });
+    }
+  });
+  ['dots', 'lines'].forEach(function (view) {
+    const button = document.getElementById('top-mean-view-' + view);
+    if (button) {
+      button.addEventListener('click', function () {
+        renderMeanMaxChart(meanMaxMode, meanMaxScale, view);
+        setChartStateUrl('meanView', view);
       });
     }
   });

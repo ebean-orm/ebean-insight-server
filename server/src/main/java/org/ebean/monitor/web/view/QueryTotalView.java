@@ -28,7 +28,15 @@ public record QueryTotalView(
   String meanMaxMaxJson,
   String topByTimeJson,
   String topByMeanJson,
-  List<LegendRow> legend
+  List<LegendRow> legend,
+  boolean datasourcePoolDashboard,
+  String datasourcePoolJson,
+  String datasourcePoolTimingJson,
+  boolean webApiDashboard,
+  List<String> webApiGroups,
+  String webApiJson,
+  String webApiMeanJson,
+  String webApiMaxJson
 ) {
 
   /** One row of the shared legend/summary table below the chart. */

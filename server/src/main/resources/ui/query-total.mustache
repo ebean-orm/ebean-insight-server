@@ -43,8 +43,10 @@
           <article class="query-total-section">
             <header>Query total time</header>
             <div class="chart-toolbar" role="toolbar" aria-label="Query total chart controls">
-              <button type="button" id="chart-type-bar" class="chart-type-btn" aria-pressed="true">Stacked bar</button>
-              <button type="button" id="chart-type-line" class="chart-type-btn" aria-pressed="false">Line</button>
+              <span class="chart-control-group">
+                <button type="button" id="chart-type-bar" class="chart-type-btn" aria-pressed="true">Bars</button>
+                <button type="button" id="chart-type-line" class="chart-type-btn" aria-pressed="false">Lines</button>
+              </span>
             </div>
             <div class="chartjs-wrap">
               <canvas id="chartjs-canvas"></canvas>
@@ -70,12 +72,20 @@
           <article class="query-total-section">
             <header>Mean and Max</header>
             <div class="chart-toolbar" role="toolbar" aria-label="Mean and Max chart controls">
-              <button type="button" id="top-mean-mode-both" class="chart-type-btn"
-                      aria-pressed="true">Mean + Max</button>
-              <button type="button" id="top-mean-mode-only" class="chart-type-btn"
-                      aria-pressed="false">Mean only</button>
-              <button type="button" id="top-mean-mode-max" class="chart-type-btn"
-                      aria-pressed="false">Max only</button>
+              <span class="chart-control-group">
+                <button type="button" id="top-mean-mode-both" class="chart-type-btn"
+                        aria-pressed="true">Mean + Max</button>
+                <button type="button" id="top-mean-mode-only" class="chart-type-btn"
+                        aria-pressed="false">Mean</button>
+                <button type="button" id="top-mean-mode-max" class="chart-type-btn"
+                        aria-pressed="false">Max</button>
+              </span>
+              <span class="chart-control-group">
+                <button type="button" id="top-mean-view-dots" class="chart-type-btn"
+                        aria-pressed="true">Dots</button>
+                <button type="button" id="top-mean-view-lines" class="chart-type-btn"
+                        aria-pressed="false">Lines</button>
+              </span>
               <label class="chart-scale-toggle">
                 <input type="checkbox" id="top-mean-scale-log"
                        aria-label="Use logarithmic scale">
@@ -162,6 +172,81 @@
           </tbody>
         </table>
       </details>
+
+      {{#datasourcePoolDashboard}}
+        <div class="datasource-pool-grid">
+          <article class="query-total-section datasource-pool-section">
+            <header>Datasource pool size</header>
+            <div class="chartjs-wrap">
+              <canvas id="datasource-pool-chart"></canvas>
+            </div>
+          </article>
+          <article class="query-total-section datasource-pool-section">
+            <header>Datasource pool wait and acquire time</header>
+            <div class="chartjs-wrap">
+              <canvas id="datasource-pool-timing-chart"></canvas>
+            </div>
+          </article>
+        </div>
+      {{/datasourcePoolDashboard}}
+
+      {{#webApiDashboard}}
+        <div class="web-api-grid">
+          <article class="query-total-section">
+            <header>Web API total time</header>
+            <div class="chart-toolbar" role="toolbar" aria-label="Web API total chart controls">
+              <span class="chart-control-group">
+                <button type="button" id="web-api-chart-type-bar" class="chart-type-btn" aria-pressed="true">Bars</button>
+                <button type="button" id="web-api-chart-type-line" class="chart-type-btn" aria-pressed="false">Lines</button>
+              </span>
+            </div>
+            <div class="chartjs-wrap">
+              <canvas id="web-api-chart"></canvas>
+            </div>
+            <div class="top-chart-legend web-api-legend" aria-label="Web API series legend">
+              {{#webApiGroups}}
+                <button type="button" class="legend-series-toggle web-api-series-toggle"
+                        data-label="{{.}}" aria-pressed="true" aria-label="Toggle {{.}}" title="{{.}}">
+                  <span class="legend-swatch"></span>
+                </button>
+              {{/webApiGroups}}
+            </div>
+            <div id="web-api-range-selection" class="chart-range-selection" hidden>
+              <span id="web-api-range-selection-text"></span>
+              <button type="button" id="web-api-range-selection-clear">Use preset range</button>
+            </div>
+          </article>
+          <article class="query-total-section">
+            <header>Web API mean and max</header>
+            <div class="chart-toolbar" role="toolbar" aria-label="Web API mean and max chart controls">
+              <span class="chart-control-group">
+                <button type="button" id="web-api-mean-mode-both" class="chart-type-btn" aria-pressed="true">Mean + Max</button>
+                <button type="button" id="web-api-mean-mode-only" class="chart-type-btn" aria-pressed="false">Mean</button>
+                <button type="button" id="web-api-mean-mode-max" class="chart-type-btn" aria-pressed="false">Max</button>
+              </span>
+              <span class="chart-control-group">
+                <button type="button" id="web-api-mean-view-dots" class="chart-type-btn" aria-pressed="true">Dots</button>
+                <button type="button" id="web-api-mean-view-lines" class="chart-type-btn" aria-pressed="false">Lines</button>
+              </span>
+              <label class="chart-scale-toggle">
+                <input type="checkbox" id="web-api-mean-scale-log" aria-label="Use logarithmic scale">
+                Log scale
+              </label>
+            </div>
+            <div class="chartjs-wrap">
+              <canvas id="web-api-mean-max-chart"></canvas>
+            </div>
+            <div class="top-chart-legend web-api-legend" aria-label="Web API series legend">
+              {{#webApiGroups}}
+                <button type="button" class="legend-series-toggle web-api-series-toggle"
+                        data-label="{{.}}" aria-pressed="true" aria-label="Toggle {{.}}" title="{{.}}">
+                  <span class="legend-swatch"></span>
+                </button>
+              {{/webApiGroups}}
+            </div>
+          </article>
+        </div>
+      {{/webApiDashboard}}
     {{/hasData}}
 
     <script type="application/json" id="chart-data">{{{chartDataJson}}}</script>
@@ -169,8 +254,16 @@
     <script type="application/json" id="top-max-data">{{{meanMaxMaxJson}}}</script>
     <script type="application/json" id="top-by-time-data">{{{topByTimeJson}}}</script>
     <script type="application/json" id="top-by-mean-data">{{{topByMeanJson}}}</script>
+    <script type="application/json" id="datasource-pool-data">{{{datasourcePoolJson}}}</script>
+    <script type="application/json" id="datasource-pool-timing-data">{{{datasourcePoolTimingJson}}}</script>
+    <script type="application/json" id="web-api-data">{{{webApiJson}}}</script>
+    <script type="application/json" id="web-api-mean-data">{{{webApiMeanJson}}}</script>
+    <script type="application/json" id="web-api-max-data">{{{webApiMaxJson}}}</script>
     <script src="/static/vendor/chart.umd.min.js"></script>
     <script src="/static/dashboard-charts.js"></script>
     <script src="/static/query-total.js"></script>
+    <script src="/static/datasource-pool.js"></script>
+    <script src="/static/datasource-pool-timing.js"></script>
+    <script src="/static/web-api.js"></script>
   {{/body}}
 {{/fragments/layout}}

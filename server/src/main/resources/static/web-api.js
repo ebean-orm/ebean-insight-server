@@ -1,0 +1,278 @@
+(function () {
+  const totalElement = document.getElementById('web-api-data');
+  const meanElement = document.getElementById('web-api-mean-data');
+  const maxElement = document.getElementById('web-api-max-data');
+  const totalCanvas = document.getElementById('web-api-chart');
+  const meanMaxCanvas = document.getElementById('web-api-mean-max-chart');
+  if (!totalElement || !meanElement || !maxElement || !totalCanvas || !meanMaxCanvas
+    || typeof Chart === 'undefined' || !window.DashboardCharts) {
+    return;
+  }
+
+  const total = JSON.parse(totalElement.textContent);
+  const mean = JSON.parse(meanElement.textContent);
+  const max = JSON.parse(maxElement.textContent);
+  if (!total.labels || total.labels.length === 0) {
+    return;
+  }
+
+  let chartType = 'bar';
+  let meanMode = 'both';
+  let meanChartType = 'dots';
+  let meanScale = 'linear';
+  let totalChart = null;
+  let meanMaxChart = null;
+  let dragStart = null;
+  let dragEnd = null;
+  const visible = new Map(total.datasets.map(function (dataset) {
+    return [dataset.label, true];
+  }));
+
+  const currentSeries = function (data, line) {
+    return data.datasets.map(function (dataset) {
+      return {
+        label: dataset.label,
+        data: dataset.data,
+        hidden: !visible.get(dataset.label),
+        borderColor: dataset.backgroundColor,
+        backgroundColor: dataset.backgroundColor,
+        fill: false,
+        pointRadius: line ? 0 : undefined,
+        borderWidth: line ? 2 : 1,
+        tension: line ? 0.15 : undefined
+      };
+    });
+  };
+
+  const updateButton = function (id, pressed) {
+    const button = document.getElementById(id);
+    if (button) {
+      button.setAttribute('aria-pressed', String(pressed));
+    }
+  };
+
+  const render = function () {
+    if (totalChart) {
+      totalChart.destroy();
+    }
+    if (meanMaxChart) {
+      meanMaxChart.destroy();
+    }
+    const line = chartType === 'line';
+    totalChart = new Chart(totalCanvas.getContext('2d'), {
+      type: chartType,
+      data: {labels: total.labels, datasets: currentSeries(total, line)},
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        scales: {
+          x: Object.assign(window.DashboardCharts.buildXScale(total.labels, total.bucketMinutes), {stacked: !line}),
+          y: {stacked: !line, beginAtZero: true}
+        },
+        plugins: {legend: {display: false}}
+      }
+    });
+
+    const meanDatasets = mean.datasets.map(function (dataset) {
+      return {
+        label: dataset.label,
+        data: dataset.data,
+        hidden: !visible.get(dataset.label),
+        borderColor: dataset.backgroundColor,
+        backgroundColor: dataset.backgroundColor,
+        showLine: meanChartType === 'lines',
+        pointRadius: meanChartType === 'lines' ? 0 : 3,
+        pointHoverRadius: meanChartType === 'lines' ? 0 : 5,
+        borderWidth: meanChartType === 'lines' ? 2 : 1,
+        tension: 0.15,
+        spanGaps: meanChartType === 'lines',
+        pointStyle: 'circle'
+      };
+    });
+    const maxDatasets = max.datasets.map(function (dataset) {
+      return {
+        label: dataset.label,
+        data: dataset.data,
+        hidden: !visible.get(dataset.label),
+        borderColor: dataset.backgroundColor,
+        backgroundColor: dataset.backgroundColor,
+        showLine: meanChartType === 'lines',
+        pointRadius: meanChartType === 'lines' ? 0 : 2,
+        pointHoverRadius: meanChartType === 'lines' ? 0 : 4,
+        borderWidth: meanChartType === 'lines' ? 2 : 1,
+        tension: 0.15,
+        spanGaps: meanChartType === 'lines',
+        pointStyle: 'triangle'
+      };
+    });
+    if (meanMode === 'only') {
+      maxDatasets.forEach(function (dataset) { dataset.hidden = true; });
+    } else if (meanMode === 'max') {
+      meanDatasets.forEach(function (dataset) { dataset.hidden = true; });
+    }
+    meanMaxChart = new Chart(meanMaxCanvas.getContext('2d'), {
+      type: 'line',
+      data: {labels: mean.labels, datasets: meanDatasets.concat(maxDatasets)},
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        scales: {
+          x: window.DashboardCharts.buildXScale(mean.labels, mean.bucketMinutes),
+          y: {beginAtZero: true, type: meanScale}
+        },
+        plugins: {legend: {display: false}}
+      }
+    });
+  };
+
+  const applySelection = function (start, end) {
+    if (start === null || end === null || start === end) {
+      return;
+    }
+    if (start > end) {
+      const swap = start;
+      start = end;
+      end = swap;
+    }
+    const bucketMillis = total.bucketMinutes * 60 * 1000;
+    const current = new URLSearchParams(window.location.search);
+    current.set('from', new Date(total.timestamps[start] - 1).toISOString());
+    current.set('to', new Date(total.timestamps[end] + bucketMillis - 1).toISOString());
+    window.location.href = window.location.pathname + '?' + current.toString();
+  };
+
+  const showSelection = function () {
+    const current = new URLSearchParams(window.location.search);
+    const from = Date.parse(current.get('from') || '');
+    const to = Date.parse(current.get('to') || '');
+    const status = document.getElementById('web-api-range-selection');
+    const text = document.getElementById('web-api-range-selection-text');
+    if (!status || !text || !Number.isFinite(from) || !Number.isFinite(to)) {
+      return;
+    }
+    text.textContent = 'Selected: ' + new Date(from).toLocaleString()
+      + ' - ' + new Date(to).toLocaleString();
+    status.hidden = false;
+  };
+
+  const indexAt = function (event, chart) {
+    if (!chart || !chart.scales.x || !chart.chartArea) {
+      return null;
+    }
+    const position = Chart.helpers.getRelativePosition(event, chart);
+    if (position.x < chart.chartArea.left || position.x > chart.chartArea.right
+      || position.y < chart.chartArea.top || position.y > chart.chartArea.bottom) {
+      return null;
+    }
+    return Math.max(0, Math.min(total.labels.length - 1,
+      Math.round(chart.scales.x.getValueForPixel(position.x))));
+  };
+
+  totalCanvas.addEventListener('mousedown', function (event) {
+    dragStart = indexAt(event, totalChart);
+    dragEnd = dragStart;
+  });
+  totalCanvas.addEventListener('mousemove', function (event) {
+    if (dragStart !== null) {
+      dragEnd = indexAt(event, totalChart);
+    }
+  });
+  totalCanvas.addEventListener('mouseup', function () {
+    applySelection(dragStart, dragEnd);
+    dragStart = null;
+    dragEnd = null;
+  });
+
+  document.getElementById('web-api-chart-type-bar').addEventListener('click', function () {
+    chartType = 'bar';
+    updateButton('web-api-chart-type-bar', true);
+    updateButton('web-api-chart-type-line', false);
+    render();
+  });
+  document.getElementById('web-api-chart-type-line').addEventListener('click', function () {
+    chartType = 'line';
+    updateButton('web-api-chart-type-bar', false);
+    updateButton('web-api-chart-type-line', true);
+    render();
+  });
+  document.getElementById('web-api-mean-mode-both').addEventListener('click', function () {
+    meanMode = 'both';
+    updateButton('web-api-mean-mode-both', true);
+    updateButton('web-api-mean-mode-only', false);
+    updateButton('web-api-mean-mode-max', false);
+    render();
+  });
+  document.getElementById('web-api-mean-mode-only').addEventListener('click', function () {
+    meanMode = 'only';
+    updateButton('web-api-mean-mode-both', false);
+    updateButton('web-api-mean-mode-only', true);
+    updateButton('web-api-mean-mode-max', false);
+    render();
+  });
+  document.getElementById('web-api-mean-mode-max').addEventListener('click', function () {
+    meanMode = 'max';
+    updateButton('web-api-mean-mode-both', false);
+    updateButton('web-api-mean-mode-only', false);
+    updateButton('web-api-mean-mode-max', true);
+    render();
+  });
+  document.getElementById('web-api-mean-view-dots').addEventListener('click', function () {
+    meanChartType = 'dots';
+    updateButton('web-api-mean-view-dots', true);
+    updateButton('web-api-mean-view-lines', false);
+    render();
+  });
+  document.getElementById('web-api-mean-view-lines').addEventListener('click', function () {
+    meanChartType = 'lines';
+    updateButton('web-api-mean-view-dots', false);
+    updateButton('web-api-mean-view-lines', true);
+    render();
+  });
+  document.getElementById('web-api-mean-scale-log').addEventListener('change', function (event) {
+    meanScale = event.target.checked ? 'logarithmic' : 'linear';
+    render();
+  });
+  const updateLegend = function () {
+    document.querySelectorAll('.web-api-series-toggle').forEach(function (button) {
+      const label = button.dataset.label;
+      const dataset = total.datasets.find(function (entry) { return entry.label === label; });
+      const swatch = button.querySelector('.legend-swatch');
+      button.setAttribute('aria-pressed', String(visible.get(label)));
+      if (swatch && dataset) {
+        swatch.style.backgroundColor = dataset.backgroundColor;
+      }
+    });
+  };
+  document.querySelectorAll('.web-api-series-toggle').forEach(function (button) {
+    button.addEventListener('click', function (event) {
+      const label = button.dataset.label;
+      if (event.ctrlKey || event.metaKey) {
+        visible.set(label, !visible.get(label));
+      } else {
+        const onlyThisSeries = Array.from(visible.entries()).every(function (entry) {
+          return entry[0] === label ? entry[1] : !entry[1];
+        });
+        total.datasets.forEach(function (dataset) {
+          visible.set(dataset.label, onlyThisSeries || dataset.label === label);
+        });
+      }
+      updateLegend();
+      render();
+    });
+  });
+  document.getElementById('web-api-range-selection-clear').addEventListener('click', function () {
+    const current = new URLSearchParams(window.location.search);
+    current.delete('from');
+    current.delete('to');
+    window.location.href = window.location.pathname + '?' + current.toString();
+  });
+
+  showSelection();
+  updateLegend();
+  render();
+  window.addEventListener('insight-theme-change', function () {
+    render();
+  });
+})();

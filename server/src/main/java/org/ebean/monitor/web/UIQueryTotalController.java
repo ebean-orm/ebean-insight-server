@@ -154,7 +154,9 @@ public class UIQueryTotalController {
     if (series.isEmpty()) {
       return new QueryTotalView(breadcrumb, false, selectedApp, appOptions(apps, selectedApp),
         selectedEnv, envOptions(envs, selectedEnv), range.key(), RangeOptions.options(range.key()),
-        data.bucketMinutes(), emptyChartJson(), emptyChartJson(), emptyChartJson(), emptyChartJson(), emptyChartJson(), List.of());
+        data.bucketMinutes(), emptyChartJson(), emptyChartJson(), emptyChartJson(), emptyChartJson(), emptyChartJson(),
+        List.of(), false, emptyChartJson(), emptyChartJson(),
+        false, List.of(), emptyChartJson(), emptyChartJson(), emptyChartJson());
     }
 
     final List<MetricTimeBucket> firstBuckets = series.get(0).buckets();
@@ -204,18 +206,137 @@ public class UIQueryTotalController {
       selectedApp, "total", selectedEnv, from, to, windowMinutes), false);
     final String topByMeanJson = rankingChartJson(topMetrics(
       selectedApp, "mean", selectedEnv, from, to, windowMinutes), true);
+    final boolean datasourcePoolDashboard = service.isDatasourcePoolDashboardEnabled(selectedApp);
+    final String datasourcePoolJson = datasourcePoolDashboard
+      ? gaugeChartJson(service.getGaugeTimeseries(selectedApp, "datasource.pool.size", "type",
+        from == null ? windowMinutes : null, null,
+        selectedEnv.isBlank() ? null : selectedEnv, from, to))
+      : emptyChartJson();
+    final String datasourcePoolTimingJson = datasourcePoolDashboard
+      ? timingChartJson(service.getDatasourcePoolTimingTimeseries(selectedApp,
+        from == null ? windowMinutes : null, null,
+        selectedEnv.isBlank() ? null : selectedEnv, from, to))
+      : emptyChartJson();
+    final boolean webApiDashboard = service.isWebApiDashboardEnabled(selectedApp);
+    final MetricTimeseriesTop webApiData = webApiDashboard
+      ? webApiTimeseries(selectedApp, selectedEnv, from, to, windowMinutes)
+      : MetricTimeseriesTop.builder().series(List.of()).build();
+    final String webApiJson = webApiDashboard ? webApiChartJson(webApiData, "total") : emptyChartJson();
+    final String webApiMeanJson = webApiDashboard
+      ? webApiChartJson(webApiData, "mean") : emptyChartJson();
+    final String webApiMaxJson = webApiDashboard
+      ? webApiChartJson(webApiData, "max") : emptyChartJson();
+    final List<String> webApiGroups = webApiData.series().stream()
+      .map(MetricTimeseriesTopSeries::group).toList();
 
     return new QueryTotalView(breadcrumb, true, selectedApp, appOptions(apps, selectedApp),
       selectedEnv, envOptions(envs, selectedEnv), range.key(), RangeOptions.options(range.key()),
       data.bucketMinutes(), chartDataJson, meanMaxMeanJson, meanMaxMaxJson,
-      topByTimeJson, topByMeanJson, legend);
+      topByTimeJson, topByMeanJson, legend, datasourcePoolDashboard, datasourcePoolJson,
+      datasourcePoolTimingJson, webApiDashboard, webApiGroups, webApiJson, webApiMeanJson, webApiMaxJson);
   }
 
   private QueryTotalView emptyView(Breadcrumb breadcrumb, List<App> apps, List<Env> envs,
                                     String selectedEnv, RangeOption range) {
     return new QueryTotalView(breadcrumb, false, "", appOptions(apps, ""),
       selectedEnv, envOptions(envs, selectedEnv), range.key(), RangeOptions.options(range.key()),
-      0L, emptyChartJson(), emptyChartJson(), emptyChartJson(), emptyChartJson(), emptyChartJson(), List.of());
+      0L, emptyChartJson(), emptyChartJson(), emptyChartJson(), emptyChartJson(), emptyChartJson(),
+      List.of(), false, emptyChartJson(), emptyChartJson(),
+      false, List.of(), emptyChartJson(), emptyChartJson(), emptyChartJson());
+  }
+
+  private MetricTimeseriesTop webApiTimeseries(String app, String env,
+                                               @Nullable Instant from, @Nullable Instant to,
+                                               long windowMinutes) {
+    final String selectedEnv = env.isBlank() ? null : env;
+    if (from != null) {
+      return service.getTopAppMetricsTimeseries(app, "web.api", null, null, "total",
+        SERIES_LIMIT, null, selectedEnv, from, to);
+    }
+    return service.getTopAppMetricsTimeseries(app, "web.api", null, null, "total",
+      windowMinutes, null, SERIES_LIMIT, null, selectedEnv);
+  }
+
+  private String gaugeChartJson(MetricTimeseriesTop data) {
+    if (data.series().isEmpty()) {
+      return emptyChartJson();
+    }
+
+    final List<MetricTimeBucket> buckets = data.series().get(0).buckets();
+    final List<String> labels = buckets.stream()
+      .map(bucket -> BUCKET_LABEL_FORMAT.format(bucket.eventTime()))
+      .toList();
+    final List<Long> timestamps = buckets.stream()
+      .map(bucket -> bucket.eventTime().toEpochMilli())
+      .toList();
+    final List<ChartData.ChartDataset> datasets = new ArrayList<>();
+    int colorIndex = 0;
+    for (MetricTimeseriesTopSeries series : data.series()) {
+      datasets.add(new ChartData.ChartDataset(series.group(),
+        series.buckets().stream().map(MetricTimeBucket::total).toList(),
+        Palette.colorFor(colorIndex++)));
+    }
+    return chartJsonb.type(ChartData.class)
+      .toJson(new ChartData(labels, timestamps, datasets, data.bucketMinutes()))
+      .replace("<", "\\u003c");
+  }
+
+  private String timingChartJson(MetricTimeseriesTop data) {
+    if (data.series().isEmpty()) {
+      return emptyChartJson();
+    }
+    final List<MetricTimeBucket> buckets = data.series().get(0).buckets();
+    final List<String> labels = buckets.stream()
+      .map(bucket -> BUCKET_LABEL_FORMAT.format(bucket.eventTime()))
+      .toList();
+    final List<Long> timestamps = buckets.stream()
+      .map(bucket -> bucket.eventTime().toEpochMilli())
+      .toList();
+    final List<ChartData.ChartDataset> datasets = data.series().stream()
+      .map(series -> new ChartData.ChartDataset(series.group(),
+        series.buckets().stream().map(bucket -> bucket.total() / 1000L).toList(),
+        timingColor(series.group())))
+      .toList();
+    return chartJsonb.type(ChartData.class)
+      .toJson(new ChartData(labels, timestamps, datasets, data.bucketMinutes()))
+      .replace("<", "\\u003c");
+  }
+
+  private String timingColor(String label) {
+    final boolean wait = label.startsWith("Wait");
+    final boolean readonly = label.endsWith("readonly");
+    if (wait) {
+      return readonly ? "#8ab4f8" : "#3f5fbf";
+    }
+    return readonly ? "#f6b26b" : "#b45f06";
+  }
+
+  private String webApiChartJson(MetricTimeseriesTop data, String mode) {
+    if (data.series().isEmpty()) {
+      return emptyChartJson();
+    }
+    final List<MetricTimeBucket> firstBuckets = data.series().get(0).buckets();
+    final List<String> labels = firstBuckets.stream()
+      .map(bucket -> BUCKET_LABEL_FORMAT.format(bucket.eventTime()))
+      .toList();
+    final List<Long> timestamps = firstBuckets.stream()
+      .map(bucket -> bucket.eventTime().toEpochMilli())
+      .toList();
+    final List<ChartData.ChartDataset> datasets = new ArrayList<>();
+    int colorIndex = 0;
+    for (MetricTimeseriesTopSeries series : data.series()) {
+      final List<Long> values = series.buckets().stream().map(bucket -> {
+        return switch (mode) {
+          case "mean" -> bucket.count() == 0L ? null : (bucket.total() / bucket.count()) / 1000L;
+          case "max" -> bucket.count() == 0L ? null : bucket.max() / 1000L;
+          default -> bucket.total() / 1000L;
+        };
+      }).toList();
+      datasets.add(new ChartData.ChartDataset(series.group(), values, Palette.colorFor(colorIndex++)));
+    }
+    return chartJsonb.type(ChartData.class)
+      .toJson(new ChartData(labels, timestamps, datasets, data.bucketMinutes()))
+      .replace("<", "\\u003c");
   }
 
   private ChartData derivedChartData(MetricTimeseriesTop data, boolean max) {
