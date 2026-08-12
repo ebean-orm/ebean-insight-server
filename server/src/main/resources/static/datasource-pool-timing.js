@@ -5,28 +5,33 @@
     return;
   }
 
-  const data = window.DashboardCharts.localize(JSON.parse(dataElement.textContent));
+  let data = window.DashboardCharts.localize(JSON.parse(dataElement.textContent));
   if (!data.labels || data.labels.length === 0) {
     return;
   }
 
+  let chart = null;
+  const datasets = function () {
+    return data.datasets.map(function (dataset) {
+      return {
+        label: dataset.label,
+        data: dataset.data,
+        backgroundColor: dataset.backgroundColor,
+        categoryPercentage: 1,
+        barPercentage: 1,
+        borderWidth: 1,
+        borderColor: getComputedStyle(document.body).backgroundColor,
+        borderSkipped: false
+      };
+    });
+  };
+
   const render = function () {
-    new Chart(canvas.getContext('2d'), {
+    chart = new Chart(canvas.getContext('2d'), {
     type: 'bar',
     data: {
       labels: data.labels,
-      datasets: data.datasets.map(function (dataset) {
-        return {
-          label: dataset.label,
-          data: dataset.data,
-          backgroundColor: dataset.backgroundColor,
-          categoryPercentage: 1,
-          barPercentage: 1,
-          borderWidth: 1,
-          borderColor: getComputedStyle(document.body).backgroundColor,
-          borderSkipped: false
-        };
-      })
+      datasets: datasets()
     },
     options: {
       responsive: true,
@@ -56,8 +61,20 @@
   };
 
   render();
+  window.addEventListener('insight-top-data', function (event) {
+    const next = event.detail.datasourcePoolTiming;
+    if (!next || !next.labels || next.labels.length === 0 || !chart) {
+      return;
+    }
+    data = window.DashboardCharts.localize(next);
+    chart.data.labels = data.labels;
+    chart.data.datasets = datasets();
+    chart.options.scales.x = Object.assign(
+      window.DashboardCharts.buildXScale(data.labels, data.bucketMinutes),
+      {stacked: true});
+    chart.update('none');
+  });
   window.addEventListener('insight-theme-change', function () {
-    const chart = Chart.getChart(canvas);
     if (chart) {
       chart.destroy();
     }
