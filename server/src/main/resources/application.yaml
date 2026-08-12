@@ -29,6 +29,22 @@ insight:
     # Cognito issuer, e.g. https://cognito-idp.<region>.amazonaws.com/<userPoolId>
     # JWKS is discovered at <issuer>/.well-known/jwks.json
     issuer: ""
+  ## Browser UI OAuth session (independent of insight.auth.enabled).
+  ## Keep disabled until the provider callback URL and token encryption key
+  ## are configured for the deployment.
+  ui:
+    auth:
+      enabled: false
+      # Cognito: set user-pool-id and domain; Entra: set tenant-id.
+      # user-pool-id: ""
+      # tenant-id: ""
+      # domain: ""
+      # client-id: ""
+      # issuer: ""
+      # jwks-uri: ""
+      # redirect-uri: ""
+      # persistent-store: true
+      # token-encryption-key: ""
   ## CLI bootstrap: public OAuth2 client settings returned by GET /api/cli-config
   ## so users can run `insight setup <url>` instead of four manual `config set` calls.
   ## These are not secrets — they are visible in every OAuth2 redirect URL.
@@ -117,4 +133,3 @@ datasource:
     username: ${DB_USER:ebean_insight}
     password: ${DB_PASS:ebean_insight}
     url: jdbc:postgresql://${DB_URL:localhost:7432}/ebean_insight
-

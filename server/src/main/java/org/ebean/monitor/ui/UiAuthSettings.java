@@ -1,6 +1,7 @@
 package org.ebean.monitor.ui;
 
 import io.avaje.config.Config;
+import org.ebean.monitor.Application;
 
 import java.time.Duration;
 
@@ -52,7 +53,8 @@ record UiAuthSettings(
       redirectUri,
       secure,
       cookieName,
-      Config.getBool("insight.ui.auth.persistent-store", enabled),
+      Config.getBool("insight.ui.auth.persistent-store", enabled)
+        && !Application.isForwardOnly(),
       Duration.ofSeconds(Config.getLong("insight.ui.auth.session-ttl-seconds", 28_800)),
       Duration.ofSeconds(Config.getLong("insight.ui.auth.transaction-ttl-seconds", 600)),
       Duration.ofSeconds(Config.getLong("insight.ui.auth.refresh-skew-seconds", 60)));

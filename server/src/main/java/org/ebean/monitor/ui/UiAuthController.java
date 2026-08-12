@@ -22,8 +22,9 @@ final class UiAuthController {
       return;
     }
     String previousSession = context.cookie(service.cookieName());
-    String loginUrl = service.beginLogin(context.queryParam("return"), previousSession);
-    context.redirect(loginUrl);
+    UiLoginStart login = service.beginLogin(context.queryParam("return"), previousSession);
+    context.cookie(service.loginCookie(login.state()));
+    context.redirect(login.url());
   }
 
   @Get("callback")
@@ -34,20 +35,25 @@ final class UiAuthController {
     }
     String error = context.queryParam("error");
     if (error != null && !error.isBlank()) {
+      context.cookie(service.expiredLoginCookie());
       context.status(400).text("OAuth login failed");
       return;
     }
     String state = context.queryParam("state");
     String code = context.queryParam("code");
     if (state == null || state.isBlank() || code == null || code.isBlank()) {
+      context.cookie(service.expiredLoginCookie());
       context.status(400).text("Invalid OAuth callback");
       return;
     }
     try {
-      UiLoginResult result = service.completeLogin(state, code);
+      UiLoginResult result = service.completeLogin(
+        state, context.cookie(service.loginCookieName()), code);
+      context.cookie(service.expiredLoginCookie());
       context.cookie(service.sessionCookie(result.session().id()));
       context.redirect(result.returnPath());
     } catch (UiTokenException e) {
+      context.cookie(service.expiredLoginCookie());
       context.status(400).text("OAuth login failed");
     }
   }

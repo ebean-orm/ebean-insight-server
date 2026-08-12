@@ -21,7 +21,7 @@ final class UiAuthService {
   private final UiOidcClient oidc;
   private final UiTokenVerifier tokenVerifier;
   private final UiSessionStore sessions;
-  private final UiLoginTransactionStore transactions;
+  private final UiLoginTransactionStore loginStore;
   private final Jsonb jsonb;
   private final SecureRandom random;
 
@@ -30,13 +30,13 @@ final class UiAuthService {
     UiOidcClient oidc,
     UiTokenVerifier tokenVerifier,
     UiSessionStore sessions,
-    UiLoginTransactionStore transactions,
+    UiLoginTransactionStore loginStore,
     Jsonb jsonb) {
     this.settings = settings;
     this.oidc = oidc;
     this.tokenVerifier = tokenVerifier;
     this.sessions = sessions;
-    this.transactions = transactions;
+    this.loginStore = loginStore;
     this.jsonb = jsonb;
     this.random = new SecureRandom();
   }
@@ -45,18 +45,22 @@ final class UiAuthService {
     return settings.enabled();
   }
 
-  String beginLogin(String requestedReturnPath, String previousSessionId) {
+  UiLoginStart beginLogin(String requestedReturnPath, String previousSessionId) {
     String returnPath = safeReturnPath(requestedReturnPath);
     String state = randomValue();
     String nonce = randomValue();
     Pkce pkce = Pkce.generate();
-    transactions.save(new UiLoginTransaction(state, nonce, pkce.verifier(), returnPath,
+    loginStore.save(new UiLoginTransaction(state, nonce, pkce.verifier(), returnPath,
       Instant.now().plus(settings.transactionTtl()), previousSessionId));
-    return oidc.loginUrl(nonce, state, pkce.challenge());
+    return new UiLoginStart(oidc.loginUrl(nonce, state, pkce.challenge()), state);
   }
 
-  UiLoginResult completeLogin(String state, String code) {
-    Optional<UiLoginTransaction> transaction = transactions.consume(state);
+  UiLoginResult completeLogin(String state, String loginCookie, String code) {
+    if (loginCookie == null || !MessageDigest.isEqual(
+      state.getBytes(StandardCharsets.UTF_8), loginCookie.getBytes(StandardCharsets.UTF_8))) {
+      throw new UiTokenException("Invalid OAuth login browser binding");
+    }
+    Optional<UiLoginTransaction> transaction = loginStore.consume(state);
     if (transaction.isEmpty()) {
       throw new UiTokenException("Invalid or expired login state");
     }
@@ -121,6 +125,27 @@ final class UiAuthService {
 
   String cookieName() {
     return settings.cookieName();
+  }
+
+  Context.Cookie loginCookie(String state) {
+    return Context.Cookie.of(loginCookieName(), state)
+      .path("/")
+      .httpOnly(true)
+      .secure(settings.secureCookie())
+      .sameSite(Context.Cookie.SameSite.Lax)
+      .maxAge(settings.transactionTtl());
+  }
+
+  Context.Cookie expiredLoginCookie() {
+    return Context.Cookie.expired(loginCookieName())
+      .path("/")
+      .httpOnly(true)
+      .secure(settings.secureCookie())
+      .sameSite(Context.Cookie.SameSite.Lax);
+  }
+
+  String loginCookieName() {
+    return settings.secureCookie() ? "__Host-insight-ui-login" : "insight-ui-login";
   }
 
   String safeReturnPath(String requested) {

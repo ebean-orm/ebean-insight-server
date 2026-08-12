@@ -27,10 +27,10 @@ class UiAuthServiceTest {
   void loginCallback_validatesStateAndRotatesSession() {
     FakeOidcClient oidc = new FakeOidcClient();
     UiAuthService service = service(oidc);
-    String loginUrl = service.beginLogin("/ux/top?app=one", "old-session");
-    String state = query(loginUrl, "state");
+    UiLoginStart login = service.beginLogin("/ux/top?app=one", "old-session");
+    String state = login.state();
 
-    UiLoginResult result = service.completeLogin(state, "code");
+    UiLoginResult result = service.completeLogin(state, state, "code");
 
     assertThat(result.returnPath()).isEqualTo("/ux/top?app=one");
     assertThat(result.session().id()).isNotEqualTo("old-session");
@@ -42,7 +42,16 @@ class UiAuthServiceTest {
   void loginCallback_rejectsUnknownState() {
     UiAuthService service = service(new FakeOidcClient());
 
-    assertThatThrownBy(() -> service.completeLogin("unknown", "code"))
+    assertThatThrownBy(() -> service.completeLogin("unknown", "unknown", "code"))
+      .isInstanceOf(UiTokenException.class);
+  }
+
+  @Test
+  void loginCallback_rejectsDifferentBrowserBinding() {
+    UiAuthService service = service(new FakeOidcClient());
+    UiLoginStart login = service.beginLogin("/ux", null);
+
+    assertThatThrownBy(() -> service.completeLogin(login.state(), "different", "code"))
       .isInstanceOf(UiTokenException.class);
   }
 

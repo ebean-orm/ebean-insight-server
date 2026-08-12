@@ -1,5 +1,5 @@
 -- apply changes
-create unlogged table ebean_insight.ui_login_transaction (
+create table ebean_insight.ui_login_transaction (
   expires_at                    timestamptz not null,
   version                       bigint not null,
   state_hash                    varchar(43) not null,
@@ -10,7 +10,7 @@ create unlogged table ebean_insight.ui_login_transaction (
   constraint pk_ui_login_transaction primary key (state_hash)
 );
 
-create unlogged table ebean_insight.ui_session (
+create table ebean_insight.ui_session (
   access_token_expires_at       timestamptz not null,
   expires_at                    timestamptz not null,
   version                       bigint not null,

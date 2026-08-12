@@ -317,6 +317,17 @@ can be reused. `redirect-uri` should be the exact callback URL registered with
 the provider. A client secret may be supplied as
 `insight.ui.auth.client-secret` for a confidential client; PKCE is still used.
 
+For a Cognito deployment, configure `user-pool-id`, `domain`, `client-id`, and
+the exact callback URL. For Entra, configure `tenant-id`, `client-id`, and an
+API scope exposed by the app registration (for example
+`api://<clientId>/access_as_user`); `openid profile` alone does not produce the
+JWT access token required by the server.
+
+The corresponding environment variables use the `INSIGHT_UI_AUTH_` prefix,
+for example `INSIGHT_UI_AUTH_ENABLED`, `INSIGHT_UI_AUTH_CLIENTID`,
+`INSIGHT_UI_AUTH_REDIRECTURI`, and
+`INSIGHT_UI_AUTH_TOKENENCRYPTIONKEY`.
+
 When enabled, `/ux` and `/ux/top/data` require the UI session. HTML requests
 redirect to `/auth/login`; the chart-data endpoint returns `401` so browser
 JavaScript can handle the unauthenticated state. `/static` remains public.
