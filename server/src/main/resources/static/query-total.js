@@ -18,11 +18,9 @@
   let autoRefreshTimer = null;
   let autoRefreshRemaining = 60;
 
-  const reloadIfVisible = function () {
-    if (document.visibilityState === 'visible') {
-      window.location.reload();
-    }
-  };
+  let pollTopData = null;
+  let autoRefreshInFlight = false;
+  const autoRefreshStatus = document.getElementById('auto-refresh-status');
 
   const updateAutoRefreshDisplay = function () {
     if (autoRefreshTimerDisplay) {
@@ -42,7 +40,6 @@
       window.clearInterval(autoRefreshTimer);
       autoRefreshTimer = null;
     }
-    document.removeEventListener('visibilitychange', reloadIfVisible);
   };
 
   const startAutoRefresh = function () {
@@ -56,10 +53,11 @@
       autoRefreshRemaining -= 1;
       updateAutoRefreshDisplay();
       if (autoRefreshRemaining <= 0) {
-        reloadIfVisible();
+        if (pollTopData && !autoRefreshInFlight) {
+          pollTopData();
+        }
       }
     }, 1000);
-    document.addEventListener('visibilitychange', reloadIfVisible);
   };
 
   if (autoRefreshEnabled && autoRefreshControl && autoRefreshToggle) {
@@ -86,7 +84,11 @@
     return;
   }
 
-  const chartData = window.DashboardCharts.localize(JSON.parse(dataEl.textContent));
+  let chartData = window.DashboardCharts.localize(JSON.parse(dataEl.textContent));
+  let meanData = window.DashboardCharts.localize(
+    JSON.parse(document.getElementById('top-mean-data').textContent));
+  let maxData = window.DashboardCharts.localize(
+    JSON.parse(document.getElementById('top-max-data').textContent));
   if (!chartData.labels || chartData.labels.length === 0) {
     return;
   }
@@ -267,6 +269,35 @@
     window.location.href = window.location.pathname + '?' + current.toString();
   };
 
+  const mainDatasets = function (isLine) {
+    const gapColor = getComputedStyle(document.body).backgroundColor;
+    return chartData.datasets.map(function (ds) {
+      return isLine
+        ? {
+          label: ds.label,
+          data: ds.data,
+          hidden: !visible.get(ds.label),
+          borderColor: ds.backgroundColor,
+          backgroundColor: ds.backgroundColor,
+          fill: false,
+          pointRadius: 0,
+          borderWidth: 2,
+          tension: 0.15
+        }
+        : {
+          label: ds.label,
+          data: ds.data,
+          hidden: !visible.get(ds.label),
+          backgroundColor: ds.backgroundColor,
+          categoryPercentage: 1.0,
+          barPercentage: 1.0,
+          borderWidth: 1,
+          borderColor: gapColor,
+          borderSkipped: false
+        };
+    });
+  };
+
   const render = function (type) {
     chartType = type;
     if (chart) {
@@ -283,41 +314,11 @@
     const xScale = Object.assign(
       window.DashboardCharts.buildXScale(chartData.labels, chartData.bucketMinutes),
       {stacked: !isLine});
-    // A percentage-based barPercentage/categoryPercentage gap scales with bar
-    // width and can't guarantee a fixed visual gap. Instead we draw each bar
-    // segment with a 1px border in the page's background color, giving a true
-    // ~1px gap between adjacent time-bucket columns regardless of chart width.
-    const gapColor = getComputedStyle(document.body).backgroundColor;
-
     chart = new Chart(canvas.getContext('2d'), {
       type: type,
       data: {
         labels: chartData.labels,
-        datasets: chartData.datasets.map(function (ds) {
-          return isLine
-            ? {
-              label: ds.label,
-              data: ds.data,
-              hidden: !visible.get(ds.label),
-              borderColor: ds.backgroundColor,
-              backgroundColor: ds.backgroundColor,
-              fill: false,
-              pointRadius: 0,
-              borderWidth: 2,
-              tension: 0.15
-            }
-            : {
-              label: ds.label,
-              data: ds.data,
-              hidden: !visible.get(ds.label),
-              backgroundColor: ds.backgroundColor,
-              categoryPercentage: 1.0,
-              barPercentage: 1.0,
-              borderWidth: 1,
-              borderColor: gapColor,
-              borderSkipped: false
-            };
-        })
+        datasets: mainDatasets(isLine)
       },
       options: {
         responsive: true,
@@ -367,6 +368,35 @@
       plugins: [sharedTimeCrosshair]
     });
     canvas.onmouseleave = clearRankingHover;
+  };
+
+  const updateMainChart = function () {
+    if (!chart) {
+      return;
+    }
+    const isLine = chartType === 'line';
+    chart.data.labels = chartData.labels;
+    chart.data.datasets = mainDatasets(isLine);
+    chart.options.scales.x = Object.assign(
+      window.DashboardCharts.buildXScale(chartData.labels, chartData.bucketMinutes),
+      {stacked: !isLine});
+    const maxTotalMs = chartData.labels.reduce(function (max, _, index) {
+      const total = chartData.datasets.reduce(function (sum, ds) {
+        return sum + (Number(ds.data[index]) || 0);
+      }, 0);
+      return Math.max(max, total);
+    }, 0);
+    const durationUnit = window.DashboardCharts.durationUnitFor(maxTotalMs);
+    chart.options.scales.y.ticks.callback = function (value) {
+      return window.DashboardCharts.compactDuration(value, durationUnit);
+    };
+    chart.options.plugins.tooltip = window.DashboardCharts.tooltipOptions(chartData.labels, {
+      label: function (context) {
+        return context.dataset.label + ': '
+          + window.DashboardCharts.detailedDuration(context.raw);
+      }
+    });
+    chart.update('none');
   };
 
   const attachDragHandlers = function (dragCanvas, chartSupplier) {
@@ -548,26 +578,33 @@
     });
   };
 
-  document.querySelectorAll('.legend-series-toggle').forEach(function (button) {
-    button.addEventListener('click', function (event) {
-      const label = button.dataset.label;
-      if (event.ctrlKey || event.metaKey) {
-        visible.set(label, !visible.get(label));
-      } else {
-        const onlyThisSeries = Array.from(visible.entries()).every(function (entry) {
-          return entry[0] === label ? entry[1] : !entry[1];
-        });
-        chartData.datasets.forEach(function (ds) {
-          visible.set(ds.label, onlyThisSeries || ds.label === label);
-        });
-      }
-      updateChartVisibility();
-      updateLegend();
-      rankingCharts.forEach(function (entry) {
-        entry.chart.update('none');
+  const toggleLegend = function (button, event) {
+    const label = button.dataset.label;
+    if (event.ctrlKey || event.metaKey) {
+      visible.set(label, !visible.get(label));
+    } else {
+      const onlyThisSeries = Array.from(visible.entries()).every(function (entry) {
+        return entry[0] === label ? entry[1] : !entry[1];
       });
+      chartData.datasets.forEach(function (ds) {
+        visible.set(ds.label, onlyThisSeries || ds.label === label);
+      });
+    }
+    updateChartVisibility();
+    updateLegend();
+    rankingCharts.forEach(function (entry) {
+      entry.chart.update('none');
     });
-  });
+  };
+
+  const bindLegendButton = function (button) {
+    button.addEventListener('click', function (event) {
+      toggleLegend(button, event);
+    });
+  };
+
+  document.querySelectorAll('.legend-series-toggle:not(.web-api-series-toggle)')
+    .forEach(bindLegendButton);
 
   const legendDetails = document.querySelector('.legend-toggle');
   if (legendDetails) {
@@ -665,7 +702,7 @@
     if (!rankingDataEl || !rankingCanvas) {
       return;
     }
-    const rankingData = window.DashboardCharts.localize(JSON.parse(rankingDataEl.textContent));
+    let rankingData = window.DashboardCharts.localize(JSON.parse(rankingDataEl.textContent));
     if (!rankingData.labels || rankingData.labels.length === 0) {
       return;
     }
@@ -806,26 +843,22 @@
     });
     rankingCanvas.onmouseleave = clearRankingHover;
     rankingCanvas.onpointerleave = clearRankingHover;
-    rankingCharts.push({chart: rankingChart, labels: rankingData.labels});
+    rankingCharts.push({
+      chart: rankingChart,
+      labels: rankingData.labels,
+      update: function (nextData) {
+        rankingData = window.DashboardCharts.localize(nextData);
+        rankingChart.data.labels = rankingData.labels;
+        rankingChart.data.datasets[0].data = rankingData.datasets.length
+          ? rankingData.datasets[0].data : [];
+        rankingChart.update('none');
+      }
+    });
   };
 
-  const renderMeanMaxChart = function (mode, scale, view) {
-    const meanDataEl = document.getElementById('top-mean-data');
-    const maxDataEl = document.getElementById('top-max-data');
-    const meanCanvas = document.getElementById('top-mean-max-chart');
-    if (!meanDataEl || !maxDataEl || !meanCanvas) {
-      return;
-    }
-    meanMaxMode = mode || meanMaxMode;
-    meanMaxScale = scale || meanMaxScale;
-    meanMaxView = view || meanMaxView;
-    if (meanMaxChart) {
-      meanMaxChart.destroy();
-    }
-    const meanData = window.DashboardCharts.localize(JSON.parse(meanDataEl.textContent));
-    const maxData = window.DashboardCharts.localize(JSON.parse(maxDataEl.textContent));
+  const meanMaxDatasets = function () {
     const datasets = [];
-    if (mode !== 'max') {
+    if (meanMaxMode !== 'max') {
       meanData.datasets.forEach(function (ds) {
         datasets.push({
           label: ds.label,
@@ -843,7 +876,7 @@
         });
       });
     }
-    if (mode !== 'only') {
+    if (meanMaxMode !== 'only') {
       maxData.datasets.forEach(function (ds) {
         datasets.push({
           label: ds.label,
@@ -861,6 +894,21 @@
         });
       });
     }
+    return datasets;
+  };
+
+  const renderMeanMaxChart = function (mode, scale, view) {
+    const meanCanvas = document.getElementById('top-mean-max-chart');
+    if (!meanCanvas) {
+      return;
+    }
+    meanMaxMode = mode || meanMaxMode;
+    meanMaxScale = scale || meanMaxScale;
+    meanMaxView = view || meanMaxView;
+    if (meanMaxChart) {
+      meanMaxChart.destroy();
+    }
+    const datasets = meanMaxDatasets();
     const maxValue = datasets.reduce(function (max, ds) {
       return Math.max(max, ds.data.reduce(function (seriesMax, value) {
         return Math.max(seriesMax, Number(value) || 0);
@@ -922,6 +970,34 @@
     });
   };
 
+  const updateMeanMaxChart = function () {
+    if (!meanMaxChart) {
+      return;
+    }
+    const datasets = meanMaxDatasets();
+    const maxValue = datasets.reduce(function (max, ds) {
+      return Math.max(max, ds.data.reduce(function (seriesMax, value) {
+        return Math.max(seriesMax, Number(value) || 0);
+      }, 0));
+    }, 0);
+    const durationUnit = window.DashboardCharts.durationUnitFor(maxValue);
+    meanMaxChart.data.labels = meanData.labels;
+    meanMaxChart.data.datasets = datasets;
+    meanMaxChart.options.scales.x = window.DashboardCharts.buildXScale(
+      meanData.labels, meanData.bucketMinutes);
+    meanMaxChart.options.scales.y.type = meanMaxScale;
+    meanMaxChart.options.scales.y.ticks.callback = function (value) {
+      return window.DashboardCharts.compactDuration(value, durationUnit);
+    };
+    meanMaxChart.options.plugins.tooltip = window.DashboardCharts.tooltipOptions(meanData.labels, {
+      label: function (context) {
+        return context.dataset.label + ': '
+          + window.DashboardCharts.detailedDuration(context.raw);
+      }
+    });
+    meanMaxChart.update('none');
+  };
+
   ['both', 'only', 'max'].forEach(function (mode) {
     const button = document.getElementById('top-mean-mode-' + mode);
     if (button) {
@@ -956,6 +1032,98 @@
     renderRankingChart('top-by-time-data', 'top-by-time-chart', 'ms');
     renderRankingChart('top-by-mean-data', 'top-by-mean-chart', 'ms');
   };
+
+  const updatePrimaryLegends = function (legend) {
+    document.querySelectorAll('.top-chart-legend:not(.web-api-legend)').forEach(function (container) {
+      container.replaceChildren();
+      legend.forEach(function (entry) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'legend-series-toggle';
+        button.dataset.label = entry.group;
+        button.setAttribute('aria-pressed', String(visible.get(entry.group)));
+        button.setAttribute('aria-label', 'Toggle ' + entry.group);
+        button.title = entry.group;
+        const swatch = document.createElement('span');
+        swatch.className = 'legend-swatch';
+        swatch.style.backgroundColor = entry.color;
+        button.appendChild(swatch);
+        bindLegendButton(button);
+        container.appendChild(button);
+      });
+    });
+  };
+
+  const applyPolledData = function (data) {
+    chartData = window.DashboardCharts.localize(data.queryTotal);
+    meanData = window.DashboardCharts.localize(data.mean);
+    maxData = window.DashboardCharts.localize(data.max);
+    chartData.timestamps = chartData.timestamps || [];
+    chartData.datasets.forEach(function (dataset) {
+      if (!visible.has(dataset.label)) {
+        visible.set(dataset.label, true);
+      }
+    });
+    updatePrimaryLegends(data.legend || []);
+    updateMainChart();
+    updateMeanMaxChart();
+    if (rankingCharts.length >= 2) {
+      rankingCharts[0].update(data.topByTime);
+      rankingCharts[1].update(data.topByMean);
+    }
+    if (selectedRange && chartData.labels.length > 0) {
+      selectedRange.end = Math.min(selectedRange.end, chartData.labels.length - 1);
+      selectedRange.start = Math.min(selectedRange.start, selectedRange.end);
+      updateSelectionStatus();
+    }
+    window.dispatchEvent(new CustomEvent('insight-top-data', {detail: data}));
+  };
+
+  const poll = function () {
+    if (autoRefreshInFlight || document.visibilityState !== 'visible') {
+      return;
+    }
+    autoRefreshInFlight = true;
+    const url = new URL('/ux/top/data', window.location.origin);
+    const current = new URLSearchParams(window.location.search);
+    ['app', 'env', 'range', 'from', 'to'].forEach(function (name) {
+      const value = current.get(name)
+        || (name === 'from' || name === 'to' ? '' : (
+          document.querySelector('[name="' + name + '"]') || {}).value || '');
+      if (value) {
+        url.searchParams.set(name, value);
+      }
+    });
+    fetch(url, {headers: {Accept: 'application/json'}, cache: 'no-store'})
+      .then(function (response) {
+        if (!response.ok) {
+          throw new Error('Refresh failed: ' + response.status);
+        }
+        return response.json();
+      })
+      .then(function (data) {
+        applyPolledData(data);
+        autoRefreshRemaining = 60;
+        if (autoRefreshStatus) {
+          autoRefreshStatus.textContent = '';
+          autoRefreshStatus.hidden = true;
+        }
+        updateAutoRefreshDisplay();
+      })
+      .catch(function () {
+        autoRefreshRemaining = 5;
+        if (autoRefreshStatus) {
+          autoRefreshStatus.textContent = 'Refresh unavailable';
+          autoRefreshStatus.hidden = false;
+        }
+        updateAutoRefreshDisplay();
+      })
+      .finally(function () {
+        autoRefreshInFlight = false;
+      });
+  };
+
+  pollTopData = poll;
 
   window.addEventListener('insight-theme-change', function () {
     window.DashboardCharts.applyTheme();

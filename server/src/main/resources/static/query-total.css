@@ -103,6 +103,11 @@
   text-align: right;
 }
 
+.auto-refresh-status {
+  color: var(--pico-del-color);
+  font-size: 0.7rem;
+}
+
 .auto-refresh-ring {
   position: relative;
   display: inline-block;

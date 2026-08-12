@@ -9,9 +9,9 @@
     return;
   }
 
-  const total = window.DashboardCharts.localize(JSON.parse(totalElement.textContent));
-  const mean = window.DashboardCharts.localize(JSON.parse(meanElement.textContent));
-  const max = window.DashboardCharts.localize(JSON.parse(maxElement.textContent));
+  let total = window.DashboardCharts.localize(JSON.parse(totalElement.textContent));
+  let mean = window.DashboardCharts.localize(JSON.parse(meanElement.textContent));
+  let max = window.DashboardCharts.localize(JSON.parse(maxElement.textContent));
   if (!total.labels || total.labels.length === 0) {
     return;
   }
@@ -44,36 +44,7 @@
     });
   };
 
-  const updateButton = function (id, pressed) {
-    const button = document.getElementById(id);
-    if (button) {
-      button.setAttribute('aria-pressed', String(pressed));
-    }
-  };
-
-  const render = function () {
-    if (totalChart) {
-      totalChart.destroy();
-    }
-    if (meanMaxChart) {
-      meanMaxChart.destroy();
-    }
-    const line = chartType === 'line';
-    totalChart = new Chart(totalCanvas.getContext('2d'), {
-      type: chartType,
-      data: {labels: total.labels, datasets: currentSeries(total, line)},
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: false,
-        scales: {
-          x: Object.assign(window.DashboardCharts.buildXScale(total.labels, total.bucketMinutes), {stacked: !line}),
-          y: {stacked: !line, beginAtZero: true}
-        },
-        plugins: {legend: {display: false}}
-      }
-    });
-
+  const meanMaxSeries = function () {
     const meanDatasets = mean.datasets.map(function (dataset) {
       return {
         label: dataset.label,
@@ -111,9 +82,43 @@
     } else if (meanMode === 'max') {
       meanDatasets.forEach(function (dataset) { dataset.hidden = true; });
     }
+    return meanDatasets.concat(maxDatasets);
+  };
+
+  const updateButton = function (id, pressed) {
+    const button = document.getElementById(id);
+    if (button) {
+      button.setAttribute('aria-pressed', String(pressed));
+    }
+  };
+
+  const render = function () {
+    if (totalChart) {
+      totalChart.destroy();
+    }
+    if (meanMaxChart) {
+      meanMaxChart.destroy();
+    }
+    const line = chartType === 'line';
+    totalChart = new Chart(totalCanvas.getContext('2d'), {
+      type: chartType,
+      data: {labels: total.labels, datasets: currentSeries(total, line)},
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        scales: {
+          x: Object.assign(window.DashboardCharts.buildXScale(total.labels, total.bucketMinutes), {stacked: !line}),
+          y: {stacked: !line, beginAtZero: true}
+        },
+        plugins: {legend: {display: false}}
+      }
+    });
+
+    const datasets = meanMaxSeries();
     meanMaxChart = new Chart(meanMaxCanvas.getContext('2d'), {
       type: 'line',
-      data: {labels: mean.labels, datasets: meanDatasets.concat(maxDatasets)},
+      data: {labels: mean.labels, datasets: datasets},
       options: {
         responsive: true,
         maintainAspectRatio: false,
@@ -267,6 +272,40 @@
     current.delete('from');
     current.delete('to');
     window.location.href = window.location.pathname + '?' + current.toString();
+  });
+
+  window.addEventListener('insight-top-data', function (event) {
+    const data = event.detail;
+    if (!data.webApiDashboard || !data.webApi || !data.webApi.labels
+      || data.webApi.labels.length === 0) {
+      return;
+    }
+    total = window.DashboardCharts.localize(data.webApi);
+    mean = window.DashboardCharts.localize(data.webApiMean);
+    max = window.DashboardCharts.localize(data.webApiMax);
+    total.datasets.forEach(function (dataset) {
+      if (!visible.has(dataset.label)) {
+        visible.set(dataset.label, true);
+      }
+    });
+    if (totalChart) {
+      const line = chartType === 'line';
+      totalChart.data.labels = total.labels;
+      totalChart.data.datasets = currentSeries(total, line);
+      totalChart.options.scales.x = Object.assign(
+        window.DashboardCharts.buildXScale(total.labels, total.bucketMinutes),
+        {stacked: !line});
+      totalChart.update('none');
+    }
+    if (meanMaxChart) {
+      meanMaxChart.data.labels = mean.labels;
+      meanMaxChart.data.datasets = meanMaxSeries();
+      meanMaxChart.options.scales.x = window.DashboardCharts.buildXScale(
+        mean.labels, mean.bucketMinutes);
+      meanMaxChart.options.scales.y.type = meanScale;
+      meanMaxChart.update('none');
+    }
+    updateLegend();
   });
 
   showSelection();

@@ -17,6 +17,11 @@ every request, except a small permit-list.
 
 ---
 
+The browser UI also supports an independent BFF-style OAuth login. It uses a
+server-side session and an opaque cookie; access, refresh, and ID tokens never
+leave the server or appear in browser cookies. This UI session is separate from
+the `/v1` bearer-token API authentication described below.
+
 ## Enforcement model
 
 When enabled, **every** request must present a valid bearer token **except**
@@ -27,6 +32,8 @@ these permitted path prefixes, which stay open:
 | `/health`        | Kubernetes liveness/readiness probes must not require a token. |
 | `/api/ingest`    | App forwarders authenticate with the `Insight-Key` header (see [Ingest key](#ingest-shared-secret-insight-key)), not a bearer token. |
 | `/api/cli-config` | Public OAuth2 client settings fetched by `insight setup` before a token exists (see [CLI bootstrap config](#cli-bootstrap-config-apicli-config)). |
+| `/auth` | Browser OAuth login, callback, and logout endpoints. |
+| `/ux` and `/static` | Reserved for the separate UI session filter and public static assets. |
 
 Everything else is protected, including:
 
@@ -135,7 +142,7 @@ Three properties, all under `insight.auth`:
 ```yaml
 insight:
   auth:
-    enabled: false           # master switch — default OFF
+    enabled: true
     # OIDC issuer. JWKS defaults to <issuer>/.well-known/jwks.json unless jwks-uri is set below.
     issuer: ""
     # Optional explicit JWKS URI override — required for providers (e.g. Entra ID)
@@ -184,7 +191,7 @@ path, so `insight.auth.jwks-uri` **must** be set explicitly:
 ```yaml
 insight:
   auth:
-    enabled: true
+    enabled: false           # master switch — default OFF
     issuer: "https://login.microsoftonline.com/<tenantId>/v2.0"
     jwks-uri: "https://login.microsoftonline.com/<tenantId>/discovery/v2.0/keys"
 ```
@@ -275,3 +282,66 @@ curl -fsS -H "Insight-Key: <key>" ... https://<host>/api/ingest
 
 A `401` on a protected path with no/invalid token, and a `200` on `/health` and
 with a valid token, confirms enforcement is active.
+
+## Browser UI sessions (`/ux`)
+
+Enable the first-party Authorization Code + PKCE browser flow independently of
+`insight.auth.enabled`:
+
+```yaml
+insight:
+  ui:
+    auth:
+      enabled: false # default; set true to protect /ux
+      client-id: "<public-client-id>"
+      # Cognito:
+      user-pool-id: "ap-southeast-2_<userPoolId>"
+      domain: "https://my-app.auth.ap-southeast-2.amazoncognito.com"
+      # Or set issuer explicitly instead of user-pool-id:
+      # issuer: "https://cognito-idp.ap-southeast-2.amazonaws.com/<userPoolId>"
+      # Optional explicit JWKS URI:
+      # jwks-uri: "https://.../.well-known/jwks.json"
+      # Entra instead uses tenant-id (and may optionally set domain):
+      # tenant-id: "<tenant-id>"
+      scope: "openid profile email"
+      redirect-uri: "https://insight.example.com/auth/callback"
+      cookie-secure: true
+      persistent-store: true
+      # Base64-encoded 32-byte AES key; required with persistent-store.
+      token-encryption-key: "<base64-encoded-32-byte-key>"
+```
+
+The `domain`, `tenant-id`, `client-id`, and `scope` values fall back to the
+corresponding `insight.cli.auth.*` values, so existing CLI-style configuration
+can be reused. `redirect-uri` should be the exact callback URL registered with
+the provider. A client secret may be supplied as
+`insight.ui.auth.client-secret` for a confidential client; PKCE is still used.
+
+For a Cognito deployment, configure `user-pool-id`, `domain`, `client-id`, and
+the exact callback URL. For Entra, configure `tenant-id`, `client-id`, and an
+API scope exposed by the app registration (for example
+`api://<clientId>/access_as_user`); `openid profile` alone does not produce the
+JWT access token required by the server.
+
+The corresponding environment variables use the `INSIGHT_UI_AUTH_` prefix,
+for example `INSIGHT_UI_AUTH_ENABLED`, `INSIGHT_UI_AUTH_CLIENTID`,
+`INSIGHT_UI_AUTH_REDIRECTURI`, and
+`INSIGHT_UI_AUTH_TOKENENCRYPTIONKEY`.
+
+When enabled, `/ux` and `/ux/top/data` require the UI session. HTML requests
+redirect to `/auth/login`; the chart-data endpoint returns `401` so browser
+JavaScript can handle the unauthenticated state. `/static` remains public.
+`/auth/login` and `/auth/callback` are the login endpoints. Logout is performed
+with `POST /auth/logout`.
+The session cookie is `HttpOnly`, `SameSite=Lax`, `Path=/`, and Secure in
+production by default (or whenever `cookie-secure` is true). Secure cookies use
+the `__Host-` prefix. Logout removes the server-side session and expires the
+cookie.
+
+Persistent storage is enabled by default when UI auth is enabled. It stores
+sessions and login transactions in the Insight database, hashes opaque session
+and state identifiers, and encrypts OAuth secrets with AES-GCM. The key must be
+stable across restarts and replicas. Set `persistent-store: false` for local
+development to use the in-memory stores. Return paths are restricted to local
+absolute paths to prevent open redirects. Access tokens are refreshed
+server-side near expiry when a refresh token is available.

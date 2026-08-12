@@ -4,7 +4,9 @@ import io.avaje.htmx.api.Html;
 import io.avaje.http.api.Controller;
 import io.avaje.http.api.Get;
 import io.avaje.http.api.Path;
+import io.avaje.http.api.Produces;
 import io.avaje.http.api.QueryParam;
+import io.avaje.jsonb.Json;
 import io.avaje.jsonb.Jsonb;
 import io.avaje.jex.http.BadRequestException;
 import org.ebean.monitor.v1.model.App;
@@ -57,12 +59,29 @@ public class UIQueryTotalController {
     DateTimeFormatter.ofPattern("MM-dd HH:mm", Locale.US).withZone(ZoneOffset.UTC);
 
   private final V1QueryService service;
-  private final Jsonb jsonb;
   private final Jsonb chartJsonb;
 
-  public UIQueryTotalController(V1QueryService service, Jsonb jsonb) {
+  private record QueryTotalRequest(String app, String env, RangeOption range,
+                                   @Nullable Instant from, @Nullable Instant to,
+                                   long windowMinutes) {
+  }
+
+  @Json
+  record QueryTotalData(boolean hasData, ChartData queryTotal, ChartData mean, ChartData max,
+                        ChartData topByTime, ChartData topByMean,
+                        List<LegendData> legend, boolean datasourcePoolDashboard,
+                        ChartData datasourcePool, ChartData datasourcePoolTiming,
+                        boolean webApiDashboard, List<String> webApiGroups,
+                        ChartData webApi, ChartData webApiMean, ChartData webApiMax) {
+  }
+
+  @Json
+  record LegendData(String color, String group, String totalMs, String executions, String avgMs,
+                    String hashCount, boolean other, @Nullable String detailUrl) {
+  }
+
+  public UIQueryTotalController(V1QueryService service) {
     this.service = service;
-    this.jsonb = jsonb;
     this.chartJsonb = Jsonb.builder().serializeNulls(true).build();
   }
 
@@ -79,25 +98,50 @@ public class UIQueryTotalController {
       ? appParam
       : apps.isEmpty() ? "" : apps.get(0).name();
     final String selectedEnv = envParam == null ? "" : envParam;
-    final Instant from = parseInstant(fromParam, "from");
-    final Instant to = parseInstant(toParam, "to");
-    if ((from == null) != (to == null)) {
-      throw new BadRequestException("Both from and to timestamps are required");
-    }
-    final RangeOption range = from == null
-      ? RangeOptions.resolve(rangeParam)
-      : RangeOptions.custom();
-    final long windowMinutes = from == null ? range.minutes() : windowMinutes(from, to);
+    final QueryTotalRequest request = queryTotalRequest(
+      selectedApp, selectedEnv, rangeParam, fromParam, toParam);
+    final RangeOption range = request.range();
+    final long windowMinutes = request.windowMinutes();
     final Breadcrumb breadcrumb = new Breadcrumb(List.of(new Breadcrumb.Item("Top")));
 
     if (selectedApp.isBlank()) {
       return emptyView(breadcrumb, apps, envs, selectedEnv, range);
     }
 
-    final MetricTimeseriesTop data = topTimeseries(
-      selectedApp, selectedEnv, from, to, windowMinutes);
+    final QueryTotalData data = dashboardData(
+      selectedApp, selectedEnv, range, request.from(), request.to(), windowMinutes);
 
-    return buildView(breadcrumb, apps, envs, selectedApp, selectedEnv, range, windowMinutes, from, to, data);
+    return buildView(breadcrumb, apps, envs, selectedApp, selectedEnv, range, data);
+  }
+
+  @Get("top/data")
+  @Produces("application/json")
+  String queryTotalData(@QueryParam("app") @Nullable String appParam,
+                        @QueryParam("env") @Nullable String envParam,
+                        @QueryParam("range") @Nullable String rangeParam,
+                        @QueryParam("from") @Nullable String fromParam,
+                        @QueryParam("to") @Nullable String toParam) {
+    final QueryTotalRequest request = queryTotalRequest(
+      appParam == null ? "" : appParam,
+      envParam == null ? "" : envParam,
+      rangeParam, fromParam, toParam);
+    final QueryTotalData data = request.app().isBlank()
+      ? emptyData()
+      : dashboardData(request.app(), request.env(), request.range(),
+        request.from(), request.to(), request.windowMinutes());
+    return chartJsonb.type(QueryTotalData.class).toJson(data).replace("<", "\\u003c");
+  }
+
+  private QueryTotalRequest queryTotalRequest(String app, String env, @Nullable String rangeParam,
+                                               @Nullable String fromParam, @Nullable String toParam) {
+    final Instant from = parseInstant(fromParam, "from");
+    final Instant to = parseInstant(toParam, "to");
+    if ((from == null) != (to == null)) {
+      throw new BadRequestException("Both from and to timestamps are required");
+    }
+    final RangeOption range = from == null ? RangeOptions.resolve(rangeParam) : RangeOptions.custom();
+    final long windowMinutes = from == null ? range.minutes() : windowMinutes(from, to);
+    return new QueryTotalRequest(app, env, range, from, to, windowMinutes);
   }
 
   private MetricTimeseriesTop topTimeseries(String app, String selectedEnv,
@@ -146,17 +190,12 @@ public class UIQueryTotalController {
     }
   }
 
-  private QueryTotalView buildView(Breadcrumb breadcrumb, List<App> apps, List<Env> envs,
-                                    String selectedApp, String selectedEnv, RangeOption range, long windowMinutes,
-                                    @Nullable Instant from, @Nullable Instant to,
-                                    MetricTimeseriesTop data) {
+  private QueryTotalData dashboardData(String selectedApp, String selectedEnv, RangeOption range,
+                                       @Nullable Instant from, @Nullable Instant to, long windowMinutes) {
+    final MetricTimeseriesTop data = topTimeseries(selectedApp, selectedEnv, from, to, windowMinutes);
     final List<MetricTimeseriesTopSeries> series = data.series();
     if (series.isEmpty()) {
-      return new QueryTotalView(breadcrumb, false, selectedApp, appOptions(apps, selectedApp),
-        selectedEnv, envOptions(envs, selectedEnv), range.key(), RangeOptions.options(range.key()),
-        data.bucketMinutes(), emptyChartJson(), emptyChartJson(), emptyChartJson(), emptyChartJson(), emptyChartJson(),
-        List.of(), false, emptyChartJson(), emptyChartJson(),
-        false, List.of(), emptyChartJson(), emptyChartJson(), emptyChartJson());
+      return emptyData();
     }
 
     final List<MetricTimeBucket> firstBuckets = series.get(0).buckets();
@@ -167,7 +206,7 @@ public class UIQueryTotalController {
     }
 
     final List<ChartData.ChartDataset> datasets = new ArrayList<>(series.size());
-    final List<LegendRow> legend = new ArrayList<>(series.size());
+    final List<LegendData> legend = new ArrayList<>(series.size());
 
     int colorIndex = 0;
     for (MetricTimeseriesTopSeries s : series) {
@@ -188,52 +227,57 @@ public class UIQueryTotalController {
       final long avgMs = execCount == 0L ? 0L : totalMs / execCount;
       final String detailUrl = s.other() ? null
         : metricDetailUrl(selectedApp, selectedEnv, range.key(), s.group(), from, to);
-      legend.add(new LegendRow(color, s.group(), formatNum(totalMs), formatNum(execCount),
+      legend.add(new LegendData(color, s.group(), formatNum(totalMs), formatNum(execCount),
         formatNum(avgMs), formatNum(s.hashCount()), s.other(), detailUrl));
     }
 
     final List<Long> timestamps = firstBuckets.stream().map(bucket -> bucket.eventTime().toEpochMilli()).toList();
     final ChartData chartData = new ChartData(labels, timestamps, datasets, data.bucketMinutes());
-    // Neutralise "</script>" (and any other embedded tag) since group labels
-    // are user-supplied query labels — this JSON is inlined into a <script>
-    // block in the template.
-    final String chartDataJson = chartJsonb.type(ChartData.class).toJson(chartData).replace("<", "\\u003c");
-    final String meanMaxMeanJson = chartJsonb.type(ChartData.class)
-      .toJson(derivedChartData(data, false)).replace("<", "\\u003c");
-    final String meanMaxMaxJson = chartJsonb.type(ChartData.class)
-      .toJson(derivedChartData(data, true)).replace("<", "\\u003c");
-    final String topByTimeJson = rankingChartJson(topMetrics(
+    final ChartData meanMaxMean = derivedChartData(data, false);
+    final ChartData meanMaxMax = derivedChartData(data, true);
+    final ChartData topByTime = rankingChartData(topMetrics(
       selectedApp, "total", selectedEnv, from, to, windowMinutes), false);
-    final String topByMeanJson = rankingChartJson(topMetrics(
+    final ChartData topByMean = rankingChartData(topMetrics(
       selectedApp, "mean", selectedEnv, from, to, windowMinutes), true);
     final boolean datasourcePoolDashboard = service.isDatasourcePoolDashboardEnabled(selectedApp);
-    final String datasourcePoolJson = datasourcePoolDashboard
-      ? gaugeChartJson(service.getGaugeTimeseries(selectedApp, "datasource.pool.size", "type",
+    final ChartData datasourcePool = datasourcePoolDashboard
+      ? gaugeChartData(service.getGaugeTimeseries(selectedApp, "datasource.pool.size", "type",
         from == null ? windowMinutes : null, null,
         selectedEnv.isBlank() ? null : selectedEnv, from, to))
-      : emptyChartJson();
-    final String datasourcePoolTimingJson = datasourcePoolDashboard
-      ? timingChartJson(service.getDatasourcePoolTimingTimeseries(selectedApp,
+      : emptyDataChart();
+    final ChartData datasourcePoolTiming = datasourcePoolDashboard
+      ? timingChartData(service.getDatasourcePoolTimingTimeseries(selectedApp,
         from == null ? windowMinutes : null, null,
         selectedEnv.isBlank() ? null : selectedEnv, from, to))
-      : emptyChartJson();
+      : emptyDataChart();
     final boolean webApiDashboard = service.isWebApiDashboardEnabled(selectedApp);
     final MetricTimeseriesTop webApiData = webApiDashboard
       ? webApiTimeseries(selectedApp, selectedEnv, from, to, windowMinutes)
       : MetricTimeseriesTop.builder().series(List.of()).build();
-    final String webApiJson = webApiDashboard ? webApiChartJson(webApiData, "total") : emptyChartJson();
-    final String webApiMeanJson = webApiDashboard
-      ? webApiChartJson(webApiData, "mean") : emptyChartJson();
-    final String webApiMaxJson = webApiDashboard
-      ? webApiChartJson(webApiData, "max") : emptyChartJson();
+    final ChartData webApi = webApiDashboard ? webApiChartData(webApiData, "total") : emptyDataChart();
+    final ChartData webApiMean = webApiDashboard
+      ? webApiChartData(webApiData, "mean") : emptyDataChart();
+    final ChartData webApiMax = webApiDashboard
+      ? webApiChartData(webApiData, "max") : emptyDataChart();
     final List<String> webApiGroups = webApiData.series().stream()
       .map(MetricTimeseriesTopSeries::group).toList();
 
-    return new QueryTotalView(breadcrumb, true, selectedApp, appOptions(apps, selectedApp),
+    return new QueryTotalData(true, chartData, meanMaxMean, meanMaxMax, topByTime, topByMean,
+      legend, datasourcePoolDashboard, datasourcePool, datasourcePoolTiming,
+      webApiDashboard, webApiGroups, webApi, webApiMean, webApiMax);
+  }
+
+  private QueryTotalView buildView(Breadcrumb breadcrumb, List<App> apps, List<Env> envs,
+                                   String selectedApp, String selectedEnv, RangeOption range,
+                                   QueryTotalData data) {
+    return new QueryTotalView(breadcrumb, data.hasData(), selectedApp, appOptions(apps, selectedApp),
       selectedEnv, envOptions(envs, selectedEnv), range.key(), RangeOptions.options(range.key()),
-      data.bucketMinutes(), chartDataJson, meanMaxMeanJson, meanMaxMaxJson,
-      topByTimeJson, topByMeanJson, legend, datasourcePoolDashboard, datasourcePoolJson,
-      datasourcePoolTimingJson, webApiDashboard, webApiGroups, webApiJson, webApiMeanJson, webApiMaxJson);
+      data.queryTotal().bucketMinutes(), toChartJson(data.queryTotal()), toChartJson(data.mean()),
+      toChartJson(data.max()), toChartJson(data.topByTime()), toChartJson(data.topByMean()),
+      data.legend().stream().map(UIQueryTotalController::legendRow).toList(),
+      data.datasourcePoolDashboard(), toChartJson(data.datasourcePool()),
+      toChartJson(data.datasourcePoolTiming()), data.webApiDashboard(), data.webApiGroups(),
+      toChartJson(data.webApi()), toChartJson(data.webApiMean()), toChartJson(data.webApiMax()));
   }
 
   private QueryTotalView emptyView(Breadcrumb breadcrumb, List<App> apps, List<Env> envs,
@@ -257,9 +301,9 @@ public class UIQueryTotalController {
       windowMinutes, null, SERIES_LIMIT, null, selectedEnv);
   }
 
-  private String gaugeChartJson(MetricTimeseriesTop data) {
+  private ChartData gaugeChartData(MetricTimeseriesTop data) {
     if (data.series().isEmpty()) {
-      return emptyChartJson();
+      return emptyDataChart();
     }
 
     final List<MetricTimeBucket> buckets = data.series().get(0).buckets();
@@ -276,14 +320,12 @@ public class UIQueryTotalController {
         series.buckets().stream().map(MetricTimeBucket::total).toList(),
         Palette.colorFor(colorIndex++)));
     }
-    return chartJsonb.type(ChartData.class)
-      .toJson(new ChartData(labels, timestamps, datasets, data.bucketMinutes()))
-      .replace("<", "\\u003c");
+    return new ChartData(labels, timestamps, datasets, data.bucketMinutes());
   }
 
-  private String timingChartJson(MetricTimeseriesTop data) {
+  private ChartData timingChartData(MetricTimeseriesTop data) {
     if (data.series().isEmpty()) {
-      return emptyChartJson();
+      return emptyDataChart();
     }
     final List<MetricTimeBucket> buckets = data.series().get(0).buckets();
     final List<String> labels = buckets.stream()
@@ -297,9 +339,7 @@ public class UIQueryTotalController {
         series.buckets().stream().map(bucket -> bucket.total() / 1000L).toList(),
         timingColor(series.group())))
       .toList();
-    return chartJsonb.type(ChartData.class)
-      .toJson(new ChartData(labels, timestamps, datasets, data.bucketMinutes()))
-      .replace("<", "\\u003c");
+    return new ChartData(labels, timestamps, datasets, data.bucketMinutes());
   }
 
   private String timingColor(String label) {
@@ -311,9 +351,9 @@ public class UIQueryTotalController {
     return readonly ? "#f6b26b" : "#b45f06";
   }
 
-  private String webApiChartJson(MetricTimeseriesTop data, String mode) {
+  private ChartData webApiChartData(MetricTimeseriesTop data, String mode) {
     if (data.series().isEmpty()) {
-      return emptyChartJson();
+      return emptyDataChart();
     }
     final List<MetricTimeBucket> firstBuckets = data.series().get(0).buckets();
     final List<String> labels = firstBuckets.stream()
@@ -334,9 +374,7 @@ public class UIQueryTotalController {
       }).toList();
       datasets.add(new ChartData.ChartDataset(series.group(), values, Palette.colorFor(colorIndex++)));
     }
-    return chartJsonb.type(ChartData.class)
-      .toJson(new ChartData(labels, timestamps, datasets, data.bucketMinutes()))
-      .replace("<", "\\u003c");
+    return new ChartData(labels, timestamps, datasets, data.bucketMinutes());
   }
 
   private ChartData derivedChartData(MetricTimeseriesTop data, boolean max) {
@@ -364,18 +402,37 @@ public class UIQueryTotalController {
     return new ChartData(labels, timestamps, datasets, data.bucketMinutes());
   }
 
-  private String rankingChartJson(List<TopGroup> groups, boolean mean) {
+  private ChartData rankingChartData(List<TopGroup> groups, boolean mean) {
     final List<String> labels = groups.stream().map(TopGroup::group).toList();
     final List<Long> values = groups.stream()
       .map(g -> (mean ? g.meanMicros() : g.totalMicros()) / 1000L)
       .toList();
     final ChartData chartData = new ChartData(labels, List.of(),
       List.of(new ChartData.ChartDataset("Top", values, "#b7d5f7")), 0L);
-    return jsonb.type(ChartData.class).toJson(chartData).replace("<", "\\u003c");
+    return chartData;
   }
 
   private static String emptyChartJson() {
     return "{\"labels\":[],\"datasets\":[]}";
+  }
+
+  private static ChartData emptyDataChart() {
+    return new ChartData(List.of(), List.of(), List.of(), 0L);
+  }
+
+  private static QueryTotalData emptyData() {
+    final ChartData empty = emptyDataChart();
+    return new QueryTotalData(false, empty, empty, empty, empty, empty, List.of(),
+      false, empty, empty, false, List.of(), empty, empty, empty);
+  }
+
+  private String toChartJson(ChartData data) {
+    return chartJsonb.type(ChartData.class).toJson(data).replace("<", "\\u003c");
+  }
+
+  private static LegendRow legendRow(LegendData data) {
+    return new LegendRow(data.color(), data.group(), data.totalMs(), data.executions(),
+      data.avgMs(), data.hashCount(), data.other(), data.detailUrl());
   }
 
   /** Link from a query-total label (legend row / stacked-bar segment) to its {@link UIMetricDetailController} drill-down. */
