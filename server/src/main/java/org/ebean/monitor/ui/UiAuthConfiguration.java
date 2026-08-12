@@ -4,6 +4,7 @@ import io.avaje.inject.Bean;
 import io.avaje.inject.Factory;
 import io.avaje.jex.spi.JexPlugin;
 import io.avaje.jsonb.Jsonb;
+import io.ebean.Database;
 
 @Factory
 final class UiAuthConfiguration {
@@ -24,12 +25,19 @@ final class UiAuthConfiguration {
   }
 
   @Bean
-  UiSessionStore uiSessionStore() {
+  UiSessionStore uiSessionStore(UiAuthSettings settings, Database database) {
+    if (settings.persistentStore()) {
+      return new DatabaseUiSessionStore(database, UiTokenCodec.load());
+    }
     return new InMemoryUiSessionStore();
   }
 
   @Bean
-  UiLoginTransactionStore uiLoginTransactionStore() {
+  UiLoginTransactionStore uiLoginTransactionStore(
+    UiAuthSettings settings, Database database) {
+    if (settings.persistentStore()) {
+      return new DatabaseUiLoginTransactionStore(database, UiTokenCodec.load());
+    }
     return new InMemoryUiLoginTransactionStore();
   }
 

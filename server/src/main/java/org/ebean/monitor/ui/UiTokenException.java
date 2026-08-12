@@ -5,7 +5,7 @@ final class UiTokenException extends RuntimeException {
     super(message);
   }
 
-  UiTokenException(String message, RuntimeException cause) {
+  UiTokenException(String message, Throwable cause) {
     super(message, cause);
   }
 }

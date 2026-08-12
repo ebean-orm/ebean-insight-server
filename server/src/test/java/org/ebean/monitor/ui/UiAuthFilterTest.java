@@ -62,7 +62,7 @@ class UiAuthFilterTest {
   private static UiAuthService service(InMemoryUiSessionStore store) {
     UiAuthSettings settings = new UiAuthSettings(true, "https://idp.example", null, null,
       "client", null, "openid", "https://insight.example/auth/callback", true,
-      "__Host-insight-ui-session", Duration.ofHours(1), Duration.ofMinutes(5), Duration.ZERO);
+      "__Host-insight-ui-session", false, Duration.ofHours(1), Duration.ofMinutes(5), Duration.ZERO);
     return new UiAuthService(settings, new FakeOidcClient(), UiTokenVerifier.accepting(), store,
       new InMemoryUiLoginTransactionStore(), Jsonb.instance());
   }

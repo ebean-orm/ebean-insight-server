@@ -63,7 +63,7 @@ class UiAuthServiceTest {
   private static UiAuthService service(UiOidcClient oidc) {
     UiAuthSettings settings = new UiAuthSettings(true, "https://idp.example", null, null,
       "client", null, "openid", "https://insight.example/auth/callback", true,
-      "__Host-insight-ui-session", Duration.ofHours(1), Duration.ofMinutes(5), Duration.ZERO);
+      "__Host-insight-ui-session", false, Duration.ofHours(1), Duration.ofMinutes(5), Duration.ZERO);
     return new UiAuthService(settings, oidc, UiTokenVerifier.accepting(), new InMemoryUiSessionStore(),
       new InMemoryUiLoginTransactionStore(), Jsonb.instance());
   }

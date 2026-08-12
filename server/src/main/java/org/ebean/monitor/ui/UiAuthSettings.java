@@ -22,6 +22,7 @@ record UiAuthSettings(
   String redirectUri,
   boolean secureCookie,
   String cookieName,
+  boolean persistentStore,
   Duration sessionTtl,
   Duration transactionTtl,
   Duration refreshSkew) {
@@ -47,6 +48,7 @@ record UiAuthSettings(
       value("insight.ui.auth.redirect-uri", "http://localhost:" + port + "/auth/callback"),
       secure,
       cookieName,
+      Config.getBool("insight.ui.auth.persistent-store", enabled),
       Duration.ofSeconds(Config.getLong("insight.ui.auth.session-ttl-seconds", 28_800)),
       Duration.ofSeconds(Config.getLong("insight.ui.auth.transaction-ttl-seconds", 600)),
       Duration.ofSeconds(Config.getLong("insight.ui.auth.refresh-skew-seconds", 60)));
