@@ -26,6 +26,7 @@ public record QueryTotalView(
   String chartDataJson,
   String meanMaxMeanJson,
   String meanMaxMaxJson,
+  String meanMaxCountJson,
   String topByTimeJson,
   String topByMeanJson,
   List<LegendRow> legend,
@@ -36,11 +37,16 @@ public record QueryTotalView(
   List<String> webApiGroups,
   String webApiJson,
   String webApiMeanJson,
-  String webApiMaxJson
+  String webApiMaxJson,
+  String webApiCountJson,
+  String queryRate,
+  String webApiRate,
+  String queryLoad,
+  String webApiLoad
 ) {
 
   /** One row of the shared legend/summary table below the chart. */
   public record LegendRow(String color, String group, String totalMs, String executions, String avgMs,
-                           String hashCount, boolean other, String detailUrl) {
+                           String rate, String hashCount, boolean other, String detailUrl) {
   }
 }

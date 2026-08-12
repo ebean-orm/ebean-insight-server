@@ -56,8 +56,8 @@
         <div class="web-api-grid web-api-primary-grid">
           <article class="query-total-section">
             <header class="chart-section-header" role="toolbar" aria-label="Web API total chart controls">
-              <span>Web API total time</span>
-              <span class="chart-control-group">
+              <span class="chart-title">Web API total time <small id="web-api-total-rate" class="chart-rate-centered">{{webApiRate}} req/s&nbsp;&nbsp;load: {{webApiLoad}}</small></span>
+              <span class="chart-control-group chart-mode-tabs">
                 <button type="button" id="web-api-chart-type-bar" class="chart-type-btn" aria-pressed="true">Bars</button>
                 <button type="button" id="web-api-chart-type-line" class="chart-type-btn" aria-pressed="false">Lines</button>
               </span>
@@ -79,18 +79,19 @@
             </div>
           </article>
           <article class="query-total-section">
-            <header class="chart-section-header" role="toolbar" aria-label="Web API mean and max chart controls">
-              <span>Web API mean and max</span>
-              <span class="chart-control-group">
+            <header class="chart-section-header" role="toolbar" aria-label="Web API statistics chart controls">
+              <span>Web API statistics</span>
+              <span class="chart-control-group chart-mode-tabs">
                 <button type="button" id="web-api-mean-mode-both" class="chart-type-btn" aria-pressed="true">Mean + Max</button>
                 <button type="button" id="web-api-mean-mode-only" class="chart-type-btn" aria-pressed="false">Mean</button>
                 <button type="button" id="web-api-mean-mode-max" class="chart-type-btn" aria-pressed="false">Max</button>
+                <button type="button" id="web-api-mean-mode-count" class="chart-type-btn" aria-pressed="false">Count</button>
               </span>
-              <span class="chart-control-group">
+              <span id="web-api-mean-view-group" class="chart-control-group chart-mode-tabs">
                 <button type="button" id="web-api-mean-view-dots" class="chart-type-btn" aria-pressed="true">Dots</button>
                 <button type="button" id="web-api-mean-view-lines" class="chart-type-btn" aria-pressed="false">Lines</button>
               </span>
-              <label class="chart-scale-toggle">
+              <label id="web-api-mean-scale-group" class="chart-scale-toggle">
                 <input type="checkbox" id="web-api-mean-scale-log" aria-label="Use logarithmic scale">
                 Log scale
               </label>
@@ -114,8 +115,8 @@
         <div class="top-primary-column">
           <article class="query-total-section">
             <header class="chart-section-header">
-              <span>Query total time</span>
-              <span class="chart-control-group">
+              <span class="chart-title">Query total time <small id="query-total-rate" class="chart-rate-centered">{{queryRate}} qry/s&nbsp;&nbsp;load: {{queryLoad}}</small></span>
+              <span class="chart-control-group chart-mode-tabs">
                 <button type="button" id="chart-type-bar" class="chart-type-btn" aria-pressed="true">Bars</button>
                 <button type="button" id="chart-type-line" class="chart-type-btn" aria-pressed="false">Lines</button>
               </span>
@@ -143,16 +144,18 @@
         <div class="top-primary-column">
           <article class="query-total-section">
             <header class="chart-section-header" role="toolbar" aria-label="Mean and Max chart controls">
-              <span>Mean and Max</span>
-              <span class="chart-control-group">
+              <span>Query statistics</span>
+              <span class="chart-control-group chart-mode-tabs">
                 <button type="button" id="top-mean-mode-both" class="chart-type-btn"
                         aria-pressed="true">Mean + Max</button>
                 <button type="button" id="top-mean-mode-only" class="chart-type-btn"
                         aria-pressed="false">Mean</button>
                 <button type="button" id="top-mean-mode-max" class="chart-type-btn"
                         aria-pressed="false">Max</button>
+                <button type="button" id="top-mean-mode-count" class="chart-type-btn"
+                        aria-pressed="false">Count</button>
               </span>
-              <span class="chart-control-group">
+              <span id="top-mean-view-group" class="chart-control-group chart-mode-tabs">
                 <button type="button" id="top-mean-view-dots" class="chart-type-btn"
                         aria-pressed="true">Dots</button>
                 <button type="button" id="top-mean-view-lines" class="chart-type-btn"
@@ -218,6 +221,7 @@
               <th>Group</th>
               <th>Total (ms)</th>
               <th>Executions</th>
+              <th>Rate (/s)</th>
               <th>Avg (ms)</th>
               <th>Distinct queries</th>
             </tr>
@@ -237,6 +241,7 @@
                 </td>
                 <td>{{totalMs}}</td>
                 <td>{{executions}}</td>
+                <td>{{rate}}</td>
                 <td>{{avgMs}}</td>
                 <td>{{hashCount}}</td>
               </tr>
@@ -267,6 +272,7 @@
     <script type="application/json" id="chart-data">{{{chartDataJson}}}</script>
     <script type="application/json" id="top-mean-data">{{{meanMaxMeanJson}}}</script>
     <script type="application/json" id="top-max-data">{{{meanMaxMaxJson}}}</script>
+    <script type="application/json" id="top-count-data">{{{meanMaxCountJson}}}</script>
     <script type="application/json" id="top-by-time-data">{{{topByTimeJson}}}</script>
     <script type="application/json" id="top-by-mean-data">{{{topByMeanJson}}}</script>
     <script type="application/json" id="datasource-pool-data">{{{datasourcePoolJson}}}</script>
@@ -274,6 +280,7 @@
     <script type="application/json" id="web-api-data">{{{webApiJson}}}</script>
     <script type="application/json" id="web-api-mean-data">{{{webApiMeanJson}}}</script>
     <script type="application/json" id="web-api-max-data">{{{webApiMaxJson}}}</script>
+    <script type="application/json" id="web-api-count-data">{{{webApiCountJson}}}</script>
     <script src="/static/vendor/chart.umd.min.js"></script>
     <script src="/static/dashboard-charts.js"></script>
     <script src="/static/query-total.js"></script>

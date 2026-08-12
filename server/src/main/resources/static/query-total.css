@@ -214,11 +214,36 @@
 }
 
 .chart-section-header {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+.chart-title {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.chart-rate-centered {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.chart-title small.chart-rate-centered {
+  color: var(--pico-color);
+  font-size: 0.9rem;
+}
+
+.chart-title small {
+  color: var(--pico-muted-color);
+  font-size: 0.75rem;
+  font-weight: normal;
+  white-space: nowrap;
 }
 
 .chart-section-header .chart-control-group {
@@ -282,6 +307,26 @@
   background: #3a4655;
   color: #f1f3f5;
   border-color: #61748b;
+}
+
+.chart-mode-tabs .chart-type-btn {
+  padding-right: 0.6rem;
+  padding-left: 0.6rem;
+  background: transparent;
+  color: var(--pico-muted-color);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+}
+
+.chart-mode-tabs .chart-type-btn[aria-pressed="true"] {
+  background: transparent;
+  color: var(--pico-color);
+  border-bottom-color: var(--pico-primary);
+}
+
+.chart-mode-tabs .chart-type-btn:hover {
+  border-bottom-color: var(--pico-muted-border-color);
 }
 
 .chart-toolbar .chart-type-btn:focus,

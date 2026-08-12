@@ -89,6 +89,8 @@
     JSON.parse(document.getElementById('top-mean-data').textContent));
   let maxData = window.DashboardCharts.localize(
     JSON.parse(document.getElementById('top-max-data').textContent));
+  let countData = window.DashboardCharts.localize(
+    JSON.parse(document.getElementById('top-count-data').textContent));
   if (!chartData.labels || chartData.labels.length === 0) {
     return;
   }
@@ -113,7 +115,7 @@
   let chartType = initialUrlState.get('chart') === 'line' ? 'line' : 'bar';
   let rankingCharts = [];
   let rankingHoverLabel = null;
-  let meanMaxMode = ['both', 'only', 'max'].includes(initialUrlState.get('mean'))
+  let meanMaxMode = ['both', 'only', 'max', 'count'].includes(initialUrlState.get('mean'))
     ? initialUrlState.get('mean') : 'both';
   let meanMaxView = initialUrlState.get('meanView') === 'lines' ? 'lines' : 'dots';
   let meanMaxScale = initialUrlState.get('scale') === 'log' ? 'logarithmic' : 'linear';
@@ -858,6 +860,23 @@
 
   const meanMaxDatasets = function () {
     const datasets = [];
+    if (meanMaxMode === 'count') {
+      const gapColor = getComputedStyle(document.body).backgroundColor;
+      countData.datasets.forEach(function (ds) {
+        datasets.push({
+          label: ds.label,
+          data: ds.data,
+          hidden: !visible.get(ds.label),
+          backgroundColor: ds.backgroundColor,
+          categoryPercentage: 1.0,
+          barPercentage: 1.0,
+          borderWidth: 1,
+          borderColor: gapColor,
+          borderSkipped: false
+        });
+      });
+      return datasets;
+    }
     if (meanMaxMode !== 'max') {
       meanData.datasets.forEach(function (ds) {
         datasets.push({
@@ -909,26 +928,43 @@
       meanMaxChart.destroy();
     }
     const datasets = meanMaxDatasets();
+    const activeData = meanMaxMode === 'count' ? countData : meanData;
     const maxValue = datasets.reduce(function (max, ds) {
       return Math.max(max, ds.data.reduce(function (seriesMax, value) {
         return Math.max(seriesMax, Number(value) || 0);
       }, 0));
     }, 0);
     const durationUnit = window.DashboardCharts.durationUnitFor(maxValue);
+    const countMode = meanMaxMode === 'count';
+    const viewGroup = document.getElementById('top-mean-view-group');
+    if (viewGroup) {
+      viewGroup.hidden = countMode;
+    }
+    const scaleToggle = document.getElementById('top-mean-scale-log');
+    if (scaleToggle) {
+      scaleToggle.closest('label').hidden = countMode;
+    }
     meanMaxChart = new Chart(meanCanvas.getContext('2d'), {
-      type: 'line',
-      data: {labels: meanData.labels, datasets: datasets},
+      type: countMode ? 'bar' : 'line',
+      data: {labels: activeData.labels, datasets: datasets},
       options: {
         responsive: true,
         maintainAspectRatio: false,
         animation: false,
         scales: {
-          x: window.DashboardCharts.buildXScale(meanData.labels, meanData.bucketMinutes),
+          x: Object.assign(
+            window.DashboardCharts.buildXScale(activeData.labels, activeData.bucketMinutes),
+            {stacked: countMode}
+          ),
           y: {
-            type: meanMaxScale,
+            type: countMode ? 'linear' : meanMaxScale,
+            stacked: countMode,
+            title: {display: true, text: countMode ? 'Executions' : 'Milliseconds'},
             ticks: {
               callback: function (value) {
-                return window.DashboardCharts.compactDuration(value, durationUnit);
+                return countMode
+                  ? Number(value).toLocaleString()
+                  : window.DashboardCharts.compactDuration(value, durationUnit);
               }
             }
           }
@@ -942,23 +978,21 @@
           tooltip: window.DashboardCharts.tooltipOptions(meanData.labels, {
             label: function (context) {
               return context.dataset.label + ': '
-                + window.DashboardCharts.detailedDuration(context.raw);
+                + (countMode
+                  ? Number(context.raw).toLocaleString() + ' executions'
+                  : window.DashboardCharts.detailedDuration(context.raw));
             }
           })
         }
       },
       plugins: [sharedTimeCrosshair]
     });
-    ['both', 'only', 'max'].forEach(function (name) {
+    ['both', 'only', 'max', 'count'].forEach(function (name) {
       const button = document.getElementById('top-mean-mode-' + name);
       if (button) {
-        button.setAttribute('aria-pressed', String(
-          (mode === 'both' && name === 'both')
-          || (mode === 'only' && name === 'only')
-          || (mode === 'max' && name === 'max')));
+        button.setAttribute('aria-pressed', String(name === mode));
       }
     });
-    const scaleToggle = document.getElementById('top-mean-scale-log');
     if (scaleToggle) {
       scaleToggle.checked = meanMaxScale === 'logarithmic';
     }
@@ -975,30 +1009,45 @@
       return;
     }
     const datasets = meanMaxDatasets();
+    const activeData = meanMaxMode === 'count' ? countData : meanData;
+    const countMode = meanMaxMode === 'count';
+    const viewGroup = document.getElementById('top-mean-view-group');
+    if (viewGroup) {
+      viewGroup.hidden = countMode;
+    }
+    const scaleToggle = document.getElementById('top-mean-scale-log');
+    if (scaleToggle) {
+      scaleToggle.closest('label').hidden = countMode;
+    }
     const maxValue = datasets.reduce(function (max, ds) {
       return Math.max(max, ds.data.reduce(function (seriesMax, value) {
         return Math.max(seriesMax, Number(value) || 0);
       }, 0));
     }, 0);
     const durationUnit = window.DashboardCharts.durationUnitFor(maxValue);
-    meanMaxChart.data.labels = meanData.labels;
+    meanMaxChart.data.labels = activeData.labels;
     meanMaxChart.data.datasets = datasets;
     meanMaxChart.options.scales.x = window.DashboardCharts.buildXScale(
-      meanData.labels, meanData.bucketMinutes);
-    meanMaxChart.options.scales.y.type = meanMaxScale;
+      activeData.labels, activeData.bucketMinutes);
+    meanMaxChart.options.scales.y.type = countMode ? 'linear' : meanMaxScale;
+    meanMaxChart.options.scales.y.title.text = countMode ? 'Executions' : 'Milliseconds';
     meanMaxChart.options.scales.y.ticks.callback = function (value) {
-      return window.DashboardCharts.compactDuration(value, durationUnit);
+      return countMode
+        ? Number(value).toLocaleString()
+        : window.DashboardCharts.compactDuration(value, durationUnit);
     };
-    meanMaxChart.options.plugins.tooltip = window.DashboardCharts.tooltipOptions(meanData.labels, {
+    meanMaxChart.options.plugins.tooltip = window.DashboardCharts.tooltipOptions(activeData.labels, {
       label: function (context) {
         return context.dataset.label + ': '
-          + window.DashboardCharts.detailedDuration(context.raw);
+          + (countMode
+            ? Number(context.raw).toLocaleString() + ' executions'
+            : window.DashboardCharts.detailedDuration(context.raw));
       }
     });
     meanMaxChart.update('none');
   };
 
-  ['both', 'only', 'max'].forEach(function (mode) {
+  ['both', 'only', 'max', 'count'].forEach(function (mode) {
     const button = document.getElementById('top-mean-mode-' + mode);
     if (button) {
       button.addEventListener('click', function () {
@@ -1058,6 +1107,11 @@
     chartData = window.DashboardCharts.localize(data.queryTotal);
     meanData = window.DashboardCharts.localize(data.mean);
     maxData = window.DashboardCharts.localize(data.max);
+    countData = window.DashboardCharts.localize(data.count);
+    const queryRate = document.getElementById('query-total-rate');
+    if (queryRate) {
+      queryRate.textContent = data.queryRate + ' qry/s   load: ' + data.queryLoad;
+    }
     chartData.timestamps = chartData.timestamps || [];
     chartData.datasets.forEach(function (dataset) {
       if (!visible.has(dataset.label)) {

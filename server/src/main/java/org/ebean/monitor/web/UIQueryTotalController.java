@@ -68,16 +68,18 @@ public class UIQueryTotalController {
 
   @Json
   record QueryTotalData(boolean hasData, ChartData queryTotal, ChartData mean, ChartData max,
-                        ChartData topByTime, ChartData topByMean,
+                        ChartData count, ChartData topByTime, ChartData topByMean,
                         List<LegendData> legend, boolean datasourcePoolDashboard,
                         ChartData datasourcePool, ChartData datasourcePoolTiming,
                         boolean webApiDashboard, List<String> webApiGroups,
-                        ChartData webApi, ChartData webApiMean, ChartData webApiMax) {
+                        ChartData webApi, ChartData webApiMean, ChartData webApiMax,
+                        ChartData webApiCount, String queryRate, String webApiRate,
+                        String queryLoad, String webApiLoad) {
   }
 
   @Json
   record LegendData(String color, String group, String totalMs, String executions, String avgMs,
-                    String hashCount, boolean other, @Nullable String detailUrl) {
+                    String rate, String hashCount, boolean other, @Nullable String detailUrl) {
   }
 
   public UIQueryTotalController(V1QueryService service) {
@@ -207,6 +209,11 @@ public class UIQueryTotalController {
 
     final List<ChartData.ChartDataset> datasets = new ArrayList<>(series.size());
     final List<LegendData> legend = new ArrayList<>(series.size());
+    long totalExecutions = 0L;
+    long totalMicros = 0L;
+    final double elapsedSeconds = from == null
+      ? windowMinutes * 60d
+      : Duration.between(from, to).toMillis() / 1000d;
 
     int colorIndex = 0;
     for (MetricTimeseriesTopSeries s : series) {
@@ -225,16 +232,20 @@ public class UIQueryTotalController {
 
       final long totalMs = s.totalMicros() / 1000L;
       final long avgMs = execCount == 0L ? 0L : totalMs / execCount;
+      totalExecutions += execCount;
+      totalMicros += s.totalMicros();
       final String detailUrl = s.other() ? null
         : metricDetailUrl(selectedApp, selectedEnv, range.key(), s.group(), from, to);
       legend.add(new LegendData(color, s.group(), formatNum(totalMs), formatNum(execCount),
-        formatNum(avgMs), formatNum(s.hashCount()), s.other(), detailUrl));
+        formatRate(execCount / elapsedSeconds), formatNum(avgMs), formatNum(s.hashCount()),
+        s.other(), detailUrl));
     }
 
     final List<Long> timestamps = firstBuckets.stream().map(bucket -> bucket.eventTime().toEpochMilli()).toList();
     final ChartData chartData = new ChartData(labels, timestamps, datasets, data.bucketMinutes());
     final ChartData meanMaxMean = derivedChartData(data, false);
     final ChartData meanMaxMax = derivedChartData(data, true);
+    final ChartData meanMaxCount = countChartData(data);
     final ChartData topByTime = rankingChartData(topMetrics(
       selectedApp, "total", selectedEnv, from, to, windowMinutes), false);
     final ChartData topByMean = rankingChartData(topMetrics(
@@ -259,12 +270,23 @@ public class UIQueryTotalController {
       ? webApiChartData(webApiData, "mean") : emptyDataChart();
     final ChartData webApiMax = webApiDashboard
       ? webApiChartData(webApiData, "max") : emptyDataChart();
+    final ChartData webApiCount = webApiDashboard
+      ? webApiChartData(webApiData, "count") : emptyDataChart();
     final List<String> webApiGroups = webApiData.series().stream()
       .map(MetricTimeseriesTopSeries::group).toList();
+    final long webApiExecutions = webApiData.series().stream()
+      .mapToLong(s -> s.buckets().stream().mapToLong(MetricTimeBucket::count).sum()).sum();
+    final long webApiMicros = webApiData.series().stream()
+      .mapToLong(MetricTimeseriesTopSeries::totalMicros).sum();
+    final String queryRate = formatRate(totalExecutions / elapsedSeconds);
+    final String webApiRate = formatRate(webApiExecutions / elapsedSeconds);
+    final String queryLoad = formatRate(totalMicros / 1_000_000d / elapsedSeconds);
+    final String webApiLoad = formatRate(webApiMicros / 1_000_000d / elapsedSeconds);
 
-    return new QueryTotalData(true, chartData, meanMaxMean, meanMaxMax, topByTime, topByMean,
+    return new QueryTotalData(true, chartData, meanMaxMean, meanMaxMax, meanMaxCount, topByTime, topByMean,
       legend, datasourcePoolDashboard, datasourcePool, datasourcePoolTiming,
-      webApiDashboard, webApiGroups, webApi, webApiMean, webApiMax);
+      webApiDashboard, webApiGroups, webApi, webApiMean, webApiMax, webApiCount, queryRate, webApiRate,
+      queryLoad, webApiLoad);
   }
 
   private QueryTotalView buildView(Breadcrumb breadcrumb, List<App> apps, List<Env> envs,
@@ -273,11 +295,13 @@ public class UIQueryTotalController {
     return new QueryTotalView(breadcrumb, data.hasData(), selectedApp, appOptions(apps, selectedApp),
       selectedEnv, envOptions(envs, selectedEnv), range.key(), RangeOptions.options(range.key()),
       data.queryTotal().bucketMinutes(), toChartJson(data.queryTotal()), toChartJson(data.mean()),
-      toChartJson(data.max()), toChartJson(data.topByTime()), toChartJson(data.topByMean()),
+      toChartJson(data.max()), toChartJson(data.count()), toChartJson(data.topByTime()),
+      toChartJson(data.topByMean()),
       data.legend().stream().map(UIQueryTotalController::legendRow).toList(),
       data.datasourcePoolDashboard(), toChartJson(data.datasourcePool()),
       toChartJson(data.datasourcePoolTiming()), data.webApiDashboard(), data.webApiGroups(),
-      toChartJson(data.webApi()), toChartJson(data.webApiMean()), toChartJson(data.webApiMax()));
+      toChartJson(data.webApi()), toChartJson(data.webApiMean()), toChartJson(data.webApiMax()),
+      toChartJson(data.webApiCount()), data.queryRate(), data.webApiRate(), data.queryLoad(), data.webApiLoad());
   }
 
   private QueryTotalView emptyView(Breadcrumb breadcrumb, List<App> apps, List<Env> envs,
@@ -285,8 +309,10 @@ public class UIQueryTotalController {
     return new QueryTotalView(breadcrumb, false, "", appOptions(apps, ""),
       selectedEnv, envOptions(envs, selectedEnv), range.key(), RangeOptions.options(range.key()),
       0L, emptyChartJson(), emptyChartJson(), emptyChartJson(), emptyChartJson(), emptyChartJson(),
+      emptyChartJson(),
       List.of(), false, emptyChartJson(), emptyChartJson(),
-      false, List.of(), emptyChartJson(), emptyChartJson(), emptyChartJson());
+      false, List.of(), emptyChartJson(), emptyChartJson(), emptyChartJson(), emptyChartJson(),
+      "-", "-", "-", "-");
   }
 
   private MetricTimeseriesTop webApiTimeseries(String app, String env,
@@ -369,6 +395,7 @@ public class UIQueryTotalController {
         return switch (mode) {
           case "mean" -> bucket.count() == 0L ? null : (bucket.total() / bucket.count()) / 1000L;
           case "max" -> bucket.count() == 0L ? null : bucket.max() / 1000L;
+          case "count" -> bucket.count();
           default -> bucket.total() / 1000L / data.bucketMinutes();
         };
       }).toList();
@@ -402,6 +429,24 @@ public class UIQueryTotalController {
     return new ChartData(labels, timestamps, datasets, data.bucketMinutes());
   }
 
+  private ChartData countChartData(MetricTimeseriesTop data) {
+    final List<MetricTimeseriesTopSeries> series = data.series();
+    final List<String> labels = series.isEmpty() ? List.of() : series.get(0).buckets().stream()
+      .map(bucket -> BUCKET_LABEL_FORMAT.format(bucket.eventTime()))
+      .toList();
+    final List<Long> timestamps = series.isEmpty() ? List.of() : series.get(0).buckets().stream()
+      .map(bucket -> bucket.eventTime().toEpochMilli())
+      .toList();
+    final List<ChartData.ChartDataset> datasets = new ArrayList<>(series.size());
+    int colorIndex = 0;
+    for (MetricTimeseriesTopSeries s : series) {
+      final String color = s.other() ? Palette.OTHER_COLOR : Palette.colorFor(colorIndex++);
+      final List<Long> values = s.buckets().stream().map(MetricTimeBucket::count).toList();
+      datasets.add(new ChartData.ChartDataset(s.group(), values, color));
+    }
+    return new ChartData(labels, timestamps, datasets, data.bucketMinutes());
+  }
+
   private ChartData rankingChartData(List<TopGroup> groups, boolean mean) {
     final List<String> labels = groups.stream().map(TopGroup::group).toList();
     final List<Long> values = groups.stream()
@@ -422,8 +467,8 @@ public class UIQueryTotalController {
 
   private static QueryTotalData emptyData() {
     final ChartData empty = emptyDataChart();
-    return new QueryTotalData(false, empty, empty, empty, empty, empty, List.of(),
-      false, empty, empty, false, List.of(), empty, empty, empty);
+    return new QueryTotalData(false, empty, empty, empty, empty, empty, empty, List.of(),
+      false, empty, empty, false, List.of(), empty, empty, empty, empty, "-", "-", "-", "-");
   }
 
   private String toChartJson(ChartData data) {
@@ -432,7 +477,7 @@ public class UIQueryTotalController {
 
   private static LegendRow legendRow(LegendData data) {
     return new LegendRow(data.color(), data.group(), data.totalMs(), data.executions(),
-      data.avgMs(), data.hashCount(), data.other(), data.detailUrl());
+      data.avgMs(), data.rate(), data.hashCount(), data.other(), data.detailUrl());
   }
 
   /** Link from a query-total label (legend row / stacked-bar segment) to its {@link UIMetricDetailController} drill-down. */
@@ -521,5 +566,9 @@ public class UIQueryTotalController {
 
   private static String formatNum(long value) {
     return String.format(Locale.US, "%,d", value);
+  }
+
+  private static String formatRate(double value) {
+    return String.format(Locale.US, "%,.2f", value);
   }
 }

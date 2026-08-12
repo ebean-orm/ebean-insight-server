@@ -389,8 +389,8 @@ public class SeedDemoData {
     var result = new LinkedHashMap<String, DAppMetric>();
     for (String name : List.of("datasource.pool.wait", "datasource.pool.acquire")) {
       for (String type : List.of("readonly", "main")) {
-        String operation = name.contains(".wait.") ? "wait" : "acquire";
-        String key = "seed-pool-" + operation + "-" + type;
+        String operation = name.endsWith(".wait") ? "wait" : "acquire";
+        String key = "seed-pool-v2-" + operation + "-" + type;
         DAppMetric metric = db.find(DAppMetric.class)
           .where().eq("app", app).eq("key", key).findOne();
         if (metric == null) {

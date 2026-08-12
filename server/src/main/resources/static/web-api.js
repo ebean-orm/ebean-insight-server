@@ -2,9 +2,11 @@
   const totalElement = document.getElementById('web-api-data');
   const meanElement = document.getElementById('web-api-mean-data');
   const maxElement = document.getElementById('web-api-max-data');
+  const countElement = document.getElementById('web-api-count-data');
   const totalCanvas = document.getElementById('web-api-chart');
   const meanMaxCanvas = document.getElementById('web-api-mean-max-chart');
-  if (!totalElement || !meanElement || !maxElement || !totalCanvas || !meanMaxCanvas
+  if (!totalElement || !meanElement || !maxElement || !countElement
+    || !totalCanvas || !meanMaxCanvas
     || typeof Chart === 'undefined' || !window.DashboardCharts) {
     return;
   }
@@ -12,6 +14,7 @@
   let total = window.DashboardCharts.localize(JSON.parse(totalElement.textContent));
   let mean = window.DashboardCharts.localize(JSON.parse(meanElement.textContent));
   let max = window.DashboardCharts.localize(JSON.parse(maxElement.textContent));
+  let count = window.DashboardCharts.localize(JSON.parse(countElement.textContent));
   if (!total.labels || total.labels.length === 0) {
     return;
   }
@@ -45,6 +48,22 @@
   };
 
   const meanMaxSeries = function () {
+    if (meanMode === 'count') {
+      const gapColor = getComputedStyle(document.body).backgroundColor;
+      return count.datasets.map(function (dataset) {
+        return {
+          label: dataset.label,
+          data: dataset.data,
+          hidden: !visible.get(dataset.label),
+          backgroundColor: dataset.backgroundColor,
+          categoryPercentage: 1.0,
+          barPercentage: 1.0,
+          borderWidth: 1,
+          borderColor: gapColor,
+          borderSkipped: false
+        };
+      });
+    }
     const meanDatasets = mean.datasets.map(function (dataset) {
       return {
         label: dataset.label,
@@ -116,16 +135,35 @@
     });
 
     const datasets = meanMaxSeries();
+    const countMode = meanMode === 'count';
+    const viewGroup = document.getElementById('web-api-mean-view-group');
+    if (viewGroup) {
+      viewGroup.hidden = countMode;
+    }
+    const scaleGroup = document.getElementById('web-api-mean-scale-group');
+    if (scaleGroup) {
+      scaleGroup.hidden = countMode;
+    }
     meanMaxChart = new Chart(meanMaxCanvas.getContext('2d'), {
-      type: 'line',
-      data: {labels: mean.labels, datasets: datasets},
+      type: countMode ? 'bar' : 'line',
+      data: {labels: countMode ? count.labels : mean.labels, datasets: datasets},
       options: {
         responsive: true,
         maintainAspectRatio: false,
         animation: false,
         scales: {
-          x: window.DashboardCharts.buildXScale(mean.labels, mean.bucketMinutes),
-          y: {beginAtZero: true, type: meanScale}
+          x: Object.assign(
+            window.DashboardCharts.buildXScale(
+              countMode ? count.labels : mean.labels,
+              countMode ? count.bucketMinutes : mean.bucketMinutes),
+            {stacked: countMode}
+          ),
+          y: {
+            beginAtZero: true,
+            stacked: countMode,
+            type: countMode ? 'linear' : meanScale,
+            title: {display: true, text: countMode ? 'Executions' : 'Milliseconds'}
+          }
         },
         plugins: {legend: {display: false}}
       }
@@ -207,6 +245,7 @@
     updateButton('web-api-mean-mode-both', true);
     updateButton('web-api-mean-mode-only', false);
     updateButton('web-api-mean-mode-max', false);
+    updateButton('web-api-mean-mode-count', false);
     render();
   });
   document.getElementById('web-api-mean-mode-only').addEventListener('click', function () {
@@ -214,6 +253,7 @@
     updateButton('web-api-mean-mode-both', false);
     updateButton('web-api-mean-mode-only', true);
     updateButton('web-api-mean-mode-max', false);
+    updateButton('web-api-mean-mode-count', false);
     render();
   });
   document.getElementById('web-api-mean-mode-max').addEventListener('click', function () {
@@ -221,6 +261,15 @@
     updateButton('web-api-mean-mode-both', false);
     updateButton('web-api-mean-mode-only', false);
     updateButton('web-api-mean-mode-max', true);
+    updateButton('web-api-mean-mode-count', false);
+    render();
+  });
+  document.getElementById('web-api-mean-mode-count').addEventListener('click', function () {
+    meanMode = 'count';
+    updateButton('web-api-mean-mode-both', false);
+    updateButton('web-api-mean-mode-only', false);
+    updateButton('web-api-mean-mode-max', false);
+    updateButton('web-api-mean-mode-count', true);
     render();
   });
   document.getElementById('web-api-mean-view-dots').addEventListener('click', function () {
@@ -283,6 +332,11 @@
     total = window.DashboardCharts.localize(data.webApi);
     mean = window.DashboardCharts.localize(data.webApiMean);
     max = window.DashboardCharts.localize(data.webApiMax);
+    count = window.DashboardCharts.localize(data.webApiCount);
+    const totalRate = document.getElementById('web-api-total-rate');
+    if (totalRate) {
+      totalRate.textContent = data.webApiRate + ' req/s   load: ' + data.webApiLoad;
+    }
     total.datasets.forEach(function (dataset) {
       if (!visible.has(dataset.label)) {
         visible.set(dataset.label, true);
@@ -298,11 +352,14 @@
       totalChart.update('none');
     }
     if (meanMaxChart) {
-      meanMaxChart.data.labels = mean.labels;
+      const countMode = meanMode === 'count';
+      const activeData = countMode ? count : mean;
+      meanMaxChart.data.labels = activeData.labels;
       meanMaxChart.data.datasets = meanMaxSeries();
-      meanMaxChart.options.scales.x = window.DashboardCharts.buildXScale(
-        mean.labels, mean.bucketMinutes);
-      meanMaxChart.options.scales.y.type = meanScale;
+      meanMaxChart.options.scales.x = Object.assign(
+        window.DashboardCharts.buildXScale(activeData.labels, activeData.bucketMinutes),
+        {stacked: countMode});
+      meanMaxChart.options.scales.y.type = countMode ? 'linear' : meanScale;
       meanMaxChart.update('none');
     }
     updateLegend();
