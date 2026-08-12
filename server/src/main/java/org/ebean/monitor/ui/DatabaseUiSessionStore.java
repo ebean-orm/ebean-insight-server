@@ -53,4 +53,12 @@ final class DatabaseUiSessionStore implements UiSessionStore {
       database.delete(bean);
     }
   }
+
+  @Override
+  public int cleanupExpired() {
+    return database.createQuery(DUiSession.class)
+      .where()
+      .lt("expiresAt", Instant.now())
+      .delete();
+  }
 }

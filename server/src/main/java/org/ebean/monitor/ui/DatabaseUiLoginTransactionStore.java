@@ -51,4 +51,12 @@ final class DatabaseUiLoginTransactionStore implements UiLoginTransactionStore {
         codec.decrypt(bean.getPreviousSessionId())));
     }
   }
+
+  @Override
+  public int cleanupExpired() {
+    return database.createQuery(DUiLoginTransaction.class)
+      .where()
+      .lt("expiresAt", Instant.now())
+      .delete();
+  }
 }
