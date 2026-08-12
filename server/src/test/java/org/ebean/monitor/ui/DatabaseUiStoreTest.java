@@ -7,6 +7,7 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @InjectTest
@@ -25,7 +26,7 @@ class DatabaseUiStoreTest {
   @Test
   void sessionRoundTripAndExpiredCleanup() {
     DatabaseUiSessionStore store = new DatabaseUiSessionStore(database, CODEC);
-    Instant now = Instant.now();
+    Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
     String id = "session-" + now.toEpochMilli();
     store.save(new UiSession(id, "access", "refresh", "id", now.plusSeconds(300), now.plusSeconds(3600)));
 
@@ -44,7 +45,7 @@ class DatabaseUiStoreTest {
   @Test
   void loginTransactionIsConsumedOnceAndExpiredRowsCleaned() {
     DatabaseUiLoginTransactionStore store = new DatabaseUiLoginTransactionStore(database, CODEC);
-    Instant now = Instant.now();
+    Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
     String state = "state-" + now.toEpochMilli();
     store.save(new UiLoginTransaction(state, "nonce", "verifier", "/ux",
       now.plusSeconds(300), "previous-session"));
