@@ -32,6 +32,41 @@ window.DashboardCharts = (function () {
     return label.slice(-5);
   }
 
+  function timeZone() {
+    const select = document.getElementById('time-zone-select');
+    if (select) {
+      return select.value === 'utc' ? 'UTC' : undefined;
+    }
+    return new URL(window.location.href).searchParams.get('tz') === 'utc' ? 'UTC' : undefined;
+  }
+
+  const timeZoneSelect = document.getElementById('time-zone-select');
+  if (timeZoneSelect) {
+    timeZoneSelect.value = new URL(window.location.href).searchParams.get('tz') === 'utc'
+      ? 'utc' : 'browser';
+  }
+
+  function localize(data) {
+    if (!data || !data.timestamps || data.timestamps.length !== data.labels.length) {
+      return data;
+    }
+    const zone = timeZone();
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: zone,
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23'
+    });
+    data.labels = data.timestamps.map(function (timestamp) {
+      const parts = Object.fromEntries(formatter.formatToParts(new Date(timestamp))
+        .map(function (part) { return [part.type, part.value]; }));
+      return parts.month + '-' + parts.day + ' ' + parts.hour + ':' + parts.minute;
+    });
+    return data;
+  }
+
   function minutesOfDay(label) {
     const [hh, mm] = timeOnly(label).split(':');
     return Number(hh) * 60 + Number(mm);
@@ -149,7 +184,7 @@ window.DashboardCharts = (function () {
   }
 
   return {
-    timeOnly, minutesOfDay, pickIntervalMinutes, buildXScale, tooltipOptions,
+    timeOnly, minutesOfDay, pickIntervalMinutes, buildXScale, tooltipOptions, localize,
     pointerOnHover, durationUnitFor, compactDuration, detailedDuration,
     themeColors, applyTheme
   };

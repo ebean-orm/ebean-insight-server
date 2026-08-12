@@ -10,7 +10,8 @@
   }
 
   const totalDataElement = document.getElementById('total-chart-data');
-  const selectionData = totalDataElement ? JSON.parse(totalDataElement.textContent) : null;
+  const selectionData = totalDataElement
+    ? window.DashboardCharts.localize(JSON.parse(totalDataElement.textContent)) : null;
   const visible = new Map(selectionData && selectionData.datasets
     ? selectionData.datasets.map(function (dataset) {
       return [dataset.label, true];
@@ -157,7 +158,7 @@
     if (!dataEl || !canvas) {
       return;
     }
-    const chartData = JSON.parse(dataEl.textContent);
+    const chartData = window.DashboardCharts.localize(JSON.parse(dataEl.textContent));
     const isStackedBar = style === 'stacked-bar';
     const maxValue = chartData.labels.reduce(function (max, _, index) {
       const value = chartData.datasets.reduce(function (seriesValue, dataset) {
@@ -222,8 +223,8 @@
     if (meanChart) {
       meanChart.destroy();
     }
-    const meanData = JSON.parse(meanDataEl.textContent);
-    const maxData = JSON.parse(maxDataEl.textContent);
+    const meanData = window.DashboardCharts.localize(JSON.parse(meanDataEl.textContent));
+    const maxData = window.DashboardCharts.localize(JSON.parse(maxDataEl.textContent));
     const datasets = mode === 'max'
       ? maxData.datasets.map(function (ds) {
         return Object.assign({}, ds, {maxSeries: true});

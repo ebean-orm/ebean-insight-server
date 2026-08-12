@@ -143,6 +143,22 @@ class IngestMessageTest {
   }
 
   @Test
+  public void ingest_backfillsMissingMetricMetadata() {
+    ingest.ingest(req("/request/metadata-backfill-1.json"));
+    ingest.ingest(req("/request/metadata-backfill-2.json"));
+    ingest.ingest(req("/request/metadata-backfill-3.json"));
+
+    final DAppMetric metric = new QDAppMetric()
+      .app.name.eq("metadata-backfill")
+      .key.eq("metadata-backfill-hash")
+      .findOne();
+
+    assertThat(metric).isNotNull();
+    assertThat(metric.getLoc()).isEqualTo("MetadataBackfill.java:42");
+    assertThat(metric.getSql()).isEqualTo("select id from metadata_backfill where id = ?");
+  }
+
+  @Test
   public void ingest_full() {
     ingest.ingest(req("/request/full-1.json"));
 

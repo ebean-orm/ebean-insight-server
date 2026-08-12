@@ -9,9 +9,9 @@
     return;
   }
 
-  const total = JSON.parse(totalElement.textContent);
-  const mean = JSON.parse(meanElement.textContent);
-  const max = JSON.parse(maxElement.textContent);
+  const total = window.DashboardCharts.localize(JSON.parse(totalElement.textContent));
+  const mean = window.DashboardCharts.localize(JSON.parse(meanElement.textContent));
+  const max = window.DashboardCharts.localize(JSON.parse(maxElement.textContent));
   if (!total.labels || total.labels.length === 0) {
     return;
   }

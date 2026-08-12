@@ -5,7 +5,7 @@
     return;
   }
 
-  const data = JSON.parse(dataElement.textContent);
+  const data = window.DashboardCharts.localize(JSON.parse(dataElement.textContent));
   if (!data.labels || data.labels.length === 0) {
     return;
   }

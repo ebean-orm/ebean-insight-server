@@ -68,6 +68,61 @@
   font-size: 0.7rem;
 }
 
+.auto-refresh-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: auto;
+  margin: 0;
+  color: var(--pico-muted-color);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.auto-refresh-control input {
+  width: auto;
+  height: 1rem;
+  aspect-ratio: 1;
+  margin: 0;
+}
+
+.auto-refresh-timer {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.auto-refresh-timer[hidden] {
+  display: none;
+}
+
+#auto-refresh-seconds {
+  display: inline-block;
+  width: 1.8em;
+  text-align: right;
+}
+
+.auto-refresh-ring {
+  position: relative;
+  display: inline-block;
+  width: 0.85rem;
+  height: 0.85rem;
+  background: conic-gradient(
+    var(--pico-primary) var(--auto-refresh-progress, 0deg),
+    var(--pico-muted-border-color) 0
+  );
+  border-radius: 50%;
+}
+
+.auto-refresh-ring::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  background: var(--pico-background-color);
+  border-radius: 50%;
+}
+
 .top-primary-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

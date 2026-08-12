@@ -1,0 +1,20 @@
+{
+  "eventTime": 1573813779691,
+  "appName": "metadata-backfill",
+  "environment": "dev",
+  "dbs": [
+    {
+      "db": "db",
+      "metrics": [
+        {
+          "name": "ebean.query",
+          "hash": "metadata-backfill-hash",
+          "count": 1,
+          "mean": 10,
+          "max": 10,
+          "total": 10
+        }
+      ]
+    }
+  ]
+}

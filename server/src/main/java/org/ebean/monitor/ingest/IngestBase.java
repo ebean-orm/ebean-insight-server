@@ -66,16 +66,39 @@ abstract class IngestBase {
    * Assign DMetric and return list for persisting.
    */
   private void createMetrics() {
-
+    List<DAppMetric> metadataUpdates = new ArrayList<>();
     for (IngestEntry ingestEntry : entryMap.values()) {
       final DAppMetric metric = metricMap.get(ingestEntry.getKey());
       if (metric == null) {
         log.error("Failed metric lookup for key: {}", ingestEntry.getKey());
       } else {
+        if (updateMissingMetadata(metric, ingestEntry.getData())) {
+          metadataUpdates.add(metric);
+        }
         final BaseEntry entry = createMetricEntry(ingestEntry.assignMetric(metric));
         entry.save();
       }
     }
+    if (!metadataUpdates.isEmpty()) {
+      DB.saveAll(metadataUpdates);
+    }
+  }
+
+  private boolean updateMissingMetadata(DAppMetric metric, MetricData data) {
+    boolean updated = false;
+    if (isBlank(metric.getLoc()) && !isBlank(data.loc())) {
+      metric.setLoc(data.loc());
+      updated = true;
+    }
+    if (isBlank(metric.getSql()) && !isBlank(data.sql())) {
+      metric.setSql(data.sql());
+      updated = true;
+    }
+    return updated;
+  }
+
+  private boolean isBlank(String value) {
+    return value == null || value.isBlank();
   }
 
   private Set<String> missingKeys() {

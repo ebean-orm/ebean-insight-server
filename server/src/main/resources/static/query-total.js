@@ -6,6 +6,79 @@
  * down to /ux/metric-detail for that label.
  */
 (function () {
+  const currentUrl = new URL(window.location.href);
+  const autoRefreshRanges = new Set(['30m', '1h', '4h']);
+  const autoRefreshControl = document.getElementById('auto-refresh-control');
+  const autoRefreshToggle = document.getElementById('auto-refresh-toggle');
+  const autoRefreshRing = document.getElementById('auto-refresh-ring');
+  const autoRefreshSeconds = document.getElementById('auto-refresh-seconds');
+  const autoRefreshTimerDisplay = autoRefreshSeconds ? autoRefreshSeconds.parentElement : null;
+  const autoRefreshEnabled = autoRefreshRanges.has(currentUrl.searchParams.get('range'));
+  const autoRefreshStorageKey = 'insight.ux.top.autoRefresh';
+  let autoRefreshTimer = null;
+  let autoRefreshRemaining = 60;
+
+  const reloadIfVisible = function () {
+    if (document.visibilityState === 'visible') {
+      window.location.reload();
+    }
+  };
+
+  const updateAutoRefreshDisplay = function () {
+    if (autoRefreshTimerDisplay) {
+      autoRefreshTimerDisplay.hidden = !autoRefreshToggle.checked;
+    }
+    if (autoRefreshRing) {
+      autoRefreshRing.style.setProperty('--auto-refresh-progress',
+        ((60 - autoRefreshRemaining) / 60) * 360 + 'deg');
+    }
+    if (autoRefreshSeconds) {
+      autoRefreshSeconds.textContent = String(autoRefreshRemaining).padStart(2, '\u00a0') + 's';
+    }
+  };
+
+  const stopAutoRefresh = function () {
+    if (autoRefreshTimer !== null) {
+      window.clearInterval(autoRefreshTimer);
+      autoRefreshTimer = null;
+    }
+    document.removeEventListener('visibilitychange', reloadIfVisible);
+  };
+
+  const startAutoRefresh = function () {
+    stopAutoRefresh();
+    autoRefreshRemaining = 60;
+    updateAutoRefreshDisplay();
+    autoRefreshTimer = window.setInterval(function () {
+      if (document.visibilityState !== 'visible') {
+        return;
+      }
+      autoRefreshRemaining -= 1;
+      updateAutoRefreshDisplay();
+      if (autoRefreshRemaining <= 0) {
+        reloadIfVisible();
+      }
+    }, 1000);
+    document.addEventListener('visibilitychange', reloadIfVisible);
+  };
+
+  if (autoRefreshEnabled && autoRefreshControl && autoRefreshToggle) {
+    autoRefreshControl.hidden = false;
+    autoRefreshToggle.checked = window.localStorage.getItem(autoRefreshStorageKey) === 'true';
+    autoRefreshToggle.addEventListener('change', function () {
+      window.localStorage.setItem(autoRefreshStorageKey, String(autoRefreshToggle.checked));
+      if (autoRefreshToggle.checked) {
+        startAutoRefresh();
+      } else {
+        stopAutoRefresh();
+        updateAutoRefreshDisplay();
+      }
+    });
+    if (autoRefreshToggle.checked) {
+      startAutoRefresh();
+    }
+  }
+
   const dataEl = document.getElementById('chart-data');
   const canvas = document.getElementById('chartjs-canvas');
   const meanCanvas = document.getElementById('top-mean-max-chart');
@@ -13,7 +86,7 @@
     return;
   }
 
-  const chartData = JSON.parse(dataEl.textContent);
+  const chartData = window.DashboardCharts.localize(JSON.parse(dataEl.textContent));
   if (!chartData.labels || chartData.labels.length === 0) {
     return;
   }
@@ -592,7 +665,7 @@
     if (!rankingDataEl || !rankingCanvas) {
       return;
     }
-    const rankingData = JSON.parse(rankingDataEl.textContent);
+    const rankingData = window.DashboardCharts.localize(JSON.parse(rankingDataEl.textContent));
     if (!rankingData.labels || rankingData.labels.length === 0) {
       return;
     }
@@ -749,8 +822,8 @@
     if (meanMaxChart) {
       meanMaxChart.destroy();
     }
-    const meanData = JSON.parse(meanDataEl.textContent);
-    const maxData = JSON.parse(maxDataEl.textContent);
+    const meanData = window.DashboardCharts.localize(JSON.parse(meanDataEl.textContent));
+    const maxData = window.DashboardCharts.localize(JSON.parse(maxDataEl.textContent));
     const datasets = [];
     if (mode !== 'max') {
       meanData.datasets.forEach(function (ds) {

@@ -25,6 +25,19 @@
           <option value="{{value}}"{{#selected}} selected{{/selected}}>{{label}}</option>
         {{/ranges}}
       </select>
+      <select name="tz" id="time-zone-select" aria-label="Chart timezone"
+              onchange="this.form.requestSubmit()">
+        <option value="browser">Browser time</option>
+        <option value="utc">UTC</option>
+      </select>
+      <label id="auto-refresh-control" class="auto-refresh-control" hidden>
+        <input type="checkbox" id="auto-refresh-toggle" aria-label="Enable automatic refresh">
+        Auto-refresh
+        <span class="auto-refresh-timer" aria-label="Seconds until refresh">
+          <span id="auto-refresh-ring" class="auto-refresh-ring" aria-hidden="true"></span>
+          <span id="auto-refresh-seconds">60s</span>
+        </span>
+      </label>
       <noscript><button type="submit">Apply</button></noscript>
     </form>
   {{/filters}}
