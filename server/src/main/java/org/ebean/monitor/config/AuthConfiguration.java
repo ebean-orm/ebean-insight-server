@@ -27,7 +27,9 @@ import org.ebean.monitor.web.ApiKeyValidator;
  * (see {@link ApiKeyValidator}); this is wired via the filter's bearerAuthoriser
  * hook and is what the CLI and MCP server use.
  * <p>
- * Note this locks the browser UI until a UI login flow exists.
+ * The browser UI is separately protected by the UI session filter when
+ * {@code insight.ui.auth.enabled=true}; {@code /auth} is permitted here so
+ * the browser can complete that flow.
  */
 @Factory
 @RequiresProperty(value = "insight.auth.enabled", equalTo = "true")
@@ -69,6 +71,7 @@ class AuthConfiguration {
       .permit("/api/ingest")
       .permit("/api/cli-config")
       .permit("/ux")
+      .permit("/auth")
       .permit("/static")
       .verifier(jwtVerifier)
       .bearerAuthoriser(apiKeyValidator.enabled() ? apiKeyValidator::principalFor : null)

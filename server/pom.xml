@@ -102,6 +102,16 @@
       <artifactId>avaje-oauth2-jex-jwtfilter</artifactId>
       <version>${avaje-oauth2.version}</version>
     </dependency>
+    <dependency>
+      <groupId>io.avaje</groupId>
+      <artifactId>avaje-oauth2-oidc-cognito</artifactId>
+      <version>${avaje-oauth2.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.avaje</groupId>
+      <artifactId>avaje-oauth2-oidc-entra</artifactId>
+      <version>${avaje-oauth2.version}</version>
+    </dependency>
 
     <dependency>
       <groupId>org.postgresql</groupId>

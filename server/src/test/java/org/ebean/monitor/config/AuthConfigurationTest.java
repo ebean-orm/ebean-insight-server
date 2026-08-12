@@ -59,6 +59,20 @@ class AuthConfigurationTest {
   }
 
   @Test
+  void uiAuthRoutesPermitted_withoutToken() {
+    FakeChain chain = new FakeChain();
+    filter().filter(context(null, "/auth/login"), chain);
+    assertThat(chain.proceeded).isTrue();
+  }
+
+  @Test
+  void uiPrefixPermitted_withoutToken_forUiSessionFilter() {
+    FakeChain chain = new FakeChain();
+    filter().filter(context(null, "/ux/top"), chain);
+    assertThat(chain.proceeded).isTrue();
+  }
+
+  @Test
   void v1Protected_withoutToken_throws401() {
     FakeChain chain = new FakeChain();
     assertThatThrownBy(() -> filter().filter(context(null, "/v1/apps"), chain))
