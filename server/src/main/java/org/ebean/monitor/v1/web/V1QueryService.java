@@ -883,8 +883,8 @@ public final class V1QueryService {
     }
 
     final List<String> metricNames = List.of(
-      "datasource.pool.wait.total",
-      "datasource.pool.acquire.total");
+      "datasource.pool.wait",
+      "datasource.pool.acquire");
     final SqlQuery groupQuery = DB.sqlQuery("""
         select distinct m.tags ->> 'type' as grp
         from %s t
@@ -987,7 +987,7 @@ public final class V1QueryService {
 
     final List<MetricTimeseriesTopSeries> series = new ArrayList<>(metricNames.size() * groups.size());
     for (String metricName : metricNames) {
-      final String metricLabel = "datasource.pool.wait.total".equals(metricName) ? "Wait" : "Acquire";
+      final String metricLabel = "datasource.pool.wait".equals(metricName) ? "Wait" : "Acquire";
       for (String group : groups) {
         final List<MetricTimeBucket> groupBuckets = buckets.get(metricName + "|" + group);
         series.add(MetricTimeseriesTopSeries.builder()

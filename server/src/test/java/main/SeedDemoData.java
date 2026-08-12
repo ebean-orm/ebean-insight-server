@@ -387,7 +387,7 @@ public class SeedDemoData {
 
   private Map<String, DAppMetric> findOrCreatePoolTimingMetrics(DApp app) {
     var result = new LinkedHashMap<String, DAppMetric>();
-    for (String name : List.of("datasource.pool.wait.total", "datasource.pool.acquire.total")) {
+    for (String name : List.of("datasource.pool.wait", "datasource.pool.acquire")) {
       for (String type : List.of("readonly", "main")) {
         String operation = name.contains(".wait.") ? "wait" : "acquire";
         String key = "seed-pool-" + operation + "-" + type;
@@ -492,8 +492,8 @@ public class SeedDemoData {
           long wait = Math.round(("readonly".equals(type) ? 1.0 : 0.4) + wave * 8.0);
           long acquire = Math.round(("readonly".equals(type) ? 2.0 : 0.8) + wave * 12.0);
           for (var entry : List.of(
-            Map.entry("datasource.pool.wait.total", wait),
-            Map.entry("datasource.pool.acquire.total", acquire))) {
+            Map.entry("datasource.pool.wait", wait),
+            Map.entry("datasource.pool.acquire", acquire))) {
             long total = entry.getValue() * 1000L;
             db.sqlUpdate(sql)
               .setParameter("eventTime", t)
