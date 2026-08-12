@@ -37,6 +37,10 @@ record UiAuthSettings(
       cookieName = secure ? "__Host-insight-ui-session" : "insight-ui-session";
     }
     int port = Config.getInt("server.port", 9080);
+    String redirectUri = value("insight.ui.auth.redirect-uri", null);
+    if (redirectUri == null && !enabled) {
+      redirectUri = "http://localhost:" + port + "/auth/callback";
+    }
     return new UiAuthSettings(
       enabled,
       first("insight.ui.auth.domain", "insight.cli.auth.domain"),
@@ -45,7 +49,7 @@ record UiAuthSettings(
       first("insight.ui.auth.client-id", "insight.cli.auth.client-id"),
       value("insight.ui.auth.client-secret", null),
       firstOrDefault("insight.ui.auth.scope", "insight.cli.auth.scope", "openid"),
-      value("insight.ui.auth.redirect-uri", "http://localhost:" + port + "/auth/callback"),
+      redirectUri,
       secure,
       cookieName,
       Config.getBool("insight.ui.auth.persistent-store", enabled),
@@ -82,7 +86,14 @@ record UiAuthSettings(
     if (configured != null) {
       return configured;
     }
-    return value("insight.auth.jwks-uri", null);
+    configured = value("insight.auth.jwks-uri", null);
+    if (configured != null) {
+      return configured;
+    }
+    if (tenantId != null) {
+      return "https://login.microsoftonline.com/" + tenantId + "/discovery/v2.0/keys";
+    }
+    return null;
   }
 
   private static String first(String preferred, String fallback) {

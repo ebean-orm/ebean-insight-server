@@ -294,11 +294,13 @@ insight:
     auth:
       enabled: false # default; set true to protect /ux
       client-id: "<public-client-id>"
-      # Optional explicit issuer/JWKS settings for server-side token verification:
-      # issuer: "https://cognito-idp.ap-southeast-2.amazonaws.com/<userPoolId>"
-      # jwks-uri: "https://.../.well-known/jwks.json"
       # Cognito:
+      user-pool-id: "ap-southeast-2_<userPoolId>"
       domain: "https://my-app.auth.ap-southeast-2.amazoncognito.com"
+      # Or set issuer explicitly instead of user-pool-id:
+      # issuer: "https://cognito-idp.ap-southeast-2.amazonaws.com/<userPoolId>"
+      # Optional explicit JWKS URI:
+      # jwks-uri: "https://.../.well-known/jwks.json"
       # Entra instead uses tenant-id (and may optionally set domain):
       # tenant-id: "<tenant-id>"
       scope: "openid profile email"
