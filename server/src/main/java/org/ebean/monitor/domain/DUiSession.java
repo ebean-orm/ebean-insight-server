@@ -1,6 +1,7 @@
 package org.ebean.monitor.domain;
 
 import io.ebean.Model;
+import io.ebean.annotation.Cache;
 import io.ebean.annotation.Length;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -12,6 +13,7 @@ import java.time.Instant;
 
 @Entity
 @Table(name = "ebean_insight.ui_session")
+@Cache(nearCache = true)
 public class DUiSession extends Model {
 
   @Id
