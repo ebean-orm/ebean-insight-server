@@ -5,10 +5,13 @@ import io.avaje.http.api.Get;
 import io.avaje.http.api.Post;
 import io.avaje.http.api.Path;
 import io.avaje.jex.http.Context;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Controller
 @Path("/auth")
 final class UiAuthController {
+  private static final Logger log = LoggerFactory.getLogger(UiAuthController.class);
   private final UiAuthService service;
 
   UiAuthController(UiAuthService service) {
@@ -53,6 +56,7 @@ final class UiAuthController {
       context.cookie(service.sessionCookie(result.session().id()));
       context.redirect(result.returnPath());
     } catch (UiTokenException e) {
+      log.warn("UI OAuth callback failed: {}", e.getMessage(), e);
       context.cookie(service.expiredLoginCookie());
       context.status(400).text("OAuth login failed");
     }
