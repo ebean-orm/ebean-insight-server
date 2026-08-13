@@ -1027,9 +1027,11 @@
     const durationUnit = window.DashboardCharts.durationUnitFor(maxValue);
     meanMaxChart.data.labels = activeData.labels;
     meanMaxChart.data.datasets = datasets;
-    meanMaxChart.options.scales.x = window.DashboardCharts.buildXScale(
-      activeData.labels, activeData.bucketMinutes);
+    meanMaxChart.options.scales.x = Object.assign(
+      window.DashboardCharts.buildXScale(activeData.labels, activeData.bucketMinutes),
+      {stacked: countMode});
     meanMaxChart.options.scales.y.type = countMode ? 'linear' : meanMaxScale;
+    meanMaxChart.options.scales.y.stacked = countMode;
     meanMaxChart.options.scales.y.title.text = countMode ? 'Executions' : 'Milliseconds';
     meanMaxChart.options.scales.y.ticks.callback = function (value) {
       return countMode
