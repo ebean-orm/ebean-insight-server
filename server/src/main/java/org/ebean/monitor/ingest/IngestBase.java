@@ -51,7 +51,7 @@ abstract class IngestBase {
       final String key = MetricKey.of(data);
       final IngestEntry dup = entryMap.put(key, new IngestEntry(key, data));
       if (dup != null) {
-        log.error("Lost metric due to duplicate metric key? {}", key);
+        log.error("Lost metric due to duplicate metric key? {} - {}", key, data);
       }
     }
   }

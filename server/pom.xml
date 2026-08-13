@@ -184,7 +184,6 @@
       <groupId>io.avaje</groupId>
       <artifactId>avaje-http-client</artifactId>
       <version>${avaje-http.version}</version>
-      <scope>test</scope>
     </dependency>
 
     <dependency>
