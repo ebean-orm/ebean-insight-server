@@ -44,6 +44,12 @@
                       {{#webApiEnabled}}Web API{{/webApiEnabled}}
                       {{^webApiEnabled}}Enable Web API{{/webApiEnabled}}
                     </a>
+                    <a class="dashboard-toggle{{#jvmEnabled}} is-enabled{{/jvmEnabled}}"
+                       href="{{jvmConfigUrl}}">
+                      <span class="dashboard-toggle-indicator" aria-hidden="true"></span>
+                      {{#jvmEnabled}}JVM{{/jvmEnabled}}
+                      {{^jvmEnabled}}Enable JVM{{/jvmEnabled}}
+                    </a>
                   </div>
                 </td>
               </tr>

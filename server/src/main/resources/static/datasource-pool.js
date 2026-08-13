@@ -11,6 +11,15 @@
   }
 
   let chart = null;
+  const tooltip = function () {
+    return window.DashboardCharts.htmlTooltip(data.labels, 'datasource-pool-tooltip', function (point) {
+      return {
+        label: point.dataset.label,
+        metric: 'Connections',
+        value: Math.round(point.parsed.y).toLocaleString()
+      };
+    });
+  };
   const datasets = function () {
     return data.datasets.map(function (dataset) {
       return {
@@ -53,12 +62,12 @@
         }
       },
       plugins: {
-        legend: {display: true, position: 'bottom'},
-        tooltip: window.DashboardCharts.tooltipOptions(data.labels, {
-          label: function (context) {
-            return context.dataset.label + ': ' + context.raw;
-          }
-        })
+        legend: {
+          display: true,
+          position: 'bottom',
+          labels: {boxWidth: 14, boxHeight: 14}
+        },
+        tooltip: tooltip()
       }
     }
     });
@@ -73,12 +82,14 @@
     data = window.DashboardCharts.localize(next);
     chart.data.labels = data.labels;
     chart.data.datasets = datasets();
+    chart.options.plugins.tooltip = tooltip();
     chart.options.scales.x = Object.assign(
       window.DashboardCharts.buildXScale(data.labels, data.bucketMinutes),
       {stacked: true});
     chart.update('none');
   });
   window.addEventListener('insight-theme-change', function () {
+    window.DashboardCharts.hideHtmlTooltip('datasource-pool-tooltip');
     if (chart) {
       chart.destroy();
     }

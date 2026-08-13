@@ -43,7 +43,7 @@
     </form>
   {{/filters}}
   {{$body}}
-    <link rel="stylesheet" href="/static/query-total.css">
+    <link rel="stylesheet" href="/static/query-total.css?v=15">
 
     {{^hasData}}
       <article>
@@ -64,6 +64,7 @@
             </header>
             <div class="chartjs-wrap">
               <canvas id="web-api-chart"></canvas>
+              <div id="web-api-total-tooltip" class="chart-html-tooltip" role="tooltip" aria-hidden="true"></div>
             </div>
             <div class="top-chart-legend web-api-legend" aria-label="Web API series legend">
               {{#webApiGroups}}
@@ -98,6 +99,7 @@
             </header>
             <div class="chartjs-wrap">
               <canvas id="web-api-mean-max-chart"></canvas>
+              <div id="web-api-mean-max-tooltip" class="chart-html-tooltip" role="tooltip" aria-hidden="true"></div>
             </div>
             <div class="top-chart-legend web-api-legend" aria-label="Web API series legend">
               {{#webApiGroups}}
@@ -123,6 +125,7 @@
             </header>
             <div class="chartjs-wrap">
               <canvas id="chartjs-canvas"></canvas>
+              <div id="query-total-tooltip" class="chart-html-tooltip" role="tooltip" aria-hidden="true"></div>
             </div>
             <div id="chart-range-selection" class="chart-range-selection" hidden>
               <span id="chart-range-selection-text"></span>
@@ -139,6 +142,7 @@
               </button>
             {{/legend}}
           </div>
+
         </div>
 
         <div class="top-primary-column">
@@ -169,6 +173,7 @@
             </header>
             <div class="chartjs-wrap">
               <canvas id="top-mean-max-chart"></canvas>
+              <div id="query-statistics-tooltip" class="chart-html-tooltip" role="tooltip" aria-hidden="true"></div>
             </div>
           </article>
 
@@ -182,73 +187,75 @@
             {{/legend}}
           </div>
         </div>
-      </div>
 
-      <div class="top-ranking-grid">
-        <article class="query-total-section">
-          <header>Top by time</header>
-          <div class="ranking-chart-wrap">
-            <canvas id="top-by-time-chart"></canvas>
-          </div>
-        </article>
-        <article class="query-total-section">
-          <header>Top by mean</header>
-          <div class="ranking-chart-wrap">
-            <canvas id="top-by-mean-chart"></canvas>
-          </div>
-        </article>
-      </div>
-
-      <details class="legend-toggle">
-        <summary>
-          <span class="legend-toggle-icon" aria-hidden="true">
-            <svg class="legend-icon-eye" viewBox="0 0 24 24" focusable="false">
-              <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"></path>
-              <circle cx="12" cy="12" r="2.5"></circle>
-            </svg>
-            <svg class="legend-icon-eye-off" viewBox="0 0 24 24" focusable="false">
-              <path d="m3 3 18 18"></path>
-              <path d="M10.6 6.2A11.8 11.8 0 0 1 12 6c6.5 0 10 6 10 6a18 18 0 0 1-3.1 3.7"></path>
-              <path d="M6.2 6.2C3.5 8.3 2 12 2 12s3.5 6 10 6c1.4 0 2.7-.3 3.8-.8"></path>
-            </svg>
-          </span>
-          Legend
-        </summary>
-        <table class="legend-table">
-          <thead>
-            <tr>
-              <th></th>
-              <th>Group</th>
-              <th>Total (ms)</th>
-              <th>Executions</th>
-              <th>Rate (/s)</th>
-              <th>Avg (ms)</th>
-              <th>Distinct queries</th>
-            </tr>
-          </thead>
-          <tbody>
-            {{#legend}}
+        <details class="legend-toggle legend-toggle-wide">
+          <summary>
+            <span class="legend-toggle-icon" aria-hidden="true">
+              <svg class="legend-icon-eye" viewBox="0 0 24 24" focusable="false">
+                <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"></path>
+                <circle cx="12" cy="12" r="2.5"></circle>
+              </svg>
+              <svg class="legend-icon-eye-off" viewBox="0 0 24 24" focusable="false">
+                <path d="m3 3 18 18"></path>
+                <path d="M10.6 6.2A11.8 11.8 0 0 1 12 6c6.5 0 10 6 10 6a18 18 0 0 1-3.1 3.7"></path>
+                <path d="M6.2 6.2C3.5 8.3 2 12 2 12s3.5 6 10 6c1.4 0 2.7-.3 3.8-.8"></path>
+              </svg>
+            </span>
+            Legend
+          </summary>
+          <table class="legend-table">
+            <thead>
               <tr>
-                <td>
-                  <button type="button" class="legend-series-toggle"
-                          data-label="{{group}}" aria-pressed="true">
-                    <span class="legend-swatch" style="background-color: {{color}};"></span>
-                  </button>
-                </td>
-                <td>
-                  {{^other}}<a href="{{detailUrl}}">{{group}}</a>{{/other}}
-                  {{#other}}{{group}}{{/other}}
-                </td>
-                <td>{{totalMs}}</td>
-                <td>{{executions}}</td>
-                <td>{{rate}}</td>
-                <td>{{avgMs}}</td>
-                <td>{{hashCount}}</td>
+                <th></th>
+                <th>Group</th>
+                <th>Total (ms)</th>
+                <th>Executions</th>
+                <th>Rate (/s)</th>
+                <th>Avg (ms)</th>
+                <th>Distinct queries</th>
               </tr>
-            {{/legend}}
-          </tbody>
-        </table>
-      </details>
+            </thead>
+            <tbody>
+              {{#legend}}
+                <tr>
+                  <td>
+                    <button type="button" class="legend-series-toggle"
+                            data-label="{{group}}" aria-pressed="true">
+                      <span class="legend-swatch" style="background-color: {{color}};"></span>
+                    </button>
+                  </td>
+                  <td>
+                    {{^other}}<a href="{{detailUrl}}">{{group}}</a>{{/other}}
+                    {{#other}}{{group}}{{/other}}
+                  </td>
+                  <td>{{totalMs}}</td>
+                  <td>{{executions}}</td>
+                  <td>{{rate}}</td>
+                  <td>{{avgMs}}</td>
+                  <td>{{hashCount}}</td>
+                </tr>
+              {{/legend}}
+            </tbody>
+          </table>
+        </details>
+      </div>
+
+      {{#showTopRankings}}
+        <div class="top-ranking-grid">
+          <article class="query-total-section">
+            <header>Top by time</header>
+            <div class="ranking-chart-wrap">
+              <canvas id="top-by-time-chart"></canvas>
+            </div>
+          </article>
+          <article class="query-total-section">
+            <header>Top by mean</header>
+            <div class="ranking-chart-wrap">
+              <canvas id="top-by-mean-chart"></canvas>
+            </div>
+          </article>
+        </div>
+      {{/showTopRankings}}
 
       {{#datasourcePoolDashboard}}
         <div class="datasource-pool-grid">
@@ -256,16 +263,39 @@
             <header>Datasource pool size</header>
             <div class="chartjs-wrap">
               <canvas id="datasource-pool-chart"></canvas>
+              <div id="datasource-pool-tooltip" class="chart-html-tooltip" role="tooltip" aria-hidden="true"></div>
             </div>
           </article>
           <article class="query-total-section datasource-pool-section">
             <header>Datasource pool wait and acquire time</header>
             <div class="chartjs-wrap">
               <canvas id="datasource-pool-timing-chart"></canvas>
+              <div id="datasource-pool-timing-tooltip" class="chart-html-tooltip" role="tooltip" aria-hidden="true"></div>
             </div>
           </article>
         </div>
       {{/datasourcePoolDashboard}}
+
+      {{#jvmDashboard}}
+        <div class="jvm-grid">
+          <article class="query-total-section jvm-section">
+            <header>JVM memory by pod</header>
+            <div class="chartjs-wrap">
+              <canvas id="jvm-memory-chart"></canvas>
+              <div id="jvm-memory-tooltip" class="chart-html-tooltip" role="tooltip" aria-hidden="true"></div>
+            </div>
+            <div id="jvm-memory-legend" class="top-chart-legend jvm-legend" aria-label="JVM memory pod legend"></div>
+          </article>
+          <article class="query-total-section jvm-section">
+            <header>JVM CPU usage (user + system)</header>
+            <div class="chartjs-wrap">
+              <canvas id="jvm-cpu-chart"></canvas>
+              <div id="jvm-cpu-tooltip" class="chart-html-tooltip" role="tooltip" aria-hidden="true"></div>
+            </div>
+            <div id="jvm-cpu-legend" class="top-chart-legend jvm-legend" aria-label="JVM CPU pod legend"></div>
+          </article>
+        </div>
+      {{/jvmDashboard}}
 
     {{/hasData}}
 
@@ -281,11 +311,14 @@
     <script type="application/json" id="web-api-mean-data">{{{webApiMeanJson}}}</script>
     <script type="application/json" id="web-api-max-data">{{{webApiMaxJson}}}</script>
     <script type="application/json" id="web-api-count-data">{{{webApiCountJson}}}</script>
+    <script type="application/json" id="jvm-memory-data">{{{jvmMemoryJson}}}</script>
+    <script type="application/json" id="jvm-cpu-data">{{{jvmCpuJson}}}</script>
     <script src="/static/vendor/chart.umd.min.js"></script>
-    <script src="/static/dashboard-charts.js"></script>
-    <script src="/static/query-total.js"></script>
-    <script src="/static/datasource-pool.js"></script>
-    <script src="/static/datasource-pool-timing.js"></script>
-    <script src="/static/web-api.js"></script>
+    <script src="/static/dashboard-charts.js?v=8"></script>
+    <script src="/static/query-total.js?v=6"></script>
+    <script src="/static/datasource-pool.js?v=3"></script>
+    <script src="/static/datasource-pool-timing.js?v=2"></script>
+    <script src="/static/web-api.js?v=5"></script>
+    <script src="/static/jvm.js?v=27"></script>
   {{/body}}
 {{/fragments/layout}}

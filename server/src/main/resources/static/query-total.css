@@ -150,6 +150,10 @@
   margin-top: 1.5rem;
 }
 
+.datasource-pool-section .chartjs-wrap {
+  height: 215px;
+}
+
 .datasource-pool-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -168,8 +172,83 @@
   margin-bottom: 1.5rem;
 }
 
+.jvm-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.jvm-section .chartjs-wrap {
+  height: 215px;
+}
+
+.chart-html-tooltip {
+  position: absolute;
+  z-index: 2;
+  display: none;
+  overflow: hidden;
+  border-radius: 0.4rem;
+  box-shadow: 0 0.3rem 0.9rem rgb(0 0 0 / 25%);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.chart-html-tooltip.is-visible {
+  display: flex;
+  flex-direction: column;
+}
+
+.chart-tooltip-context {
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.35rem 0.6rem;
+  background: #dcecff;
+  color: #17385c;
+}
+
+.chart-tooltip-time {
+  font-size: 0.65rem;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+}
+
+.chart-tooltip-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.chart-tooltip-measurement {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+  padding: 0.35rem 0.6rem;
+  background: #151515;
+  color: #fff;
+}
+
+.chart-tooltip-metric {
+  font-size: 0.7rem;
+  opacity: 0.75;
+}
+
+.chart-tooltip-value {
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  text-align: right;
+}
+
+[data-theme="dark"] .chart-tooltip-context {
+  background: #21466f;
+  color: #e7f0ff;
+}
+
 @media (max-width: 900px) {
-  .web-api-grid {
+  .web-api-grid,
+  .jvm-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -325,6 +404,10 @@
   border-bottom-color: var(--pico-primary);
 }
 
+:root:not([data-theme="dark"]) .chart-mode-tabs .chart-type-btn[aria-pressed="true"] {
+  color: #373c44;
+}
+
 .chart-mode-tabs .chart-type-btn:hover {
   border-bottom-color: var(--pico-muted-border-color);
 }
@@ -429,11 +512,30 @@
   margin-bottom: 0.5rem;
 }
 
+.legend-toggle-wide {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+.legend-table {
+  width: 100%;
+}
+
+.legend-toggle > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.legend-toggle > summary::after {
+  float: none;
+  margin-inline-start: 0.25rem;
+}
+
 .legend-toggle-icon {
   display: inline-flex;
   width: 1rem;
   height: 1rem;
-  margin-right: 0.25rem;
   vertical-align: -0.15rem;
 }
 

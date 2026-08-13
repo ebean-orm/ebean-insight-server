@@ -38,8 +38,9 @@ public class UIIndexController {
   @Get("app-config")
   IndexView configure(@QueryParam("app") String appName,
                       @QueryParam("datasourcePool") boolean datasourcePool,
-                      @QueryParam("webApi") boolean webApi) {
-    service.setDashboardConfig(appName, datasourcePool, webApi);
+                      @QueryParam("webApi") boolean webApi,
+                      @QueryParam("jvm") boolean jvm) {
+    service.setDashboardConfig(appName, datasourcePool, webApi, jvm);
     return home();
   }
 
@@ -60,12 +61,15 @@ public class UIIndexController {
   private AppLink appLink(String appName, String topUrl, List<EnvLink> envs) {
     final boolean datasourcePool = service.isDatasourcePoolDashboardEnabled(appName);
     final boolean webApi = service.isWebApiDashboardEnabled(appName);
+    final boolean jvm = service.isJvmDashboardEnabled(appName);
     final String datasourcePoolConfigUrl = "/ux/app-config?app=" + urlEncode(appName)
-      + "&datasourcePool=" + !datasourcePool + "&webApi=" + webApi;
+      + "&datasourcePool=" + !datasourcePool + "&webApi=" + webApi + "&jvm=" + jvm;
     final String webApiConfigUrl = "/ux/app-config?app=" + urlEncode(appName)
-      + "&datasourcePool=" + datasourcePool + "&webApi=" + !webApi;
-    return new AppLink(appName, topUrl, envs, datasourcePoolConfigUrl, webApiConfigUrl,
-      datasourcePool, webApi);
+      + "&datasourcePool=" + datasourcePool + "&webApi=" + !webApi + "&jvm=" + jvm;
+    final String jvmConfigUrl = "/ux/app-config?app=" + urlEncode(appName)
+      + "&datasourcePool=" + datasourcePool + "&webApi=" + webApi + "&jvm=" + !jvm;
+    return new AppLink(appName, topUrl, envs, datasourcePoolConfigUrl, webApiConfigUrl, jvmConfigUrl,
+      datasourcePool, webApi, jvm);
   }
 
   private static String urlEncode(String value) {

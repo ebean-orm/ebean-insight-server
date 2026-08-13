@@ -173,6 +173,68 @@ window.DashboardCharts = (function () {
     };
   }
 
+  function hideHtmlTooltip(tooltipId) {
+    const container = document.getElementById(tooltipId);
+    if (!container) {
+      return;
+    }
+    container.classList.remove('is-visible');
+    container.setAttribute('aria-hidden', 'true');
+  }
+
+  function htmlTooltip(labels, tooltipId, content) {
+    return Object.assign(tooltipOptions(labels), {
+      enabled: false,
+      external: function (context) {
+        const container = document.getElementById(tooltipId);
+        const tooltip = context.tooltip;
+        if (!container) {
+          return;
+        }
+        if (tooltip.opacity === 0 || tooltip.dataPoints.length === 0) {
+          hideHtmlTooltip(tooltipId);
+          return;
+        }
+
+        const details = content(tooltip.dataPoints[0]);
+        container.replaceChildren();
+
+        const contextPanel = document.createElement('div');
+        contextPanel.className = 'chart-tooltip-context';
+        const time = document.createElement('span');
+        time.className = 'chart-tooltip-time';
+        time.textContent = tooltip.title && tooltip.title.length ? tooltip.title[0] : '';
+        contextPanel.appendChild(time);
+        const label = document.createElement('span');
+        label.className = 'chart-tooltip-label';
+        label.textContent = details.label;
+        contextPanel.appendChild(label);
+        container.appendChild(contextPanel);
+
+        const measurement = document.createElement('div');
+        measurement.className = 'chart-tooltip-measurement';
+        const metric = document.createElement('span');
+        metric.className = 'chart-tooltip-metric';
+        metric.textContent = details.metric;
+        measurement.appendChild(metric);
+        const value = document.createElement('span');
+        value.className = 'chart-tooltip-value';
+        value.textContent = details.value;
+        measurement.appendChild(value);
+        container.appendChild(measurement);
+
+        container.classList.add('is-visible');
+        container.setAttribute('aria-hidden', 'false');
+        const parent = container.parentElement;
+        const maxLeft = Math.max(parent.clientWidth - container.offsetWidth, 0);
+        const left = Math.min(Math.max(tooltip.caretX + 12, 0), maxLeft);
+        const top = tooltip.caretY - container.offsetHeight - 12;
+        container.style.left = left + 'px';
+        container.style.top = top + 'px';
+      }
+    });
+  }
+
   applyTheme();
   window.addEventListener('insight-theme-change', applyTheme);
 
@@ -184,7 +246,8 @@ window.DashboardCharts = (function () {
   }
 
   return {
-    timeOnly, minutesOfDay, pickIntervalMinutes, buildXScale, tooltipOptions, localize,
+    timeOnly, minutesOfDay, pickIntervalMinutes, buildXScale, tooltipOptions, htmlTooltip,
+    hideHtmlTooltip, localize,
     pointerOnHover, durationUnitFor, compactDuration, detailedDuration,
     themeColors, applyTheme
   };

@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 
 public class GlobalMetrics {
 
@@ -28,8 +29,9 @@ public class GlobalMetrics {
     "jvm.memory.process.vmrss", "jvm.memory.process.vmhwm",
 
     "jvm.cgroup.memory.usageMb", "jvm.cgroup.memory.limit", "jvm.cgroup.memory.pctUsage",
-    "jvm.cgroup.cpu.usageMicros", "jvm.cgroup.cpu.requests", "jvm.cgroup.cpu.limit",
-    "jvm.cgroup.cpu.throttleMicros", "jvm.cgroup.cpu.numPeriod", "jvm.cgroup.cpu.numThrottle", "jvm.cgroup.cpu.pctThrottle",
+    "jvm.cgroup.cpu.usageMicros", "jvm.cgroup.cpu.userMicros", "jvm.cgroup.cpu.systemMicros",
+    "jvm.cgroup.cpu.throttledMicros", "jvm.cgroup.cpu.periods", "jvm.cgroup.cpu.throttledPeriods",
+    "jvm.cgroup.cpu.limitMillicores",
 
     "app.log.error", "app.log.warn",
     "web.api", "web.api.error",
@@ -64,8 +66,11 @@ public class GlobalMetrics {
   }
 
   private Map<String, DAppMetric> seedIfNeeded() {
-    if (!new QDAppMetric().app.isNull().exists()) {
+    final Map<String, DAppMetric> metrics = loadAll();
+    if (metrics.isEmpty()) {
       insertGlobalMetrics();
+    } else {
+      insertMissingGlobalMetrics(metrics.keySet());
     }
     return loadAll();
   }
@@ -78,6 +83,16 @@ public class GlobalMetrics {
       final DAppMetric metric = new DAppMetric(null, key, metricName, null, false);
       metric.setId(++id);
       metric.save();
+    }
+  }
+
+  @Transactional(batchSize = 500)
+  private void insertMissingGlobalMetrics(Set<String> existingKeys) {
+    for (String metricName : GLOBAL_METRIC_NAMES) {
+      final String key = Md5.hash(metricName);
+      if (!existingKeys.contains(key)) {
+        new DAppMetric(null, key, metricName, null, false).save();
+      }
     }
   }
 

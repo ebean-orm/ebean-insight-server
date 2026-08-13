@@ -23,6 +23,7 @@ public class DApp extends BaseDomain {
   public static final DAppFinder find = new DAppFinder();
   private static final String DATASOURCE_POOL_DASHBOARD = "datasourcePool";
   private static final String WEB_API_DASHBOARD = "webApi";
+  private static final String JVM_DASHBOARD = "jvm";
 
   @Column(nullable = false, length = 200)
   private String name;
@@ -54,12 +55,20 @@ public class DApp extends BaseDomain {
     return isDashboardEnabled(WEB_API_DASHBOARD);
   }
 
+  public boolean isJvmDashboardEnabled() {
+    return isDashboardEnabled(JVM_DASHBOARD);
+  }
+
   public void setDatasourcePoolDashboardEnabled(boolean enabled) {
     setDashboardEnabled(DATASOURCE_POOL_DASHBOARD, enabled);
   }
 
   public void setWebApiDashboardEnabled(boolean enabled) {
     setDashboardEnabled(WEB_API_DASHBOARD, enabled);
+  }
+
+  public void setJvmDashboardEnabled(boolean enabled) {
+    setDashboardEnabled(JVM_DASHBOARD, enabled);
   }
 
   public Map<String, String> getConfig() {

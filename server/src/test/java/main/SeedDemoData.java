@@ -5,6 +5,7 @@ import io.ebean.Transaction;
 import org.ebean.monitor.domain.DApp;
 import org.ebean.monitor.domain.DAppDatabase;
 import org.ebean.monitor.domain.DAppMetric;
+import org.ebean.monitor.domain.DAppPod;
 import org.ebean.monitor.domain.DEnv;
 import org.ebean.monitor.domain.DQueryPlan;
 import org.ebean.monitor.domain.query.QDApp;
@@ -256,6 +257,7 @@ public class SeedDemoData {
     DApp app = findOrCreateApp();
     app.setDatasourcePoolDashboardEnabled(true);
     app.setWebApiDashboardEnabled(true);
+    app.setJvmDashboardEnabled(true);
     db.save(app);
     DEnv env = findOrCreateEnv();
     DAppDatabase appDb = findOrCreateAppDb(app);
@@ -263,6 +265,8 @@ public class SeedDemoData {
     Map<String, DAppMetric> poolMetrics = findOrCreatePoolMetrics(app);
     Map<String, DAppMetric> poolTimingMetrics = findOrCreatePoolTimingMetrics(app);
     Map<String, DAppMetric> webApiMetrics = findOrCreateWebApiMetrics(app);
+    Map<String, DAppMetric> jvmMetrics = findOrCreateJvmMetrics(app);
+    List<DAppPod> jvmPods = findOrCreateJvmPods(app);
 
     Instant now = Instant.now().truncatedTo(ChronoUnit.MINUTES);
     deleteExisting(app);
@@ -288,12 +292,15 @@ public class SeedDemoData {
       10, env, app, poolMetrics);
     int poolM60 = seedPoolGauge("gauge_m60", roundDown(now.minus(7, ChronoUnit.DAYS), 60), now,
       60, env, app, poolMetrics);
+    int jvm = seedJvmGauge("gauge_entry", roundDown(now.minus(7, ChronoUnit.DAYS), 1), now,
+      1, env, app, jvmMetrics, jvmPods);
 
     int plans = seedQueryPlans(app, env, metricsByLabel);
 
     System.out.println("Seeded app=" + APP_NAME + " env=" + ENV_NAME
       + " -> timed_m1:" + m1 + " timed_m10:" + m10 + " timed_m60:" + m60
       + " gauge_m1:" + poolM1 + " gauge_m10:" + poolM10 + " gauge_m60:" + poolM60
+      + " jvm:" + jvm
       + " query_plan:" + plans + " rows");
     System.out.println("View at http://localhost:8091/ux/top?app=" + APP_NAME + "&range=30m");
   }
@@ -306,7 +313,8 @@ public class SeedDemoData {
    */
   private void extendPartitions() {
     LocalDate from = LocalDate.now(ZoneOffset.UTC).minusDays(10);
-    for (String table : List.of("timed_m1", "timed_m10", "timed_m60", "gauge_m1", "gauge_m10", "gauge_m60")) {
+    for (String table : List.of("timed_m1", "timed_m10", "timed_m60",
+      "gauge_entry", "gauge_m1", "gauge_m10", "gauge_m60")) {
       db.sqlQuery("select partition(:mode, :table, :count, :schema, :from)")
         .setParameter("mode", "day")
         .setParameter("table", table)
@@ -418,6 +426,45 @@ public class SeedDemoData {
     return result;
   }
 
+  private Map<String, DAppMetric> findOrCreateJvmMetrics(DApp app) {
+    var result = new LinkedHashMap<String, DAppMetric>();
+    for (String name : List.of(
+      "jvm.memory.process.vmrss",
+      "jvm.memory.heap.used",
+      "jvm.cgroup.cpu.usageMicros",
+      "jvm.cgroup.cpu.userMicros",
+      "jvm.cgroup.cpu.systemMicros",
+      "jvm.cgroup.cpu.limitMillicores")) {
+      String key = "seed-" + name.replace('.', '-');
+      DAppMetric metric = db.find(DAppMetric.class)
+        .where().eq("app", app).eq("key", key).findOne();
+      if (metric == null) {
+        metric = new DAppMetric(app, key, name, Map.of(), false);
+      }
+      db.save(metric);
+      result.put(name, metric);
+    }
+    return result;
+  }
+
+  private List<DAppPod> findOrCreateJvmPods(DApp app) {
+    var pods = new ArrayList<DAppPod>(4);
+    for (String name : List.of(
+      "central-access-demo-1",
+      "central-access-demo-2",
+      "central-access-demo-3",
+      "central-access-demo-4")) {
+      DAppPod pod = db.find(DAppPod.class)
+        .where().eq("app", app).eq("name", name).findOne();
+      if (pod == null) {
+        pod = new DAppPod(app, name);
+        db.save(pod);
+      }
+      pods.add(pod);
+    }
+    return pods;
+  }
+
   /**
    * Deterministic {@code app_metric.key} for a (label, hash) pair, kept
    * under the column's 40-char limit regardless of label length - dot-
@@ -436,7 +483,8 @@ public class SeedDemoData {
   }
 
   private void deleteExisting(DApp app) {
-    for (String table : List.of("timed_m1", "timed_m10", "timed_m60", "gauge_m1", "gauge_m10", "gauge_m60")) {
+    for (String table : List.of("timed_m1", "timed_m10", "timed_m60",
+      "gauge_entry", "gauge_m1", "gauge_m10", "gauge_m60")) {
       db.sqlUpdate("delete from ebean_insight." + table + " where app_id = :appId")
         .setParameter("appId", app.getId())
         .execute();
@@ -477,6 +525,58 @@ public class SeedDemoData {
     return inserted;
   }
 
+  private int seedJvmGauge(String table, Instant from, Instant to, int bucketMinutes,
+                           DEnv env, DApp app, Map<String, DAppMetric> metrics,
+                           List<DAppPod> pods) {
+    String sql = "insert into ebean_insight." + table
+      + " (event_time, metric_id, env_id, app_id, pod_id, value)"
+      + " values (:eventTime, :metricId, :envId, :appId, :podId, :value)";
+    double[] rssBase = {212.0, 247.0, 247.0, 265.0};
+    double[] heapBase = {129.0, 158.0, 166.0, 179.0};
+    long[] cpuLimits = {500L, 500L, 750L, 1_000L};
+    long[] cpuUsage = new long[pods.size()];
+    int inserted = 0;
+    try (Transaction txn = db.beginTransaction()) {
+      txn.setBatchMode(true);
+      for (Instant t = from; !t.isAfter(to); t = t.plus(bucketMinutes, ChronoUnit.MINUTES)) {
+        double wave = Math.sin(t.getEpochSecond() / 1_800.0);
+        for (int i = 0; i < pods.size(); i++) {
+          long cpuStep = Math.round((18.0 + i * 2.0 + wave * 4.0)
+            * 1_000_000L * 60L * bucketMinutes / 100.0);
+          cpuUsage[i] += Math.max(1L, cpuStep);
+          insertJvmGauge(sql, t, env, app, pods.get(i), metrics.get("jvm.memory.process.vmrss"),
+            rssBase[i] + wave * 4.0 + i);
+          insertJvmGauge(sql, t, env, app, pods.get(i), metrics.get("jvm.memory.heap.used"),
+            heapBase[i] + wave * 3.0 + i);
+          insertJvmGauge(sql, t, env, app, pods.get(i), metrics.get("jvm.cgroup.cpu.usageMicros"),
+            cpuUsage[i]);
+          long userUsage = Math.round(cpuUsage[i] * 0.78);
+          insertJvmGauge(sql, t, env, app, pods.get(i), metrics.get("jvm.cgroup.cpu.userMicros"),
+            userUsage);
+          insertJvmGauge(sql, t, env, app, pods.get(i), metrics.get("jvm.cgroup.cpu.systemMicros"),
+            cpuUsage[i] - userUsage);
+          insertJvmGauge(sql, t, env, app, pods.get(i), metrics.get("jvm.cgroup.cpu.limitMillicores"),
+            cpuLimits[i]);
+          inserted += 6;
+        }
+      }
+      txn.commit();
+    }
+    return inserted;
+  }
+
+  private void insertJvmGauge(String sql, Instant eventTime, DEnv env, DApp app, DAppPod pod,
+                              DAppMetric metric, double value) {
+    db.sqlUpdate(sql)
+      .setParameter("eventTime", eventTime)
+      .setParameter("metricId", metric.getId())
+      .setParameter("envId", env.getId())
+      .setParameter("appId", app.getId())
+      .setParameter("podId", pod.getId())
+      .setParameter("value", value)
+      .execute();
+  }
+
   private int seedPoolTiming(String table, Instant from, Instant to, int bucketMinutes,
                              DEnv env, DApp app, Map<String, DAppMetric> metrics) {
     String sql = "insert into ebean_insight." + table
@@ -489,7 +589,7 @@ public class SeedDemoData {
         int minute = t.atZone(ZoneOffset.UTC).getMinute();
         double wave = Math.max(0.0, Math.sin(minute / 60.0 * Math.PI * 2.0));
         for (String type : List.of("readonly", "main")) {
-          long wait = Math.round(("readonly".equals(type) ? 1.0 : 0.4) + wave * 8.0);
+          long wait = Math.round(("readonly".equals(type) ? 0.05 : 0.02) + wave * 0.5);
           long acquire = Math.round(("readonly".equals(type) ? 2.0 : 0.8) + wave * 12.0);
           for (var entry : List.of(
             Map.entry("datasource.pool.wait", wait),

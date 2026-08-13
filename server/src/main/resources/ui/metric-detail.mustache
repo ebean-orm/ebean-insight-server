@@ -27,7 +27,7 @@
     </form>
   {{/filters}}
   {{$body}}
-    <link rel="stylesheet" href="/static/query-total.css">
+    <link rel="stylesheet" href="/static/query-total.css?v=6">
     <link rel="stylesheet" href="/static/metric-detail.css">
 
     <h3>{{label}}</h3>
@@ -228,7 +228,7 @@
     <script type="application/json" id="mean-chart-data">{{{meanChartDataJson}}}</script>
     <script type="application/json" id="max-chart-data">{{{maxChartDataJson}}}</script>
     <script src="/static/vendor/chart.umd.min.js"></script>
-    <script src="/static/dashboard-charts.js"></script>
-    <script src="/static/metric-detail.js"></script>
+    <script src="/static/dashboard-charts.js?v=7"></script>
+    <script src="/static/metric-detail.js?v=4"></script>
   {{/body}}
 {{/fragments/layout}}

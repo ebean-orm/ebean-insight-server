@@ -164,13 +164,19 @@ public final class V1QueryService {
     return app != null && app.isWebApiDashboardEnabled();
   }
 
-  public void setDashboardConfig(String appName, boolean datasourcePool, boolean webApi) {
+  public boolean isJvmDashboardEnabled(String appName) {
+    final DApp app = findApp(appName);
+    return app != null && app.isJvmDashboardEnabled();
+  }
+
+  public void setDashboardConfig(String appName, boolean datasourcePool, boolean webApi, boolean jvm) {
     final DApp app = findApp(appName);
     if (app == null) {
       return;
     }
     app.setDatasourcePoolDashboardEnabled(datasourcePool);
     app.setWebApiDashboardEnabled(webApi);
+    app.setJvmDashboardEnabled(jvm);
     DB.save(app);
   }
 
@@ -763,6 +769,9 @@ public final class V1QueryService {
   public MetricTimeseriesTop getGaugeTimeseries(String appName, String name, String by,
                                                 @Nullable Long sinceMinutes, @Nullable Long sinceHours,
                                                 @Nullable String env, Instant from, Instant to) {
+    if ("pod".equals(by)) {
+      return getPodGaugeTimeseries(appName, name, sinceMinutes, sinceHours, env, from, to);
+    }
     final TimeWindow window = from == null
       ? TimeWindow.of(sinceMinutes, sinceHours, DEFAULT_TOP_WINDOW_MINUTES)
       : TimeWindow.between(from, to);
@@ -853,6 +862,175 @@ public final class V1QueryService {
         .totalMicros(buckets.get(group.group()).stream().mapToLong(MetricTimeBucket::total).sum())
         .buckets(buckets.get(group.group()))
         .build())
+      .toList();
+    return MetricTimeseriesTop.builder()
+      .app(app.getName())
+      .windowMinutes(window.minutes())
+      .bucketMinutes(bucketMinutes)
+      .series(series)
+      .build();
+  }
+
+  /**
+   * The most recently reported gauge value for each pod at or before {@code to}.
+   *
+   * <p>This is used for pod configuration gauges such as a CPU limit, which are
+   * reported once rather than with every collection interval.
+   */
+  public Map<String, Long> getLatestPodGaugeValues(String appName, String name,
+                                                    @Nullable String env, @Nullable Instant to) {
+    final DApp app = findApp(appName);
+    if (app == null) {
+      return Map.of();
+    }
+    final Integer envId = resolveEnvId(env);
+    if (envFilterMisses(env, envId)) {
+      return Map.of();
+    }
+
+    final String envPredicate = envId == null ? "" : "and g.env_id = :envId";
+    final SqlQuery query = DB.sqlQuery("""
+        select distinct on (g.pod_id) p.name as pod, g.value
+        from ebean_insight.gauge_entry g
+        join ebean_insight.app_metric m on m.id = g.metric_id
+        join ebean_insight.app_pod p on p.id = g.pod_id
+        where g.event_time <= :to
+          and g.app_id = :appId
+          and m.name = :name
+          %s
+        order by g.pod_id, g.event_time desc
+        """.formatted(envPredicate))
+      .setParameter("to", to == null ? Instant.now() : to)
+      .setParameter("appId", app.getId())
+      .setParameter("name", name);
+    if (envId != null) {
+      query.setParameter("envId", envId);
+    }
+
+    final Map<String, Long> values = new LinkedHashMap<>();
+    query.mapTo((rs, _) -> {
+      values.put(rs.getString("pod"), rs.getBigDecimal("value").longValue());
+      return null;
+    }).findList();
+    return Map.copyOf(values);
+  }
+
+  /** Per-bucket gauge time-series grouped by application pod from raw gauge samples. */
+  private MetricTimeseriesTop getPodGaugeTimeseries(String appName, String name,
+                                                    @Nullable Long sinceMinutes, @Nullable Long sinceHours,
+                                                    @Nullable String env, Instant from, Instant to) {
+    final TimeWindow window = from == null
+      ? TimeWindow.of(sinceMinutes, sinceHours, DEFAULT_TOP_WINDOW_MINUTES)
+      : TimeWindow.between(from, to);
+    final String table = gaugeTableFor(window.minutes());
+    final long bucketMinutes = gaugeBucketMinutesFor(window.minutes(), table);
+    final DApp app = findApp(appName);
+    if (app == null) {
+      return emptyTimeseriesTop(appName, window.minutes(), bucketMinutes);
+    }
+    final Integer envId = resolveEnvId(env);
+    if (envFilterMisses(env, envId)) {
+      return emptyTimeseriesTop(app.getName(), window.minutes(), bucketMinutes);
+    }
+
+    final String envPredicate = envId == null ? "" : "and g.env_id = :envId";
+    final SqlQuery groupQuery = DB.sqlQuery("""
+        select distinct p.name as grp
+        from ebean_insight.gauge_entry g
+        join ebean_insight.app_metric m on m.id = g.metric_id
+        join ebean_insight.app_pod p on p.id = g.pod_id
+        where g.event_time > :from
+          and g.event_time <= :to
+          and g.app_id = :appId
+          and m.name = :name
+          %s
+        order by grp
+        """.formatted(envPredicate))
+      .setParameter("from", window.from())
+      .setParameter("to", window.to())
+      .setParameter("appId", app.getId())
+      .setParameter("name", name);
+    if (envId != null) {
+      groupQuery.setParameter("envId", envId);
+    }
+    final List<String> groups = groupQuery.mapTo((rs, _) -> rs.getString("grp")).findList();
+    if (groups.isEmpty()) {
+      return emptyTimeseriesTop(app.getName(), window.minutes(), bucketMinutes);
+    }
+
+    final String groupValues = groups.stream()
+      .map(group -> "(:g" + groups.indexOf(group) + ")")
+      .collect(java.util.stream.Collectors.joining(", "));
+    final String sql = """
+      with grid as (
+        select to_timestamp(s) as event_time
+        from generate_series(
+          (cast(floor(extract(epoch from cast(:from as timestamptz)) / :step) as bigint) + 1) * :step,
+          (cast(floor(extract(epoch from cast(:to as timestamptz)) / :step) as bigint)) * :step,
+          :step
+        ) as s
+      ),
+      groups (grp) as (values %s),
+      data as (
+        select to_timestamp(
+                 cast(floor(extract(epoch from g.event_time) / :step) as bigint) * :step
+               ) as event_time,
+               p.name as grp,
+               max(g.value)::numeric as total
+        from ebean_insight.gauge_entry g
+        join ebean_insight.app_metric m on m.id = g.metric_id
+        join ebean_insight.app_pod p on p.id = g.pod_id
+        where g.event_time > :from
+          and g.event_time <= :to
+          and g.app_id = :appId
+          and m.name = :name
+          %s
+        group by 1, 2
+      )
+      select grid.event_time, groups.grp, data.total
+      from grid cross join groups
+      left join data on data.event_time = grid.event_time and data.grp = groups.grp
+      order by grid.event_time, groups.grp
+      """.formatted(groupValues, envPredicate);
+    final SqlQuery query = DB.sqlQuery(sql)
+      .setParameter("from", window.from())
+      .setParameter("to", window.to())
+      .setParameter("step", bucketMinutes * 60L)
+      .setParameter("appId", app.getId())
+      .setParameter("name", name);
+    if (envId != null) {
+      query.setParameter("envId", envId);
+    }
+    for (int i = 0; i < groups.size(); i++) {
+      query.setParameter("g" + i, groups.get(i));
+    }
+
+    final Map<String, List<MetricTimeBucket>> buckets = new LinkedHashMap<>();
+    for (String group : groups) {
+      buckets.put(group, new ArrayList<>());
+    }
+    query.mapTo((rs, _) -> {
+      final var value = rs.getBigDecimal("total");
+      final long total = value == null ? 0L : value.longValue();
+      buckets.get(rs.getString("grp")).add(MetricTimeBucket.builder()
+        .eventTime(toInstant(rs.getTimestamp("event_time")))
+        .count(value == null ? 0L : 1L)
+        .total(total)
+        .max(total)
+        .build());
+      return null;
+    }).findList();
+    final List<MetricTimeseriesTopSeries> series = groups.stream()
+      .map(group -> {
+        final List<MetricTimeBucket> groupBuckets = buckets.get(group);
+        return MetricTimeseriesTopSeries.builder()
+          .group(group)
+          .other(false)
+          .hashCount(1L)
+          .totalMicros(groupBuckets.stream().mapToLong(MetricTimeBucket::total).sum())
+          .buckets(groupBuckets)
+          .build();
+      })
       .toList();
     return MetricTimeseriesTop.builder()
       .app(app.getName())

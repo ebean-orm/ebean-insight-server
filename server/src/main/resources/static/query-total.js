@@ -300,8 +300,35 @@
     });
   };
 
+  const queryTotalTooltip = function () {
+    return window.DashboardCharts.htmlTooltip(chartData.labels, 'query-total-tooltip', function (point) {
+      return {
+        label: point.dataset.label,
+        metric: 'Total time',
+        value: window.DashboardCharts.detailedDuration(point.parsed.y)
+      };
+    });
+  };
+
+  const queryStatisticsTooltip = function (activeData, countMode) {
+    return window.DashboardCharts.htmlTooltip(activeData.labels, 'query-statistics-tooltip', function (point) {
+      const metric = countMode
+        ? 'Executions'
+        : point.dataset.pointStyle === 'triangle' ? 'Max' : 'Mean';
+      return {
+        label: point.dataset.label,
+        metric: metric,
+        value: countMode
+          ? Number(point.parsed.y).toLocaleString()
+          : window.DashboardCharts.detailedDuration(point.parsed.y)
+      };
+    });
+  };
+
   const render = function (type) {
     chartType = type;
+    window.DashboardCharts.hideHtmlTooltip('query-total-tooltip');
+    window.DashboardCharts.hideHtmlTooltip('query-statistics-tooltip');
     if (chart) {
       chart.destroy();
     }
@@ -359,12 +386,7 @@
         },
         plugins: {
           legend: {display: false},
-          tooltip: window.DashboardCharts.tooltipOptions(chartData.labels, {
-            label: function (context) {
-              return context.dataset.label + ': '
-                + window.DashboardCharts.detailedDuration(context.raw);
-            }
-          })
+          tooltip: queryTotalTooltip()
         }
       },
       plugins: [sharedTimeCrosshair]
@@ -392,12 +414,7 @@
     chart.options.scales.y.ticks.callback = function (value) {
       return window.DashboardCharts.compactDuration(value, durationUnit);
     };
-    chart.options.plugins.tooltip = window.DashboardCharts.tooltipOptions(chartData.labels, {
-      label: function (context) {
-        return context.dataset.label + ': '
-          + window.DashboardCharts.detailedDuration(context.raw);
-      }
-    });
+    chart.options.plugins.tooltip = queryTotalTooltip();
     chart.update('none');
   };
 
@@ -563,7 +580,7 @@
   }
 
   const updateLegend = function () {
-    document.querySelectorAll('.legend-series-toggle').forEach(function (button) {
+    document.querySelectorAll('.legend-series-toggle:not(.jvm-series-toggle)').forEach(function (button) {
       button.setAttribute('aria-pressed', String(visible.get(button.dataset.label)));
     });
   };
@@ -605,7 +622,7 @@
     });
   };
 
-  document.querySelectorAll('.legend-series-toggle:not(.web-api-series-toggle)')
+  document.querySelectorAll('.legend-series-toggle:not(.web-api-series-toggle):not(.jvm-series-toggle)')
     .forEach(bindLegendButton);
 
   const legendDetails = document.querySelector('.legend-toggle');
@@ -924,6 +941,7 @@
     meanMaxMode = mode || meanMaxMode;
     meanMaxScale = scale || meanMaxScale;
     meanMaxView = view || meanMaxView;
+    window.DashboardCharts.hideHtmlTooltip('query-statistics-tooltip');
     if (meanMaxChart) {
       meanMaxChart.destroy();
     }
@@ -975,14 +993,7 @@
         },
         plugins: {
           legend: {display: false},
-          tooltip: window.DashboardCharts.tooltipOptions(meanData.labels, {
-            label: function (context) {
-              return context.dataset.label + ': '
-                + (countMode
-                  ? Number(context.raw).toLocaleString() + ' executions'
-                  : window.DashboardCharts.detailedDuration(context.raw));
-            }
-          })
+          tooltip: queryStatisticsTooltip(activeData, countMode)
         }
       },
       plugins: [sharedTimeCrosshair]
@@ -1038,14 +1049,7 @@
         ? Number(value).toLocaleString()
         : window.DashboardCharts.compactDuration(value, durationUnit);
     };
-    meanMaxChart.options.plugins.tooltip = window.DashboardCharts.tooltipOptions(activeData.labels, {
-      label: function (context) {
-        return context.dataset.label + ': '
-          + (countMode
-            ? Number(context.raw).toLocaleString() + ' executions'
-            : window.DashboardCharts.detailedDuration(context.raw));
-      }
-    });
+    meanMaxChart.options.plugins.tooltip = queryStatisticsTooltip(activeData, countMode);
     meanMaxChart.update('none');
   };
 
@@ -1085,7 +1089,7 @@
   };
 
   const updatePrimaryLegends = function (legend) {
-    document.querySelectorAll('.top-chart-legend:not(.web-api-legend)').forEach(function (container) {
+    document.querySelectorAll('.top-chart-legend:not(.web-api-legend):not(.jvm-legend)').forEach(function (container) {
       container.replaceChildren();
       legend.forEach(function (entry) {
         const button = document.createElement('button');

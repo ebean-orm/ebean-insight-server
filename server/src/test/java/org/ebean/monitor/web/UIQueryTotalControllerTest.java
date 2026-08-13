@@ -1,8 +1,10 @@
 package org.ebean.monitor.web;
 
 import org.junit.jupiter.api.Test;
+import org.ebean.monitor.v1.model.MetricTimeBucket;
 
 import java.time.Instant;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -34,5 +36,37 @@ class UIQueryTotalControllerTest {
     assertThat(url).isEqualTo(
       "/ux/query-plan?id=42&range=custom"
         + "&from=2026-08-11T02%3A00%3A00Z&to=2026-08-11T03%3A00%3A00Z");
+  }
+
+  @Test
+  void cpuMillicores_preserveGapsAndIgnoreCounterResets() {
+    var buckets = List.of(
+      bucket(1, 10_000_000L),
+      bucket(1, 70_000_000L),
+      bucket(0, 0L),
+      bucket(1, 20_000_000L),
+      bucket(1, 80_000_000L));
+
+    assertThat(UIQueryTotalController.cpuMillicores(buckets, 1L))
+      .containsExactly(null, 1_000L, null, null, 1_000L);
+  }
+
+  @Test
+  void cpuMillicores_convertCpuTimeToCores() {
+    var buckets = List.of(
+      bucket(1, 10_000_000L),
+      bucket(1, 70_000_000L));
+
+    assertThat(UIQueryTotalController.cpuMillicores(buckets, 1L))
+      .containsExactly(null, 1_000L);
+  }
+
+  private static MetricTimeBucket bucket(long count, long total) {
+    return MetricTimeBucket.builder()
+      .eventTime(Instant.EPOCH)
+      .count(count)
+      .total(total)
+      .max(total)
+      .build();
   }
 }

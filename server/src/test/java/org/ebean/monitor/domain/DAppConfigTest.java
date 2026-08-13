@@ -21,6 +21,7 @@ class DAppConfigTest {
 
     assertThat(app.isDatasourcePoolDashboardEnabled()).isFalse();
     assertThat(app.isWebApiDashboardEnabled()).isFalse();
+    assertThat(app.isJvmDashboardEnabled()).isFalse();
   }
 
   @Test
@@ -29,12 +30,14 @@ class DAppConfigTest {
 
     app.setDatasourcePoolDashboardEnabled(true);
     app.setWebApiDashboardEnabled(false);
+    app.setJvmDashboardEnabled(true);
 
     assertThat(app.isDatasourcePoolDashboardEnabled()).isTrue();
     assertThat(app.isWebApiDashboardEnabled()).isFalse();
     assertThat(app.getConfig())
       .containsEntry("datasourcePool", "true")
-      .containsEntry("webApi", "false");
+      .containsEntry("webApi", "false")
+      .containsEntry("jvm", "true");
   }
 
   @Test
@@ -44,6 +47,7 @@ class DAppConfigTest {
 
     assertThat(app.isDatasourcePoolDashboardEnabled()).isTrue();
     assertThat(app.isWebApiDashboardEnabled()).isFalse();
+    assertThat(app.isJvmDashboardEnabled()).isFalse();
   }
 
   @Test
@@ -51,6 +55,7 @@ class DAppConfigTest {
     var name = "config-rt-" + System.nanoTime();
     var app = new DApp(name);
     app.setDatasourcePoolDashboardEnabled(true);
+    app.setJvmDashboardEnabled(true);
     database.save(app);
 
     var reloaded = new QDApp().name.eq(name).findOne();
@@ -58,5 +63,6 @@ class DAppConfigTest {
     assertThat(reloaded).isNotNull();
     assertThat(reloaded.isDatasourcePoolDashboardEnabled()).isTrue();
     assertThat(reloaded.isWebApiDashboardEnabled()).isFalse();
+    assertThat(reloaded.isJvmDashboardEnabled()).isTrue();
   }
 }

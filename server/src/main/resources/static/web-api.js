@@ -31,6 +31,31 @@
     return [dataset.label, true];
   }));
 
+  const totalTooltip = function () {
+    return window.DashboardCharts.htmlTooltip(total.labels, 'web-api-total-tooltip', function (point) {
+      return {
+        label: point.dataset.label,
+        metric: 'Total time',
+        value: window.DashboardCharts.detailedDuration(point.parsed.y)
+      };
+    });
+  };
+
+  const statisticsTooltip = function (activeData, countMode) {
+    return window.DashboardCharts.htmlTooltip(activeData.labels, 'web-api-mean-max-tooltip', function (point) {
+      const metric = countMode
+        ? 'Requests'
+        : point.dataset.pointStyle === 'triangle' ? 'Max' : 'Mean';
+      return {
+        label: point.dataset.label,
+        metric: metric,
+        value: countMode
+          ? Number(point.parsed.y).toLocaleString()
+          : window.DashboardCharts.detailedDuration(point.parsed.y)
+      };
+    });
+  };
+
   const currentSeries = function (data, line) {
     return data.datasets.map(function (dataset) {
       return {
@@ -112,6 +137,8 @@
   };
 
   const render = function () {
+    window.DashboardCharts.hideHtmlTooltip('web-api-total-tooltip');
+    window.DashboardCharts.hideHtmlTooltip('web-api-mean-max-tooltip');
     if (totalChart) {
       totalChart.destroy();
     }
@@ -130,7 +157,10 @@
           x: Object.assign(window.DashboardCharts.buildXScale(total.labels, total.bucketMinutes), {stacked: !line}),
           y: {stacked: !line, beginAtZero: true}
         },
-        plugins: {legend: {display: false}}
+        plugins: {
+          legend: {display: false},
+          tooltip: totalTooltip()
+        }
       }
     });
 
@@ -165,7 +195,10 @@
             title: {display: true, text: countMode ? 'Executions' : 'Milliseconds'}
           }
         },
-        plugins: {legend: {display: false}}
+        plugins: {
+          legend: {display: false},
+          tooltip: statisticsTooltip(countMode ? count : mean, countMode)
+        }
       }
     });
   };
@@ -349,6 +382,7 @@
       totalChart.options.scales.x = Object.assign(
         window.DashboardCharts.buildXScale(total.labels, total.bucketMinutes),
         {stacked: !line});
+      totalChart.options.plugins.tooltip = totalTooltip();
       totalChart.update('none');
     }
     if (meanMaxChart) {
@@ -360,6 +394,7 @@
         window.DashboardCharts.buildXScale(activeData.labels, activeData.bucketMinutes),
         {stacked: countMode});
       meanMaxChart.options.scales.y.type = countMode ? 'linear' : meanScale;
+      meanMaxChart.options.plugins.tooltip = statisticsTooltip(activeData, countMode);
       meanMaxChart.update('none');
     }
     updateLegend();
