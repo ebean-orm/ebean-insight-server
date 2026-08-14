@@ -3,7 +3,6 @@
     <form class="header-filters" method="get" action="/ux/metric-detail">
       <input type="hidden" name="label" value="{{label}}">
       <input type="hidden" name="app" value="{{app}}">
-      <span class="header-app-context">{{app}}</span>
       <div id="custom-range-controls" class="custom-range-controls" hidden>
         <label>
           <input type="datetime-local" id="custom-range-from" aria-label="Custom range start">
@@ -23,14 +22,26 @@
           <option value="{{value}}"{{#selected}} selected{{/selected}}>{{label}}</option>
         {{/ranges}}
       </select>
+      <select name="tz" id="time-zone-select" aria-label="Chart timezone"
+              onchange="this.form.requestSubmit()">
+        <option value="browser">Browser time</option>
+        <option value="utc">UTC</option>
+      </select>
+      <label id="auto-refresh-control" class="auto-refresh-control" hidden>
+        <input type="checkbox" id="auto-refresh-toggle" aria-label="Enable automatic refresh">
+        Auto
+        <span class="auto-refresh-timer" aria-label="Seconds until refresh">
+          <span id="auto-refresh-ring" class="auto-refresh-ring" aria-hidden="true"></span>
+          <span id="auto-refresh-seconds">60s</span>
+        </span>
+        <span id="auto-refresh-status" class="auto-refresh-status" hidden></span>
+      </label>
       <noscript><button type="submit">Apply</button></noscript>
     </form>
   {{/filters}}
   {{$body}}
-    <link rel="stylesheet" href="/static/query-total.css?v=6">
-    <link rel="stylesheet" href="/static/metric-detail.css">
-
-    <h3>{{label}}</h3>
+    <link rel="stylesheet" href="/static/query-total.css?v=22">
+    <link rel="stylesheet" href="/static/metric-detail.css?v=2">
 
     {{^hasData}}
       <article>
@@ -42,66 +53,70 @@
       <div class="metric-detail-chart-layout">
         <div class="metric-detail-chart-column">
           <article class="query-total-section">
-            <header>Total query time</header>
-            <div class="chart-toolbar" role="toolbar" aria-label="Total chart controls">
-              <button type="button" id="metric-chart-type-bar" class="chart-type-btn"
-                      aria-pressed="true">Stacked bar</button>
-              <button type="button" id="metric-chart-type-line" class="chart-type-btn"
-                      aria-pressed="false">Line</button>
-            </div>
+            <header class="chart-section-header" role="toolbar" aria-label="Total chart controls">
+                <span>Total query time</span>
+                <span class="chart-control-group chart-mode-tabs">
+                  <button type="button" id="metric-chart-type-bar" class="chart-type-btn"
+                          aria-pressed="true">Bars</button>
+                  <button type="button" id="metric-chart-type-line" class="chart-type-btn"
+                          aria-pressed="false">Lines</button>
+                </span>
+            </header>
             <div class="chartjs-wrap chartjs-wrap-small">
-              <canvas id="total-chart"></canvas>
+                <canvas id="total-chart"></canvas>
+                <div id="metric-total-tooltip" class="chart-html-tooltip" role="tooltip" aria-hidden="true"></div>
             </div>
           </article>
-          <div class="hash-legend" aria-label="Query hash legend">
-            <ul>
-              {{#hashBreakdown}}
-                <li class="hash-legend-item">
-                  <button type="button" class="hash-series-toggle"
-                          data-label="{{hash}}" aria-pressed="true"
-                          aria-label="Toggle {{hash}}" title="{{hash}}">
-                    <span class="hash-swatch" style="background-color: {{color}}"
-                          aria-hidden="true"></span>
-                  </button>
-                </li>
-              {{/hashBreakdown}}
-            </ul>
+          <div class="top-chart-legend metric-hash-legend" aria-label="Query hash legend">
+            {{#hashBreakdown}}
+                <button type="button" class="legend-series-toggle hash-series-toggle"
+                        data-label="{{hash}}" aria-pressed="true"
+                        aria-label="Toggle {{hash}}" title="{{hash}}">
+                  <span class="legend-swatch" style="background-color: {{color}}"></span>
+                </button>
+            {{/hashBreakdown}}
           </div>
         </div>
 
         <div class="metric-detail-chart-column">
           <article class="query-total-section">
-            <header>Mean and Max</header>
-            <div class="chart-toolbar" role="toolbar" aria-label="Mean and Max chart controls">
-              <button type="button" id="metric-mean-mode-both" class="chart-type-btn"
-                      aria-pressed="true">Mean + Max</button>
-              <button type="button" id="metric-mean-mode-only" class="chart-type-btn"
-                      aria-pressed="false">Mean only</button>
-              <button type="button" id="metric-mean-mode-max" class="chart-type-btn"
-                      aria-pressed="false">Max only</button>
-              <label class="chart-scale-toggle">
-                <input type="checkbox" id="metric-mean-scale-log"
-                       aria-label="Use logarithmic scale">
+            <header class="chart-section-header" role="toolbar" aria-label="Query statistics chart controls">
+                <span>Query statistics</span>
+                <span class="chart-control-group chart-mode-tabs">
+                  <button type="button" id="metric-mean-mode-both" class="chart-type-btn"
+                          aria-pressed="true">Mean + Max</button>
+                  <button type="button" id="metric-mean-mode-only" class="chart-type-btn"
+                          aria-pressed="false">Mean</button>
+                  <button type="button" id="metric-mean-mode-max" class="chart-type-btn"
+                          aria-pressed="false">Max</button>
+                  <button type="button" id="metric-mean-mode-count" class="chart-type-btn"
+                          aria-pressed="false">Count</button>
+                </span>
+                <span id="metric-mean-view-group" class="chart-control-group chart-mode-tabs">
+                  <button type="button" id="metric-mean-view-dots" class="chart-type-btn"
+                          aria-pressed="true">Dots</button>
+                  <button type="button" id="metric-mean-view-lines" class="chart-type-btn"
+                          aria-pressed="false">Lines</button>
+                </span>
+                <label id="metric-mean-scale-group" class="chart-scale-toggle">
+                  <input type="checkbox" id="metric-mean-scale-log"
+                         aria-label="Use logarithmic scale">
                 Log scale
-              </label>
-            </div>
+                </label>
+            </header>
             <div class="chartjs-wrap chartjs-wrap-small">
-              <canvas id="mean-chart"></canvas>
+                <canvas id="mean-chart"></canvas>
+                <div id="metric-mean-tooltip" class="chart-html-tooltip" role="tooltip" aria-hidden="true"></div>
             </div>
           </article>
-          <div class="hash-legend" aria-label="Query hash legend">
-            <ul>
-              {{#hashBreakdown}}
-                <li class="hash-legend-item">
-                  <button type="button" class="hash-series-toggle"
-                          data-label="{{hash}}" aria-pressed="true"
-                          aria-label="Toggle {{hash}}" title="{{hash}}">
-                    <span class="hash-swatch" style="background-color: {{color}}"
-                          aria-hidden="true"></span>
-                  </button>
-                </li>
-              {{/hashBreakdown}}
-            </ul>
+          <div class="top-chart-legend metric-hash-legend" aria-label="Query hash legend">
+            {{#hashBreakdown}}
+                <button type="button" class="legend-series-toggle hash-series-toggle"
+                        data-label="{{hash}}" aria-pressed="true"
+                        aria-label="Toggle {{hash}}" title="{{hash}}">
+                  <span class="legend-swatch" style="background-color: {{color}}"></span>
+                </button>
+            {{/hashBreakdown}}
           </div>
         </div>
         <div id="metric-chart-range-selection" class="chart-range-selection" hidden>
@@ -122,7 +137,7 @@
                   <th class="numeric">Mean (ms)</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody id="hash-query-table-body">
                 {{#hashBreakdown}}
                   <tr class="hash-query-row" data-hash="{{hash}}" data-color="{{color}}">
                     <td>
@@ -144,7 +159,7 @@
                 {{/hashBreakdown}}
               </tbody>
             </table>
-            <div class="hash-sql-sources" hidden>
+            <div id="hash-sql-sources" class="hash-sql-sources" hidden>
               {{#hashBreakdown}}
                 <template class="hash-sql-source" data-hash="{{hash}}">{{sql}}</template>
               {{/hashBreakdown}}
@@ -172,7 +187,7 @@
               <th>Shape changed</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody id="recent-plans-body">
             {{^recentPlans}}
               <tr><td colspan="6">No query plans collected for this label.</td></tr>
             {{/recentPlans}}
@@ -190,45 +205,44 @@
         </table>
       </article>
 
-      {{#hasFamily}}
-        <article class="query-total-section">
-          <header>Query family</header>
-          <p class="family-hint">
-            Related queries sharing this label's root (parent finder query and its lazy-loaded fetch-path
-            descendants). Bar width shows each row's total execution time relative to the busiest query in the family.
-          </p>
-          <table class="family-table">
-            <thead>
-              <tr>
-                <th>Label</th>
-                <th>Executions</th>
-                <th class="numeric">Total (ms)</th>
-                <th class="numeric">Mean (ms)</th>
+      <article id="metric-query-family" class="query-total-section"{{^hasFamily}} hidden{{/hasFamily}}>
+        <header>Query family</header>
+        <p class="family-hint">
+          Related queries sharing this label's root (parent finder query and its lazy-loaded fetch-path
+          descendants). Bar width shows each row's total execution time relative to the busiest query in the family.
+        </p>
+        <table class="family-table">
+          <thead>
+            <tr>
+              <th>Label</th>
+              <th>Executions</th>
+              <th class="numeric">Total (ms)</th>
+              <th class="numeric">Mean (ms)</th>
+            </tr>
+          </thead>
+          <tbody id="family-table-body">
+            {{#family}}
+              <tr class="family-row{{#current}} family-row-current{{/current}}">
+                <td style="padding-left: {{indent}}px">
+                  <a href="{{detailUrl}}">{{display}}</a>
+                  <div class="family-bar-track"><div class="family-bar" style="width: {{pct}}%"></div></div>
+                </td>
+                <td>{{count}}</td>
+                <td class="numeric">{{totalMs}}</td>
+                <td class="numeric">{{meanMs}}</td>
               </tr>
-            </thead>
-            <tbody>
-              {{#family}}
-                <tr class="family-row{{#current}} family-row-current{{/current}}">
-                  <td style="padding-left: {{indent}}px">
-                    <a href="{{detailUrl}}">{{display}}</a>
-                    <div class="family-bar-track"><div class="family-bar" style="width: {{pct}}%"></div></div>
-                  </td>
-                  <td>{{count}}</td>
-                  <td class="numeric">{{totalMs}}</td>
-                  <td class="numeric">{{meanMs}}</td>
-                </tr>
-              {{/family}}
-            </tbody>
-          </table>
-        </article>
-      {{/hasFamily}}
+            {{/family}}
+          </tbody>
+        </table>
+      </article>
     {{/hasData}}
 
     <script type="application/json" id="total-chart-data">{{{totalChartDataJson}}}</script>
     <script type="application/json" id="mean-chart-data">{{{meanChartDataJson}}}</script>
     <script type="application/json" id="max-chart-data">{{{maxChartDataJson}}}</script>
+    <script type="application/json" id="count-chart-data">{{{countChartDataJson}}}</script>
     <script src="/static/vendor/chart.umd.min.js"></script>
-    <script src="/static/dashboard-charts.js?v=7"></script>
-    <script src="/static/metric-detail.js?v=4"></script>
+    <script src="/static/dashboard-charts.js?v=13"></script>
+    <script src="/static/metric-detail.js?v=7"></script>
   {{/body}}
 {{/fragments/layout}}

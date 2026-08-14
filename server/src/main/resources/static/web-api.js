@@ -57,19 +57,43 @@
   };
 
   const currentSeries = function (data, line) {
+    const gapColor = getComputedStyle(document.body).backgroundColor;
     return data.datasets.map(function (dataset) {
       return {
         label: dataset.label,
         data: dataset.data,
         hidden: !visible.get(dataset.label),
-        borderColor: dataset.backgroundColor,
         backgroundColor: dataset.backgroundColor,
         fill: false,
         pointRadius: line ? 0 : undefined,
         borderWidth: line ? 2 : 1,
+        borderColor: line ? dataset.backgroundColor : gapColor,
+        categoryPercentage: line ? undefined : 1,
+        barPercentage: line ? undefined : 1,
+        borderSkipped: line ? undefined : false,
         tension: line ? 0.15 : undefined
       };
     });
+  };
+
+  const totalDurationUnit = function () {
+    const max = total.labels.reduce(function (maximum, _, index) {
+      const value = total.datasets.reduce(function (aggregate, dataset) {
+        const point = Number(dataset.data[index]) || 0;
+        return chartType === 'line' ? Math.max(aggregate, point) : aggregate + point;
+      }, 0);
+      return Math.max(maximum, value);
+    }, 0);
+    return window.DashboardCharts.durationUnitFor(max);
+  };
+
+  const statisticsDurationUnit = function (datasets) {
+    const max = datasets.reduce(function (maximum, dataset) {
+      return Math.max(maximum, dataset.data.reduce(function (seriesMaximum, value) {
+        return Math.max(seriesMaximum, Number(value) || 0);
+      }, 0));
+    }, 0);
+    return window.DashboardCharts.durationUnitFor(max);
   };
 
   const meanMaxSeries = function () {
@@ -146,6 +170,7 @@
       meanMaxChart.destroy();
     }
     const line = chartType === 'line';
+    const totalUnit = totalDurationUnit();
     totalChart = new Chart(totalCanvas.getContext('2d'), {
       type: chartType,
       data: {labels: total.labels, datasets: currentSeries(total, line)},
@@ -155,17 +180,28 @@
         animation: false,
         scales: {
           x: Object.assign(window.DashboardCharts.buildXScale(total.labels, total.bucketMinutes), {stacked: !line}),
-          y: {stacked: !line, beginAtZero: true}
+          y: {
+            stacked: !line,
+            beginAtZero: true,
+            title: {display: true, text: 'Total time (' + totalUnit + ')'},
+            ticks: {
+              callback: function (value) {
+                return window.DashboardCharts.durationValue(value, totalUnit);
+              }
+            }
+          }
         },
         plugins: {
           legend: {display: false},
-          tooltip: totalTooltip()
+          tooltip: totalTooltip(),
+          sharedCrosshair: window.DashboardCharts.crosshair(total)
         }
       }
     });
 
     const datasets = meanMaxSeries();
     const countMode = meanMode === 'count';
+    const statisticsUnit = countMode ? null : statisticsDurationUnit(datasets);
     const viewGroup = document.getElementById('web-api-mean-view-group');
     if (viewGroup) {
       viewGroup.hidden = countMode;
@@ -192,12 +228,23 @@
             beginAtZero: true,
             stacked: countMode,
             type: countMode ? 'linear' : meanScale,
-            title: {display: true, text: countMode ? 'Executions' : 'Milliseconds'}
+            title: {
+              display: true,
+              text: countMode ? 'Executions' : 'Duration (' + statisticsUnit + ')'
+            },
+            ticks: {
+              callback: function (value) {
+                return countMode
+                  ? Number(value).toLocaleString()
+                  : window.DashboardCharts.durationValue(value, statisticsUnit);
+              }
+            }
           }
         },
         plugins: {
           legend: {display: false},
-          tooltip: statisticsTooltip(countMode ? count : mean, countMode)
+          tooltip: statisticsTooltip(countMode ? count : mean, countMode),
+          sharedCrosshair: window.DashboardCharts.crosshair(countMode ? count : mean)
         }
       }
     });
@@ -382,7 +429,13 @@
       totalChart.options.scales.x = Object.assign(
         window.DashboardCharts.buildXScale(total.labels, total.bucketMinutes),
         {stacked: !line});
+      const totalUnit = totalDurationUnit();
+      totalChart.options.scales.y.title.text = 'Total time (' + totalUnit + ')';
+      totalChart.options.scales.y.ticks.callback = function (value) {
+        return window.DashboardCharts.durationValue(value, totalUnit);
+      };
       totalChart.options.plugins.tooltip = totalTooltip();
+      totalChart.options.plugins.sharedCrosshair = window.DashboardCharts.crosshair(total);
       totalChart.update('none');
     }
     if (meanMaxChart) {
@@ -394,7 +447,17 @@
         window.DashboardCharts.buildXScale(activeData.labels, activeData.bucketMinutes),
         {stacked: countMode});
       meanMaxChart.options.scales.y.type = countMode ? 'linear' : meanScale;
+      const statisticsUnit = countMode ? null : statisticsDurationUnit(meanMaxChart.data.datasets);
+      meanMaxChart.options.scales.y.title.text = countMode
+        ? 'Executions'
+        : 'Duration (' + statisticsUnit + ')';
+      meanMaxChart.options.scales.y.ticks.callback = function (value) {
+        return countMode
+          ? Number(value).toLocaleString()
+          : window.DashboardCharts.durationValue(value, statisticsUnit);
+      };
       meanMaxChart.options.plugins.tooltip = statisticsTooltip(activeData, countMode);
+      meanMaxChart.options.plugins.sharedCrosshair = window.DashboardCharts.crosshair(activeData);
       meanMaxChart.update('none');
     }
     updateLegend();

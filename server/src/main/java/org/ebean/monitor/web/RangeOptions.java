@@ -21,14 +21,14 @@ final class RangeOptions {
   }
 
   static final List<RangeOption> RANGES = List.of(
-    new RangeOption("30m", "Last 30 mins", 30),
-    new RangeOption("1h", "Last hour", 60),
-    new RangeOption("4h", "Last 4 hours", 240),
-    new RangeOption("6h", "Last 6 hours", 360),
-    new RangeOption("12h", "Last 12 hours", 720),
-    new RangeOption("24h", "Last 24 hours", 1440),
-    new RangeOption("2d", "Last 2 days", 2880),
-    new RangeOption("7d", "Last 7 days", 10080));
+    new RangeOption("30m", "30m", 30),
+    new RangeOption("1h", "1h", 60),
+    new RangeOption("4h", "4h", 240),
+    new RangeOption("6h", "6h", 360),
+    new RangeOption("12h", "12h", 720),
+    new RangeOption("24h", "24h", 1440),
+    new RangeOption("2d", "2d", 2880),
+    new RangeOption("7d", "7d", 10080));
 
   static RangeOption resolve(@Nullable String rangeParam) {
     for (RangeOption candidate : RANGES) {

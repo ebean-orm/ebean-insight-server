@@ -77,6 +77,30 @@
     }
   }
 
+  const layoutToggle = document.getElementById('layout-toggle');
+  if (layoutToggle) {
+    layoutToggle.addEventListener('click', function () {
+      const next = new URL(window.location.href);
+      if (next.searchParams.get('layout') === 'compact') {
+        next.searchParams.delete('layout');
+      } else {
+        next.searchParams.set('layout', 'compact');
+      }
+      window.location.href = next.toString();
+    });
+  }
+
+  const compactLegendsToggle = document.getElementById('compact-legends-toggle');
+  const compactDashboard = document.querySelector('.top-dashboard-compact');
+  if (compactLegendsToggle && compactDashboard) {
+    compactLegendsToggle.addEventListener('click', function () {
+      const visible = compactDashboard.classList.toggle('compact-legends-visible');
+      compactLegendsToggle.setAttribute('aria-pressed', String(visible));
+      compactLegendsToggle.setAttribute('aria-label', visible ? 'Hide legends' : 'Show legends');
+      compactLegendsToggle.title = visible ? 'Hide legends' : 'Show legends';
+    });
+  }
+
   const dataEl = document.getElementById('chart-data');
   const canvas = document.getElementById('chartjs-canvas');
   const meanCanvas = document.getElementById('top-mean-max-chart');
@@ -105,6 +129,10 @@
     const env = current.get('env');
     if (env) {
       target.set('env', env);
+    }
+    const timezone = current.get('tz');
+    if (timezone) {
+      target.set('tz', timezone);
     }
     return '/ux/metric-detail?' + target.toString();
   };
@@ -160,21 +188,6 @@
       context.fillStyle = 'rgba(40, 80, 120, 0.12)';
       context.fillRect(left, currentChart.chartArea.top, right - left, currentChart.chartArea.height);
       context.restore();
-    },
-    afterDraw: function (currentChart) {
-      if (sharedHoverIndex === null || !currentChart.scales.x) {
-        return;
-      }
-      const x = currentChart.scales.x.getPixelForValue(sharedHoverIndex);
-      const context = currentChart.ctx;
-      context.save();
-      context.strokeStyle = 'rgba(40, 80, 120, 0.45)';
-      context.lineWidth = 1;
-      context.beginPath();
-      context.moveTo(x, currentChart.chartArea.top);
-      context.lineTo(x, currentChart.chartArea.bottom);
-      context.stroke();
-      context.restore();
     }
   };
 
@@ -191,6 +204,8 @@
       return;
     }
     sharedHoverIndex = index;
+    window.DashboardCharts.setSharedCrosshairTimestamp(
+      index === null ? null : chartData.timestamps[index]);
     updateCharts();
   };
 
@@ -357,9 +372,10 @@
           x: xScale,
           y: {
             stacked: !isLine,
+            title: {display: true, text: 'Total time (' + durationUnit + ')'},
             ticks: {
               callback: function (value) {
-                return window.DashboardCharts.compactDuration(value, durationUnit);
+                return window.DashboardCharts.durationValue(value, durationUnit);
               }
             }
           }
@@ -386,7 +402,8 @@
         },
         plugins: {
           legend: {display: false},
-          tooltip: queryTotalTooltip()
+          tooltip: queryTotalTooltip(),
+          sharedCrosshair: window.DashboardCharts.crosshair(chartData)
         }
       },
       plugins: [sharedTimeCrosshair]
@@ -412,9 +429,11 @@
     }, 0);
     const durationUnit = window.DashboardCharts.durationUnitFor(maxTotalMs);
     chart.options.scales.y.ticks.callback = function (value) {
-      return window.DashboardCharts.compactDuration(value, durationUnit);
+      return window.DashboardCharts.durationValue(value, durationUnit);
     };
+    chart.options.scales.y.title.text = 'Total time (' + durationUnit + ')';
     chart.options.plugins.tooltip = queryTotalTooltip();
+    chart.options.plugins.sharedCrosshair = window.DashboardCharts.crosshair(chartData);
     chart.update('none');
   };
 
@@ -977,12 +996,15 @@
           y: {
             type: countMode ? 'linear' : meanMaxScale,
             stacked: countMode,
-            title: {display: true, text: countMode ? 'Executions' : 'Milliseconds'},
+            title: {
+              display: true,
+              text: countMode ? 'Executions' : 'Duration (' + durationUnit + ')'
+            },
             ticks: {
               callback: function (value) {
                 return countMode
                   ? Number(value).toLocaleString()
-                  : window.DashboardCharts.compactDuration(value, durationUnit);
+                  : window.DashboardCharts.durationValue(value, durationUnit);
               }
             }
           }
@@ -993,7 +1015,8 @@
         },
         plugins: {
           legend: {display: false},
-          tooltip: queryStatisticsTooltip(activeData, countMode)
+          tooltip: queryStatisticsTooltip(activeData, countMode),
+          sharedCrosshair: window.DashboardCharts.crosshair(activeData)
         }
       },
       plugins: [sharedTimeCrosshair]
@@ -1043,13 +1066,16 @@
       {stacked: countMode});
     meanMaxChart.options.scales.y.type = countMode ? 'linear' : meanMaxScale;
     meanMaxChart.options.scales.y.stacked = countMode;
-    meanMaxChart.options.scales.y.title.text = countMode ? 'Executions' : 'Milliseconds';
+    meanMaxChart.options.scales.y.title.text = countMode
+      ? 'Executions'
+      : 'Duration (' + durationUnit + ')';
     meanMaxChart.options.scales.y.ticks.callback = function (value) {
       return countMode
         ? Number(value).toLocaleString()
-        : window.DashboardCharts.compactDuration(value, durationUnit);
+        : window.DashboardCharts.durationValue(value, durationUnit);
     };
     meanMaxChart.options.plugins.tooltip = queryStatisticsTooltip(activeData, countMode);
+    meanMaxChart.options.plugins.sharedCrosshair = window.DashboardCharts.crosshair(activeData);
     meanMaxChart.update('none');
   };
 

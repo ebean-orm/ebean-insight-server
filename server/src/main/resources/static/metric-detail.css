@@ -13,7 +13,7 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
-  margin-bottom: 0;
+  margin-bottom: 0.75rem;
 }
 
 .metric-detail-chart-layout > .chart-range-selection {
@@ -24,30 +24,8 @@
   min-width: 0;
 }
 
-.hash-legend {
-  margin: 0.5rem 0 1.5rem;
-}
-
-.hash-legend ul {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.125rem 0.5rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.hash-legend-item {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0;
-  overflow-wrap: anywhere;
-}
-
 .chartjs-wrap-small {
-  height: 240px;
+  height: 320px;
 }
 
 /* Small colored dot rendered next to a hash value in the legend and plan table. */
@@ -63,24 +41,6 @@
 .hash-location {
   max-width: 28rem;
   overflow-wrap: anywhere;
-}
-
-.hash-series-toggle {
-  width: auto;
-  margin: 0 0.25rem 0 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  vertical-align: middle;
-}
-
-.hash-series-toggle[aria-pressed="false"] {
-  opacity: 0.45;
-}
-
-.hash-series-toggle .hash-swatch {
-  border-radius: 2px;
 }
 
 /* "Query family" tree: a flat, pre-ordered list of rows (root + every

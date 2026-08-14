@@ -1,6 +1,7 @@
 (function () {
   const dataElement = document.getElementById('datasource-pool-data');
   const canvas = document.getElementById('datasource-pool-chart');
+  const legend = document.getElementById('datasource-pool-legend');
   if (!dataElement || !canvas || typeof Chart === 'undefined' || !window.DashboardCharts) {
     return;
   }
@@ -54,6 +55,7 @@
         y: {
           stacked: true,
           beginAtZero: true,
+          title: {display: true, text: 'Connections'},
           ticks: {
             callback: function (value) {
               return value;
@@ -63,14 +65,14 @@
       },
       plugins: {
         legend: {
-          display: true,
-          position: 'bottom',
-          labels: {boxWidth: 14, boxHeight: 14}
+          display: false
         },
-        tooltip: tooltip()
+        tooltip: tooltip(),
+        sharedCrosshair: window.DashboardCharts.crosshair(data)
       }
     }
     });
+    window.DashboardCharts.renderSeriesLegend(legend, chart);
   };
 
   render();
@@ -83,10 +85,12 @@
     chart.data.labels = data.labels;
     chart.data.datasets = datasets();
     chart.options.plugins.tooltip = tooltip();
+    chart.options.plugins.sharedCrosshair = window.DashboardCharts.crosshair(data);
     chart.options.scales.x = Object.assign(
       window.DashboardCharts.buildXScale(data.labels, data.bucketMinutes),
       {stacked: true});
     chart.update('none');
+    window.DashboardCharts.renderSeriesLegend(legend, chart);
   });
   window.addEventListener('insight-theme-change', function () {
     window.DashboardCharts.hideHtmlTooltip('datasource-pool-tooltip');

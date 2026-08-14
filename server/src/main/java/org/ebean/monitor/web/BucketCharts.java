@@ -46,7 +46,7 @@ final class BucketCharts {
     return new TotalMean(total, mean);
   }
 
-  record HashCharts(ChartData total, ChartData mean, ChartData max) {
+  record HashCharts(ChartData total, ChartData mean, ChartData max, ChartData count) {
   }
 
   static HashCharts buildHashCharts(MetricTimeseriesTop timeseries, Map<String, String> colors) {
@@ -65,6 +65,8 @@ final class BucketCharts {
         timeseries.bucketMinutes()),
       new ChartData(labels, timestamps, buildDatasets(timeseries, colors,
         bucket -> bucket.count() == 0L ? null : bucket.max() / 1000L),
+        timeseries.bucketMinutes()),
+      new ChartData(labels, timestamps, buildDatasets(timeseries, colors, MetricTimeBucket::count),
         timeseries.bucketMinutes()));
   }
 

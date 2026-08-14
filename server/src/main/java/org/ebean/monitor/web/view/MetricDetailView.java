@@ -1,6 +1,7 @@
 package org.ebean.monitor.web.view;
 
 import io.jstach.jstache.JStache;
+import io.avaje.jsonb.Json;
 import org.jspecify.annotations.Nullable;
 
 import java.util.List;
@@ -23,10 +24,12 @@ public record MetricDetailView(
   List<Option> envs,
   String range,
   List<Option> ranges,
+  String timezone,
   String label,
   String totalChartDataJson,
   String meanChartDataJson,
   String maxChartDataJson,
+  String countChartDataJson,
   List<HashRow> hashBreakdown,
   List<PlanRow> recentPlans,
   boolean hasFamily,
@@ -34,6 +37,7 @@ public record MetricDetailView(
 ) {
 
   /** One ranked row of the "breakdown by hash" table for this label. */
+  @Json
   public record HashRow(String hash, String color, @Nullable String location,
                         String totalMs, String meanMs, @Nullable String sql,
                         @Nullable String hashUrl) {
@@ -44,6 +48,7 @@ public record MetricDetailView(
   }
 
   /** One row of the "recently collected query plans" table for this label. */
+  @Json
   public record PlanRow(long id, String url, String env, String hash, String whenCaptured, String queryTimeMs,
                         String captureCount, boolean shapeChanged, String color) {
   }
@@ -54,6 +59,7 @@ public record MetricDetailView(
    * is a ready-to-use left-margin (px) for the row's nesting depth and
    * {@code pct} a ready-to-use percentage width for the relative-time bar.
    */
+  @Json
   public record FamilyRow(String label, String display, int indent, String totalMs, String meanMs,
                          String count, String pct, boolean current, String detailUrl) {
   }

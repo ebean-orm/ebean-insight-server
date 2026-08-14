@@ -46,14 +46,14 @@
     return separator < 0 ? label : label.substring(separator + 3);
   };
 
-  const jvmTooltip = function (labels, tooltipId, unit, defaultSeriesName) {
+  const jvmTooltip = function (labels, tooltipId, unit, defaultSeriesName, decimals) {
     return window.DashboardCharts.htmlTooltip(labels, tooltipId, function (point) {
       const label = point.dataset.label;
       const series = seriesName(label);
       return {
         label: podName(label),
         metric: series === label ? defaultSeriesName : series,
-        value: point.parsed.y.toFixed(1) + unit
+        value: point.parsed.y.toFixed(decimals) + unit
       };
     });
   };
@@ -216,7 +216,8 @@
         },
         plugins: {
           legend: {display: false},
-          tooltip: jvmTooltip(memory.labels, 'jvm-memory-tooltip', ' MB', 'RSS')
+          tooltip: jvmTooltip(memory.labels, 'jvm-memory-tooltip', ' MB', 'RSS', 1),
+          sharedCrosshair: window.DashboardCharts.crosshair(memory)
         }
       }
     });
@@ -243,7 +244,8 @@
           },
           plugins: {
             legend: {display: false},
-            tooltip: jvmTooltip(cpu.labels, 'jvm-cpu-tooltip', ' cores', 'CPU')
+            tooltip: jvmTooltip(cpu.labels, 'jvm-cpu-tooltip', ' cores', 'CPU', 2),
+            sharedCrosshair: window.DashboardCharts.crosshair(cpu)
           }
         }
       });

@@ -99,10 +99,13 @@ window.DashboardCharts = (function () {
   }
 
   function compactDuration(value, unit) {
+    return durationValue(value, unit) + ' ' + unit;
+  }
+
+  function durationValue(value, unit) {
     const divisor = unit === 's' ? 1000 : unit === 'min' ? 60000 : unit === 'h' ? 3600000 : 1;
-    const amount = value / divisor;
-    const rounded = Math.round(amount * 10) / 10;
-    return String(rounded).replace(/\.0$/, '') + ' ' + unit;
+    const rounded = Math.round((value / divisor) * 10) / 10;
+    return String(rounded).replace(/\.0$/, '');
   }
 
   function detailedDuration(value) {
@@ -235,7 +238,121 @@ window.DashboardCharts = (function () {
     });
   }
 
+  let sharedCrosshairTimestamp = null;
+
+  function redrawSharedCrosshairs(source) {
+    Object.values(Chart.instances).forEach(function (chart) {
+      if (chart !== source && chart.options.plugins && chart.options.plugins.sharedCrosshair) {
+        chart.draw();
+      }
+    });
+  }
+
+  function setSharedCrosshairTimestamp(timestamp, source) {
+    if (sharedCrosshairTimestamp === timestamp) {
+      return;
+    }
+    sharedCrosshairTimestamp = timestamp;
+    redrawSharedCrosshairs(source);
+  }
+
+  const sharedCrosshair = {
+    id: 'sharedCrosshair',
+    afterEvent: function (chart, args) {
+      const options = chart.options.plugins && chart.options.plugins.sharedCrosshair;
+      if (!options) {
+        return;
+      }
+      if (args.event.type === 'mouseout') {
+        setSharedCrosshairTimestamp(null, chart);
+        args.changed = true;
+        return;
+      }
+      if (args.event.type !== 'mousemove' && args.event.type !== 'touchmove') {
+        return;
+      }
+      const active = chart.getActiveElements();
+      const timestamps = Array.from(options.timestamps || []);
+      const timestamp = active.length ? timestamps[active[0].index] : null;
+      setSharedCrosshairTimestamp(timestamp || null, chart);
+      args.changed = true;
+    },
+    afterDraw: function (chart, _, options) {
+      if (sharedCrosshairTimestamp === null || !chart.scales.x || !chart.chartArea) {
+        return;
+      }
+      const timestamps = Array.from(options.timestamps || []);
+      const index = timestamps.indexOf(sharedCrosshairTimestamp);
+      if (index < 0) {
+        return;
+      }
+      const x = chart.scales.x.getPixelForValue(index);
+      if (x < chart.chartArea.left || x > chart.chartArea.right) {
+        return;
+      }
+      const context = chart.ctx;
+      context.save();
+      context.globalAlpha = 0.6;
+      context.strokeStyle = themeColors().text;
+      context.lineWidth = 2;
+      context.beginPath();
+      context.moveTo(x, chart.chartArea.top);
+      context.lineTo(x, chart.chartArea.bottom);
+      context.stroke();
+      context.restore();
+    }
+  };
+
+  function crosshair(data) {
+    return {timestamps: data.timestamps || []};
+  }
+
+  function renderSeriesLegend(container, chart) {
+    if (!container || !chart) {
+      return;
+    }
+    container.replaceChildren();
+    const updateButtons = function () {
+      container.querySelectorAll('.legend-series-toggle').forEach(function (button) {
+        button.setAttribute('aria-pressed', String(chart.isDatasetVisible(Number(button.dataset.index))));
+      });
+    };
+    chart.data.datasets.forEach(function (dataset, index) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'legend-series-toggle';
+      button.title = dataset.label;
+      button.setAttribute('aria-label', 'Toggle ' + dataset.label);
+      button.dataset.index = String(index);
+      const swatch = document.createElement('span');
+      swatch.className = 'legend-swatch';
+      swatch.style.backgroundColor = dataset.backgroundColor;
+      button.appendChild(swatch);
+      button.addEventListener('click', function (event) {
+        if (event.ctrlKey || event.metaKey) {
+          chart.setDatasetVisibility(index, !chart.isDatasetVisible(index));
+        } else {
+          const onlyThisSeries = chart.data.datasets.every(function (_, datasetIndex) {
+            return datasetIndex === index
+              ? chart.isDatasetVisible(datasetIndex)
+              : !chart.isDatasetVisible(datasetIndex);
+          });
+          chart.data.datasets.forEach(function (_, datasetIndex) {
+            chart.setDatasetVisibility(datasetIndex, onlyThisSeries || datasetIndex === index);
+          });
+        }
+        chart.update('none');
+        updateButtons();
+      });
+      container.appendChild(button);
+    });
+    updateButtons();
+  }
+
   applyTheme();
+  if (typeof Chart !== 'undefined') {
+    Chart.register(sharedCrosshair);
+  }
   window.addEventListener('insight-theme-change', applyTheme);
 
   /** Sets a pointer cursor while hovering a clickable chart element. */
@@ -249,6 +366,7 @@ window.DashboardCharts = (function () {
     timeOnly, minutesOfDay, pickIntervalMinutes, buildXScale, tooltipOptions, htmlTooltip,
     hideHtmlTooltip, localize,
     pointerOnHover, durationUnitFor, compactDuration, detailedDuration,
-    themeColors, applyTheme
+    durationValue,
+    themeColors, applyTheme, crosshair, setSharedCrosshairTimestamp, renderSeriesLegend
   };
 })();

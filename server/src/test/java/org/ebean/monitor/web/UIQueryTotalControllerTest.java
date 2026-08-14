@@ -26,6 +26,21 @@ class UIQueryTotalControllerTest {
   }
 
   @Test
+  void metricDetailUrlPreservesTimezone() {
+    final String url = UIQueryTotalController.metricDetailUrl(
+      "orders app",
+      "prod",
+      "4h",
+      "Order.findList",
+      null,
+      null,
+      "utc");
+
+    assertThat(url).isEqualTo(
+      "/ux/metric-detail?app=orders+app&range=4h&label=Order.findList&env=prod&tz=utc");
+  }
+
+  @Test
   void queryPlanUrlPreservesAbsoluteRange() {
     final String url = UIQueryTotalController.queryPlanUrl(
       42L,

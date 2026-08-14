@@ -1,6 +1,7 @@
 {{<fragments/layout}}
   {{$filters}}
     <form class="header-filters" method="get" action="/ux/top">
+      {{#compactLayout}}<input type="hidden" name="layout" value="compact">{{/compactLayout}}
       <div id="custom-range-controls" class="custom-range-controls" hidden>
         <label>
           <input type="datetime-local" id="custom-range-from" aria-label="Custom range start">
@@ -32,18 +33,51 @@
       </select>
       <label id="auto-refresh-control" class="auto-refresh-control" hidden>
         <input type="checkbox" id="auto-refresh-toggle" aria-label="Enable automatic refresh">
-        Auto-refresh
+        Auto
         <span class="auto-refresh-timer" aria-label="Seconds until refresh">
           <span id="auto-refresh-ring" class="auto-refresh-ring" aria-hidden="true"></span>
           <span id="auto-refresh-seconds">60s</span>
         </span>
         <span id="auto-refresh-status" class="auto-refresh-status" hidden></span>
       </label>
+      <button type="button" id="layout-toggle" class="layout-toggle" aria-pressed="{{compactLayout}}"
+              aria-label="{{#compactLayout}}Use normal layout{{/compactLayout}}{{^compactLayout}}Use compact layout{{/compactLayout}}"
+              title="{{#compactLayout}}Use normal layout{{/compactLayout}}{{^compactLayout}}Use compact layout{{/compactLayout}}">
+        {{#compactLayout}}
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="3" y="3" width="18" height="4" rx="1"></rect>
+            <rect x="3" y="10" width="18" height="4" rx="1"></rect>
+            <rect x="3" y="17" width="18" height="4" rx="1"></rect>
+          </svg>
+        {{/compactLayout}}
+        {{^compactLayout}}
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="3" y="3" width="18" height="3" rx="1"></rect>
+            <rect x="3" y="8" width="18" height="3" rx="1"></rect>
+            <rect x="3" y="13" width="18" height="3" rx="1"></rect>
+            <rect x="3" y="18" width="18" height="3" rx="1"></rect>
+          </svg>
+        {{/compactLayout}}
+      </button>
+      {{#compactLayout}}
+        <button type="button" id="compact-legends-toggle" class="layout-toggle" aria-pressed="false"
+                aria-label="Show legends" title="Show legends">
+          <svg class="legend-icon-eye" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"></path>
+            <circle cx="12" cy="12" r="2.5"></circle>
+          </svg>
+          <svg class="legend-icon-eye-off" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m3 3 18 18"></path>
+            <path d="M10.6 6.2A11.8 11.8 0 0 1 12 6c6.5 0 10 6 10 6a18 18 0 0 1-3.1 3.7"></path>
+            <path d="M6.2 6.2C3.5 8.3 2 12 2 12s3.5 6 10 6c1.4 0 2.7-.3 3.8-.8"></path>
+          </svg>
+        </button>
+      {{/compactLayout}}
       <noscript><button type="submit">Apply</button></noscript>
     </form>
   {{/filters}}
   {{$body}}
-    <link rel="stylesheet" href="/static/query-total.css?v=15">
+    <link rel="stylesheet" href="/static/query-total.css?v=25">
 
     {{^hasData}}
       <article>
@@ -52,6 +86,7 @@
     {{/hasData}}
 
     {{#hasData}}
+      <div class="top-dashboard{{#compactLayout}} top-dashboard-compact{{/compactLayout}}">
       {{#webApiDashboard}}
         <div class="web-api-grid web-api-primary-grid">
           <article class="query-total-section">
@@ -188,7 +223,8 @@
           </div>
         </div>
 
-        <details class="legend-toggle legend-toggle-wide">
+        {{^compactLayout}}
+          <details class="legend-toggle legend-toggle-wide">
           <summary>
             <span class="legend-toggle-icon" aria-hidden="true">
               <svg class="legend-icon-eye" viewBox="0 0 24 24" focusable="false">
@@ -237,7 +273,8 @@
               {{/legend}}
             </tbody>
           </table>
-        </details>
+          </details>
+        {{/compactLayout}}
       </div>
 
       {{#showTopRankings}}
@@ -265,6 +302,7 @@
               <canvas id="datasource-pool-chart"></canvas>
               <div id="datasource-pool-tooltip" class="chart-html-tooltip" role="tooltip" aria-hidden="true"></div>
             </div>
+            <div id="datasource-pool-legend" class="top-chart-legend" aria-label="Datasource pool series legend"></div>
           </article>
           <article class="query-total-section datasource-pool-section">
             <header>Datasource pool wait and acquire time</header>
@@ -272,6 +310,7 @@
               <canvas id="datasource-pool-timing-chart"></canvas>
               <div id="datasource-pool-timing-tooltip" class="chart-html-tooltip" role="tooltip" aria-hidden="true"></div>
             </div>
+            <div id="datasource-pool-timing-legend" class="top-chart-legend" aria-label="Datasource pool timing series legend"></div>
           </article>
         </div>
       {{/datasourcePoolDashboard}}
@@ -296,6 +335,7 @@
           </article>
         </div>
       {{/jvmDashboard}}
+      </div>
 
     {{/hasData}}
 
@@ -314,11 +354,11 @@
     <script type="application/json" id="jvm-memory-data">{{{jvmMemoryJson}}}</script>
     <script type="application/json" id="jvm-cpu-data">{{{jvmCpuJson}}}</script>
     <script src="/static/vendor/chart.umd.min.js"></script>
-    <script src="/static/dashboard-charts.js?v=8"></script>
-    <script src="/static/query-total.js?v=6"></script>
-    <script src="/static/datasource-pool.js?v=3"></script>
-    <script src="/static/datasource-pool-timing.js?v=2"></script>
-    <script src="/static/web-api.js?v=5"></script>
-    <script src="/static/jvm.js?v=27"></script>
+    <script src="/static/dashboard-charts.js?v=13"></script>
+    <script src="/static/query-total.js?v=12"></script>
+    <script src="/static/datasource-pool.js?v=7"></script>
+    <script src="/static/datasource-pool-timing.js?v=6"></script>
+    <script src="/static/web-api.js?v=8"></script>
+    <script src="/static/jvm.js?v=29"></script>
   {{/body}}
 {{/fragments/layout}}

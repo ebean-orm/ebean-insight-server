@@ -16,6 +16,7 @@ import java.util.List;
 public record QueryTotalView(
   Breadcrumb breadcrumb,
   boolean hasData,
+  boolean compactLayout,
   String app,
   List<Option> apps,
   String env,

@@ -4,8 +4,10 @@ import io.avaje.htmx.api.Html;
 import io.avaje.http.api.Controller;
 import io.avaje.http.api.Get;
 import io.avaje.http.api.Path;
+import io.avaje.http.api.Produces;
 import io.avaje.http.api.QueryParam;
 import io.avaje.jex.http.BadRequestException;
+import io.avaje.jsonb.Json;
 import io.avaje.jsonb.Jsonb;
 import org.ebean.monitor.v1.model.Env;
 import org.ebean.monitor.v1.model.QueryPlanSummary;
@@ -55,6 +57,11 @@ public class UIMetricDetailController {
   private final V1QueryService service;
   private final Jsonb chartJsonb;
 
+  @Json
+  record MetricDetailData(boolean hasData, ChartData total, ChartData mean, ChartData max, ChartData count,
+                          List<HashRow> hashBreakdown, List<PlanRow> recentPlans, List<FamilyRow> family) {
+  }
+
   public UIMetricDetailController(V1QueryService service) {
     this.service = service;
     this.chartJsonb = Jsonb.builder().serializeNulls(true).build();
@@ -66,7 +73,8 @@ public class UIMetricDetailController {
                                 @QueryParam("range") @Nullable String rangeParam,
                                 @QueryParam("label") String labelParam,
                                 @QueryParam("from") @Nullable String fromParam,
-                                @QueryParam("to") @Nullable String toParam) {
+                                @QueryParam("to") @Nullable String toParam,
+                                @QueryParam("tz") @Nullable String timezoneParam) {
 
     final List<Env> envs = service.listEnvs();
     final String selectedApp = appParam == null ? "" : appParam;
@@ -78,30 +86,69 @@ public class UIMetricDetailController {
     }
     final RangeOption range = from == null ? RangeOptions.resolve(rangeParam) : RangeOptions.custom();
     final String label = labelParam == null ? "" : labelParam;
+    final String timezone = timezoneParam == null ? "" : timezoneParam;
+    final String topUrl = UIQueryTotalController.topUrl(
+      selectedApp, selectedEnv, range.key(), from, to, timezone);
 
     final Breadcrumb breadcrumb = new Breadcrumb(List.of(
-      new Breadcrumb.Item(UIQueryTotalController.topUrl(
-        selectedApp, selectedEnv, range.key(), from, to), "Top"),
+      new Breadcrumb.Item(topUrl, "Top"),
+      new Breadcrumb.Item(topUrl, selectedApp),
       new Breadcrumb.Item(label)));
 
-    if (selectedApp.isBlank() || label.isBlank()) {
-      return emptyView(breadcrumb, envs, selectedApp, selectedEnv, range, label);
+    final MetricDetailData data = loadMetricDetailData(
+      selectedApp, selectedEnv, range, label, from, to, timezone);
+    return new MetricDetailView(breadcrumb, data.hasData(), selectedApp,
+      selectedEnv, envOptions(envs, selectedEnv), range.key(), RangeOptions.options(range.key()),
+      timezone, label, toChartJson(data.total()), toChartJson(data.mean()), toChartJson(data.max()),
+      toChartJson(data.count()), data.hashBreakdown(), data.recentPlans(), !data.family().isEmpty(), data.family());
+  }
+
+  @Get("metric-detail/data")
+  @Produces("application/json")
+  String metricDetailData(@QueryParam("app") @Nullable String appParam,
+                          @QueryParam("env") @Nullable String envParam,
+                          @QueryParam("range") @Nullable String rangeParam,
+                          @QueryParam("label") @Nullable String labelParam,
+                          @QueryParam("from") @Nullable String fromParam,
+                          @QueryParam("to") @Nullable String toParam,
+                          @QueryParam("tz") @Nullable String timezoneParam) {
+    final Instant from = parseInstant(fromParam, "from");
+    final Instant to = parseInstant(toParam, "to");
+    if ((from == null) != (to == null)) {
+      throw new BadRequestException("Both from and to timestamps are required");
+    }
+    final RangeOption range = from == null ? RangeOptions.resolve(rangeParam) : RangeOptions.custom();
+    final MetricDetailData data = loadMetricDetailData(
+      appParam == null ? "" : appParam,
+      envParam == null ? "" : envParam,
+      range,
+      labelParam == null ? "" : labelParam,
+      from,
+      to,
+      timezoneParam == null ? "" : timezoneParam);
+    return chartJsonb.type(MetricDetailData.class).toJson(data).replace("<", "\\u003c");
+  }
+
+  private MetricDetailData loadMetricDetailData(String app, String selectedEnv, RangeOption range, String label,
+                                                @Nullable Instant from, @Nullable Instant to, String timezone) {
+    if (app.isBlank() || label.isBlank()) {
+      return emptyMetricDetailData();
     }
 
     final String env = selectedEnv.isBlank() ? null : selectedEnv;
     final MetricTimeseriesTop hashTimeseries = from == null
       ? service.getLabelHashTimeseries(
-        selectedApp, label, METRIC_NAME, (long) range.minutes(), null, HASH_BREAKDOWN_LIMIT, env)
+        app, label, METRIC_NAME, (long) range.minutes(), null, HASH_BREAKDOWN_LIMIT, env)
       : service.getLabelHashTimeseries(
-        selectedApp, label, METRIC_NAME, HASH_BREAKDOWN_LIMIT, env, from, to);
+        app, label, METRIC_NAME, HASH_BREAKDOWN_LIMIT, env, from, to);
     if (hashTimeseries.series().isEmpty()) {
-      return emptyView(breadcrumb, envs, selectedApp, selectedEnv, range, label);
+      return emptyMetricDetailData();
     }
 
     final List<TopGroup> hashGroups = from == null
-      ? service.topAppMetrics(selectedApp, "hash", METRIC_NAME, label,
+      ? service.topAppMetrics(app, "hash", METRIC_NAME, label,
         null, null, "total", (long) range.minutes(), null, HASH_BREAKDOWN_LIMIT, null, env)
-      : service.topAppMetrics(selectedApp, "hash", METRIC_NAME, label,
+      : service.topAppMetrics(app, "hash", METRIC_NAME, label,
         null, null, "total", HASH_BREAKDOWN_LIMIT, null, env, from, to);
     final Map<String, String> colorByHash = new HashMap<>();
     final List<HashRow> hashBreakdown = new ArrayList<>(hashGroups.size());
@@ -113,15 +160,12 @@ public class UIMetricDetailController {
         g.loc(), formatNum(microsToMs(g.totalMicros())), formatNum(microsToMs(g.meanMicros())),
         g.sql(),
         hasSql(g.sql()) ? UIQueryTotalController.queryHashUrl(
-          selectedApp, selectedEnv, range.key(), label, g.key(), from, to) : null));
+          app, selectedEnv, range.key(), label, g.key(), from, to) : null));
     }
     final BucketCharts.HashCharts charts = BucketCharts.buildHashCharts(hashTimeseries, colorByHash);
-    final String totalChartJson = toChartJson(charts.total());
-    final String meanChartJson = toChartJson(charts.mean());
-    final String maxChartJson = toChartJson(charts.max());
 
     // Plans are recent by collection time, independent of the selected metric range.
-    final List<QueryPlanSummary> plans = service.listPlans(selectedApp, env, label, null, null, null,
+    final List<QueryPlanSummary> plans = service.listPlans(app, env, label, null, null, null,
       null, null, RECENT_PLANS_LIMIT);
     final List<PlanRow> recentPlans = plans.stream()
       .map(p -> new PlanRow(p.id(), UIQueryTotalController.queryPlanUrl(
@@ -131,18 +175,14 @@ public class UIMetricDetailController {
         Boolean.TRUE.equals(p.shapeChanged()), colorByHash.getOrDefault(p.hash(), Palette.OTHER_COLOR)))
       .toList();
 
-    final List<FamilyRow> family = buildFamily(selectedApp, label, range, env, from, to);
-
-    return new MetricDetailView(breadcrumb, true, selectedApp,
-      selectedEnv, envOptions(envs, selectedEnv), range.key(), RangeOptions.options(range.key()),
-      label, totalChartJson, meanChartJson, maxChartJson, hashBreakdown, recentPlans, !family.isEmpty(), family);
+    final List<FamilyRow> family = buildFamily(app, label, range, env, from, to, timezone);
+    return new MetricDetailData(true, charts.total(), charts.mean(), charts.max(), charts.count(),
+      hashBreakdown, recentPlans, family);
   }
 
-  private MetricDetailView emptyView(Breadcrumb breadcrumb, List<Env> envs,
-                                     String selectedApp, String selectedEnv, RangeOption range, String label) {
-    return new MetricDetailView(breadcrumb, false, selectedApp,
-      selectedEnv, envOptions(envs, selectedEnv), range.key(), RangeOptions.options(range.key()),
-      label, emptyChartJson(), emptyChartJson(), emptyChartJson(), List.of(), List.of(), false, List.of());
+  private static MetricDetailData emptyMetricDetailData() {
+    final ChartData empty = new ChartData(List.of(), List.of(), List.of(), 0L);
+    return new MetricDetailData(false, empty, empty, empty, empty, List.of(), List.of(), List.of());
   }
 
   /**
@@ -152,7 +192,7 @@ public class UIMetricDetailController {
    * (no dots beyond the root, or no sibling/descendant data in this window).
    */
   private List<FamilyRow> buildFamily(String app, String label, RangeOption range, @Nullable String env,
-                                      @Nullable Instant from, @Nullable Instant to) {
+                                      @Nullable Instant from, @Nullable Instant to, String timezone) {
     final String root = LabelFamily.rootOf(label);
     final List<TopGroup> familyGroups = from == null
       ? service.topLabelFamily(app, root, METRIC_NAME, (long) range.minutes(), env, FAMILY_LIMIT)
@@ -164,7 +204,7 @@ public class UIMetricDetailController {
       .map(n -> new FamilyRow(n.label(), n.display(), n.depth() * 20,
         formatMs(n.totalMicros()), formatMs(n.meanMicros()), formatNum(n.count()),
         String.format(Locale.US, "%.0f", n.pct()), n.current(),
-        UIQueryTotalController.metricDetailUrl(app, env, range.key(), n.label(), from, to)))
+        UIQueryTotalController.metricDetailUrl(app, env, range.key(), n.label(), from, to, timezone)))
       .toList();
   }
 
@@ -182,10 +222,6 @@ public class UIMetricDetailController {
 
   private String toChartJson(ChartData chartData) {
     return chartJsonb.type(ChartData.class).toJson(chartData).replace("<", "\\u003c");
-  }
-
-  private static String emptyChartJson() {
-    return "{\"labels\":[],\"datasets\":[]}";
   }
 
   private static long microsToMs(@Nullable Long micros) {
@@ -214,7 +250,7 @@ public class UIMetricDetailController {
 
   private static List<Option> envOptions(List<Env> envs, String selected) {
     final List<Option> options = new ArrayList<>();
-    options.add(new Option("", "All environments", selected.isBlank()));
+    options.add(new Option("", "All", selected.isBlank()));
     for (Env env : envs) {
       options.add(new Option(env.name(), env.name(), env.name().equals(selected)));
     }

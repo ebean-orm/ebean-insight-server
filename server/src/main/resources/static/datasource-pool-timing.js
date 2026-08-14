@@ -1,6 +1,7 @@
 (function () {
   const dataElement = document.getElementById('datasource-pool-timing-data');
   const canvas = document.getElementById('datasource-pool-timing-chart');
+  const legend = document.getElementById('datasource-pool-timing-legend');
   if (!dataElement || !canvas || typeof Chart === 'undefined' || !window.DashboardCharts) {
     return;
   }
@@ -35,7 +36,18 @@
     });
   };
 
+  const durationUnit = function () {
+    const max = data.labels.reduce(function (maximum, _, index) {
+      const total = data.datasets.reduce(function (sum, dataset) {
+        return sum + (Number(dataset.data[index]) || 0);
+      }, 0);
+      return Math.max(maximum, total);
+    }, 0);
+    return window.DashboardCharts.durationUnitFor(max);
+  };
+
   const render = function () {
+    const unit = durationUnit();
     chart = new Chart(canvas.getContext('2d'), {
     type: 'bar',
     data: {
@@ -54,19 +66,24 @@
         y: {
           stacked: true,
           beginAtZero: true,
-          title: {display: true, text: 'Milliseconds'}
+          title: {display: true, text: 'Duration (' + unit + ')'},
+          ticks: {
+            callback: function (value) {
+              return window.DashboardCharts.durationValue(value, unit);
+            }
+          }
         }
       },
       plugins: {
         legend: {
-          display: true,
-          position: 'bottom',
-          labels: {boxWidth: 14, boxHeight: 14}
+          display: false
         },
-        tooltip: tooltip()
+        tooltip: tooltip(),
+        sharedCrosshair: window.DashboardCharts.crosshair(data)
       }
     }
     });
+    window.DashboardCharts.renderSeriesLegend(legend, chart);
   };
 
   render();
@@ -79,10 +96,17 @@
     chart.data.labels = data.labels;
     chart.data.datasets = datasets();
     chart.options.plugins.tooltip = tooltip();
+    chart.options.plugins.sharedCrosshair = window.DashboardCharts.crosshair(data);
     chart.options.scales.x = Object.assign(
       window.DashboardCharts.buildXScale(data.labels, data.bucketMinutes),
       {stacked: true});
+    const unit = durationUnit();
+    chart.options.scales.y.title.text = 'Duration (' + unit + ')';
+    chart.options.scales.y.ticks.callback = function (value) {
+      return window.DashboardCharts.durationValue(value, unit);
+    };
     chart.update('none');
+    window.DashboardCharts.renderSeriesLegend(legend, chart);
   });
   window.addEventListener('insight-theme-change', function () {
     window.DashboardCharts.hideHtmlTooltip('datasource-pool-timing-tooltip');

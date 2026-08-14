@@ -72,7 +72,7 @@ public class UIQueryTotalController {
 
   private record QueryTotalRequest(String app, String env, RangeOption range,
                                    @Nullable Instant from, @Nullable Instant to,
-                                   long windowMinutes) {
+                                   long windowMinutes, boolean compactLayout, String timezone) {
   }
 
   @Json
@@ -103,7 +103,9 @@ public class UIQueryTotalController {
                             @QueryParam("env") @Nullable String envParam,
                             @QueryParam("range") @Nullable String rangeParam,
                             @QueryParam("from") @Nullable String fromParam,
-                            @QueryParam("to") @Nullable String toParam) {
+                            @QueryParam("to") @Nullable String toParam,
+                            @QueryParam("layout") @Nullable String layoutParam,
+                            @QueryParam("tz") @Nullable String timezoneParam) {
 
     final List<App> apps = service.listApps(null, null);
     final List<Env> envs = service.listEnvs();
@@ -112,19 +114,20 @@ public class UIQueryTotalController {
       : apps.isEmpty() ? "" : apps.get(0).name();
     final String selectedEnv = envParam == null ? "" : envParam;
     final QueryTotalRequest request = queryTotalRequest(
-      selectedApp, selectedEnv, rangeParam, fromParam, toParam);
+      selectedApp, selectedEnv, rangeParam, fromParam, toParam, layoutParam, timezoneParam);
     final RangeOption range = request.range();
     final long windowMinutes = request.windowMinutes();
     final Breadcrumb breadcrumb = new Breadcrumb(List.of(new Breadcrumb.Item("Top")));
 
     if (selectedApp.isBlank()) {
-      return emptyView(breadcrumb, apps, envs, selectedEnv, range);
+      return emptyView(breadcrumb, apps, envs, selectedEnv, range, request.compactLayout());
     }
 
     final QueryTotalData data = dashboardData(
-      selectedApp, selectedEnv, range, request.from(), request.to(), windowMinutes);
+      selectedApp, selectedEnv, range, request.from(), request.to(), windowMinutes,
+      request.compactLayout(), request.timezone());
 
-    return buildView(breadcrumb, apps, envs, selectedApp, selectedEnv, range, data);
+    return buildView(breadcrumb, apps, envs, selectedApp, selectedEnv, range, data, request.compactLayout());
   }
 
   @Get("top/data")
@@ -133,20 +136,23 @@ public class UIQueryTotalController {
                         @QueryParam("env") @Nullable String envParam,
                         @QueryParam("range") @Nullable String rangeParam,
                         @QueryParam("from") @Nullable String fromParam,
-                        @QueryParam("to") @Nullable String toParam) {
+                        @QueryParam("to") @Nullable String toParam,
+                        @QueryParam("layout") @Nullable String layoutParam,
+                        @QueryParam("tz") @Nullable String timezoneParam) {
     final QueryTotalRequest request = queryTotalRequest(
       appParam == null ? "" : appParam,
       envParam == null ? "" : envParam,
-      rangeParam, fromParam, toParam);
+      rangeParam, fromParam, toParam, layoutParam, timezoneParam);
     final QueryTotalData data = request.app().isBlank()
       ? emptyData()
       : dashboardData(request.app(), request.env(), request.range(),
-        request.from(), request.to(), request.windowMinutes());
+        request.from(), request.to(), request.windowMinutes(), request.compactLayout(), request.timezone());
     return chartJsonb.type(QueryTotalData.class).toJson(data).replace("<", "\\u003c");
   }
 
   private QueryTotalRequest queryTotalRequest(String app, String env, @Nullable String rangeParam,
-                                               @Nullable String fromParam, @Nullable String toParam) {
+                                               @Nullable String fromParam, @Nullable String toParam,
+                                               @Nullable String layoutParam, @Nullable String timezoneParam) {
     final Instant from = parseInstant(fromParam, "from");
     final Instant to = parseInstant(toParam, "to");
     if ((from == null) != (to == null)) {
@@ -154,7 +160,9 @@ public class UIQueryTotalController {
     }
     final RangeOption range = from == null ? RangeOptions.resolve(rangeParam) : RangeOptions.custom();
     final long windowMinutes = from == null ? range.minutes() : windowMinutes(from, to);
-    return new QueryTotalRequest(app, env, range, from, to, windowMinutes);
+    return new QueryTotalRequest(
+      app, env, range, from, to, windowMinutes, "compact".equals(layoutParam),
+      timezoneParam == null ? "" : timezoneParam);
   }
 
   private MetricTimeseriesTop topTimeseries(String app, String selectedEnv,
@@ -204,7 +212,8 @@ public class UIQueryTotalController {
   }
 
   private QueryTotalData dashboardData(String selectedApp, String selectedEnv, RangeOption range,
-                                       @Nullable Instant from, @Nullable Instant to, long windowMinutes) {
+                                       @Nullable Instant from, @Nullable Instant to, long windowMinutes,
+                                       boolean compactLayout, String timezone) {
     final MetricTimeseriesTop data = topTimeseries(selectedApp, selectedEnv, from, to, windowMinutes);
     final List<MetricTimeseriesTopSeries> series = data.series();
     if (series.isEmpty()) {
@@ -246,7 +255,7 @@ public class UIQueryTotalController {
       totalExecutions += execCount;
       totalMicros += s.totalMicros();
       final String detailUrl = s.other() ? null
-        : metricDetailUrl(selectedApp, selectedEnv, range.key(), s.group(), from, to);
+        : metricDetailUrl(selectedApp, selectedEnv, range.key(), s.group(), from, to, timezone);
       legend.add(new LegendData(color, s.group(), formatNum(totalMs), formatNum(execCount),
         formatRate(execCount / elapsedSeconds), formatNum(avgMs), formatNum(s.hashCount()),
         s.other(), detailUrl));
@@ -257,7 +266,7 @@ public class UIQueryTotalController {
     final ChartData meanMaxMean = derivedChartData(data, false);
     final ChartData meanMaxMax = derivedChartData(data, true);
     final ChartData meanMaxCount = countChartData(data);
-    final boolean showTopRankings = series.size() > 1;
+    final boolean showTopRankings = !compactLayout && series.size() > 1;
     final ChartData topByTime = showTopRankings
       ? rankingChartData(topMetrics(selectedApp, "total", selectedEnv, from, to, windowMinutes), false)
       : emptyDataChart();
@@ -313,8 +322,8 @@ public class UIQueryTotalController {
 
   private QueryTotalView buildView(Breadcrumb breadcrumb, List<App> apps, List<Env> envs,
                                    String selectedApp, String selectedEnv, RangeOption range,
-                                   QueryTotalData data) {
-    return new QueryTotalView(breadcrumb, data.hasData(), selectedApp, appOptions(apps, selectedApp),
+                                   QueryTotalData data, boolean compactLayout) {
+    return new QueryTotalView(breadcrumb, data.hasData(), compactLayout, selectedApp, appOptions(apps, selectedApp),
       selectedEnv, envOptions(envs, selectedEnv), range.key(), RangeOptions.options(range.key()),
       data.queryTotal().bucketMinutes(), toChartJson(data.queryTotal()), toChartJson(data.mean()),
       toChartJson(data.max()), toChartJson(data.count()), toChartJson(data.topByTime()),
@@ -328,8 +337,8 @@ public class UIQueryTotalController {
   }
 
   private QueryTotalView emptyView(Breadcrumb breadcrumb, List<App> apps, List<Env> envs,
-                                    String selectedEnv, RangeOption range) {
-    return new QueryTotalView(breadcrumb, false, "", appOptions(apps, ""),
+                                    String selectedEnv, RangeOption range, boolean compactLayout) {
+    return new QueryTotalView(breadcrumb, false, compactLayout, "", appOptions(apps, ""),
       selectedEnv, envOptions(envs, selectedEnv), range.key(), RangeOptions.options(range.key()),
       0L, emptyChartJson(), emptyChartJson(), emptyChartJson(), emptyChartJson(), emptyChartJson(),
       emptyChartJson(), false,
@@ -665,6 +674,12 @@ public class UIQueryTotalController {
 
   static String metricDetailUrl(String app, String env, String range, String label,
                                 @Nullable Instant from, @Nullable Instant to) {
+    return metricDetailUrl(app, env, range, label, from, to, null);
+  }
+
+  static String metricDetailUrl(String app, String env, String range, String label,
+                                @Nullable Instant from, @Nullable Instant to,
+                                @Nullable String timezone) {
     final StringBuilder sb = new StringBuilder("/ux/metric-detail?app=")
       .append(urlEncode(app))
       .append("&range=").append(urlEncode(range))
@@ -673,6 +688,7 @@ public class UIQueryTotalController {
       sb.append("&env=").append(urlEncode(env));
     }
     appendAbsoluteRange(sb, from, to);
+    appendTimezone(sb, timezone);
     return sb.toString();
   }
 
@@ -696,11 +712,18 @@ public class UIQueryTotalController {
 
   static String topUrl(String app, String env, String range,
                        @Nullable Instant from, @Nullable Instant to) {
+    return topUrl(app, env, range, from, to, null);
+  }
+
+  static String topUrl(String app, String env, String range,
+                       @Nullable Instant from, @Nullable Instant to,
+                       @Nullable String timezone) {
     final StringBuilder sb = new StringBuilder("/ux/top?app=")
       .append(urlEncode(app))
       .append("&env=").append(urlEncode(env))
       .append("&range=").append(urlEncode(range));
     appendAbsoluteRange(sb, from, to);
+    appendTimezone(sb, timezone);
     return sb.toString();
   }
 
@@ -723,6 +746,12 @@ public class UIQueryTotalController {
     }
   }
 
+  private static void appendTimezone(StringBuilder sb, @Nullable String timezone) {
+    if (timezone != null && !timezone.isBlank()) {
+      sb.append("&tz=").append(urlEncode(timezone));
+    }
+  }
+
   private static String urlEncode(String value) {
     return URLEncoder.encode(value, StandardCharsets.UTF_8);
   }
@@ -735,7 +764,7 @@ public class UIQueryTotalController {
 
   private static List<Option> envOptions(List<Env> envs, String selected) {
     final List<Option> options = new ArrayList<>();
-    options.add(new Option("", "All environments", selected.isBlank()));
+    options.add(new Option("", "All", selected.isBlank()));
     for (Env env : envs) {
       options.add(new Option(env.name(), env.name(), env.name().equals(selected)));
     }
