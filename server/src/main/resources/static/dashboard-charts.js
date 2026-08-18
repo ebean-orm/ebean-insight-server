@@ -303,6 +303,28 @@ window.DashboardCharts = (function () {
     }
   };
 
+  const rangeSelection = {
+    id: 'range-selection',
+    beforeDatasetsDraw: function (chart, _, options) {
+      if (!options || options.start === undefined || options.end === undefined
+        || !chart.scales.x || !chart.chartArea) {
+        return;
+      }
+      const start = chart.scales.x.getPixelForValue(options.start);
+      const end = chart.scales.x.getPixelForValue(options.end);
+      const step = options.end > options.start
+        ? (end - start) / (options.end - options.start)
+        : chart.chartArea.width / Math.max(1, chart.data.labels.length);
+      const left = Math.max(chart.chartArea.left, Math.min(start, end) - step / 2);
+      const right = Math.min(chart.chartArea.right, Math.max(start, end) + step / 2);
+      const context = chart.ctx;
+      context.save();
+      context.fillStyle = 'rgba(40, 80, 120, 0.12)';
+      context.fillRect(left, chart.chartArea.top, right - left, chart.chartArea.height);
+      context.restore();
+    }
+  };
+
   function crosshair(data) {
     return {timestamps: data.timestamps || []};
   }
@@ -349,9 +371,106 @@ window.DashboardCharts = (function () {
     updateButtons();
   }
 
+  function attachRangeSelection(canvas, chartSupplier, dataSupplier) {
+    if (!canvas || canvas.dataset.rangeSelectionAttached === 'true') {
+      return;
+    }
+    canvas.dataset.rangeSelectionAttached = 'true';
+    canvas.style.touchAction = 'none';
+    let dragging = false;
+    let startIndex = null;
+
+    function indexAt(event, chart, data) {
+      if (!chart || !chart.scales.x || !chart.chartArea || !data.timestamps.length) {
+        return null;
+      }
+      const position = Chart.helpers.getRelativePosition(event, chart);
+      if (position.x < chart.chartArea.left || position.x > chart.chartArea.right
+        || position.y < chart.chartArea.top || position.y > chart.chartArea.bottom) {
+        return null;
+      }
+      return Math.max(0, Math.min(data.timestamps.length - 1,
+        Math.round(chart.scales.x.getValueForPixel(position.x))));
+    }
+
+    function finish(event) {
+      if (!dragging) {
+        return;
+      }
+      const chart = chartSupplier();
+      const data = dataSupplier();
+      const endIndex = indexAt(event, chart, data);
+      dragging = false;
+      if (canvas.hasPointerCapture(event.pointerId)) {
+        canvas.releasePointerCapture(event.pointerId);
+      }
+      if (endIndex === null || endIndex === startIndex) {
+        setRangeSelection(chart, null, null);
+        startIndex = null;
+        return;
+      }
+      const start = Math.min(startIndex, endIndex);
+      const end = Math.max(startIndex, endIndex);
+      const bucketMillis = (data.bucketMinutes || 1) * 60 * 1000;
+      const current = new URLSearchParams(window.location.search);
+      current.set('from', new Date(data.timestamps[start] - 1).toISOString());
+      current.set('to', new Date(data.timestamps[end] + bucketMillis - 1).toISOString());
+      window.location.href = window.location.pathname + '?' + current.toString();
+      startIndex = null;
+    }
+
+    canvas.addEventListener('pointerdown', function (event) {
+      if (event.button !== 0) {
+        return;
+      }
+      const chart = chartSupplier();
+      const data = dataSupplier();
+      const index = indexAt(event, chart, data);
+      if (index === null) {
+        return;
+      }
+      dragging = true;
+      startIndex = index;
+      setRangeSelection(chart, index, index);
+      canvas.setPointerCapture(event.pointerId);
+      event.preventDefault();
+    });
+    canvas.addEventListener('pointermove', function (event) {
+      if (dragging) {
+        const chart = chartSupplier();
+        const data = dataSupplier();
+        const index = indexAt(event, chart, data);
+        if (index !== null) {
+          setRangeSelection(chart, startIndex, index);
+        }
+        event.preventDefault();
+      }
+    });
+    canvas.addEventListener('pointerup', finish);
+    canvas.addEventListener('pointercancel', function (event) {
+      if (dragging) {
+        dragging = false;
+        startIndex = null;
+        setRangeSelection(chartSupplier(), null, null);
+        if (canvas.hasPointerCapture(event.pointerId)) {
+          canvas.releasePointerCapture(event.pointerId);
+        }
+      }
+    });
+  }
+
+  function setRangeSelection(chart, start, end) {
+    if (!chart) {
+      return;
+    }
+    chart.options.plugins.rangeSelection = start === null ? null : {start, end};
+    chart.update('none');
+  }
+
   applyTheme();
   if (typeof Chart !== 'undefined') {
     Chart.register(sharedCrosshair);
+    Chart.register(rangeSelection);
   }
   window.addEventListener('insight-theme-change', applyTheme);
 
@@ -366,7 +485,7 @@ window.DashboardCharts = (function () {
     timeOnly, minutesOfDay, pickIntervalMinutes, buildXScale, tooltipOptions, htmlTooltip,
     hideHtmlTooltip, localize,
     pointerOnHover, durationUnitFor, compactDuration, detailedDuration,
-    durationValue,
+    durationValue, attachRangeSelection,
     themeColors, applyTheme, crosshair, setSharedCrosshairTimestamp, renderSeriesLegend
   };
 })();

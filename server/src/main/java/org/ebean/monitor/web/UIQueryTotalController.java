@@ -378,10 +378,17 @@ public class UIQueryTotalController {
       .sorted(Comparator.comparingLong(MetricTimeseriesTopSeries::totalMicros))
       .toList()) {
       datasets.add(new ChartData.ChartDataset(series.group(),
-        series.buckets().stream().map(MetricTimeBucket::total).toList(),
+        poolSizeValues(series.buckets(), data.bucketMinutes()),
         poolSizeColor(colorIndex++)));
     }
     return new ChartData(labels, timestamps, datasets, data.bucketMinutes());
+  }
+
+  static List<Long> poolSizeValues(List<MetricTimeBucket> buckets, long bucketMinutes) {
+    final long divisor = Math.max(1L, bucketMinutes);
+    return buckets.stream()
+      .map(bucket -> bucket.total() / divisor)
+      .toList();
   }
 
   private String poolSizeColor(int index) {

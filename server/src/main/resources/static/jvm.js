@@ -251,6 +251,16 @@
       });
       renderCpuLegend();
     }
+    window.DashboardCharts.attachRangeSelection(memoryCanvas, function () {
+      return memoryChart;
+    }, function () {
+      return memory;
+    });
+    window.DashboardCharts.attachRangeSelection(cpuCanvas, function () {
+      return cpuChart;
+    }, function () {
+      return cpu;
+    });
   };
 
   window.addEventListener('insight-top-data', function (event) {
