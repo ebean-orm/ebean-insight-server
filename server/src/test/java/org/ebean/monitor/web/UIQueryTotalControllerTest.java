@@ -76,6 +76,18 @@ class UIQueryTotalControllerTest {
       .containsExactly(null, 1_000L);
   }
 
+  @Test
+  void poolSizeValues_normalizeAggregatedGaugeTotalsByBucketMinutes() {
+    var buckets = List.of(
+      bucket(1, 24L),
+      bucket(1, 100L));
+
+    assertThat(UIQueryTotalController.poolSizeValues(buckets, 2L))
+      .containsExactly(12L, 50L);
+    assertThat(UIQueryTotalController.poolSizeValues(buckets, 10L))
+      .containsExactly(2L, 10L);
+  }
+
   private static MetricTimeBucket bucket(long count, long total) {
     return MetricTimeBucket.builder()
       .eventTime(Instant.EPOCH)

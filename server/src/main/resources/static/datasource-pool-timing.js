@@ -87,6 +87,11 @@
   };
 
   render();
+  window.DashboardCharts.attachRangeSelection(canvas, function () {
+    return chart;
+  }, function () {
+    return data;
+  });
   window.addEventListener('insight-top-data', function (event) {
     const next = event.detail.datasourcePoolTiming;
     if (!next || !next.labels || next.labels.length === 0 || !chart) {
