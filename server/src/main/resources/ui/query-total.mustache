@@ -77,7 +77,7 @@
     </form>
   {{/filters}}
   {{$body}}
-    <link rel="stylesheet" href="/static/query-total.css?v=25">
+    <link rel="stylesheet" href="/static/query-total.css?v=33">
 
     {{^hasData}}
       <article>
@@ -89,10 +89,11 @@
       <div class="top-dashboard{{#compactLayout}} top-dashboard-compact{{/compactLayout}}">
       {{#webApiDashboard}}
         <div class="web-api-grid web-api-primary-grid">
-          <article class="query-total-section">
+          <article class="query-total-section" data-chart-id="web-api-total">
             <header class="chart-section-header" role="toolbar" aria-label="Web API total chart controls">
               <span class="chart-title">Web API total time <small id="web-api-total-rate" class="chart-rate-centered">{{webApiRate}} req/s&nbsp;&nbsp;load: {{webApiLoad}}</small></span>
-              <span class="chart-control-group chart-mode-tabs">
+              <button type="button" class="chart-expand-btn" data-chart-zoom="web-api-total" aria-label="Expand Web API total time chart" title="Expand chart">↗</button>
+              <span class="chart-control-group chart-mode-tabs chart-controls-start">
                 <button type="button" id="web-api-chart-type-bar" class="chart-type-btn" aria-pressed="true">Bars</button>
                 <button type="button" id="web-api-chart-type-line" class="chart-type-btn" aria-pressed="false">Lines</button>
               </span>
@@ -114,10 +115,11 @@
               <button type="button" id="web-api-range-selection-clear">Use preset range</button>
             </div>
           </article>
-          <article class="query-total-section">
+          <article class="query-total-section" data-chart-id="web-api-statistics">
             <header class="chart-section-header" role="toolbar" aria-label="Web API statistics chart controls">
               <span>Web API statistics</span>
-              <span class="chart-control-group chart-mode-tabs">
+              <button type="button" class="chart-expand-btn" data-chart-zoom="web-api-statistics" aria-label="Expand Web API statistics chart" title="Expand chart">↗</button>
+              <span class="chart-control-group chart-mode-tabs chart-controls-start">
                 <button type="button" id="web-api-mean-mode-both" class="chart-type-btn" aria-pressed="true">Mean + Max</button>
                 <button type="button" id="web-api-mean-mode-only" class="chart-type-btn" aria-pressed="false">Mean</button>
                 <button type="button" id="web-api-mean-mode-max" class="chart-type-btn" aria-pressed="false">Max</button>
@@ -150,10 +152,11 @@
 
       <div class="top-primary-grid">
         <div class="top-primary-column">
-          <article class="query-total-section">
+          <article class="query-total-section" data-chart-id="query-total">
             <header class="chart-section-header">
               <span class="chart-title">Query total time <small id="query-total-rate" class="chart-rate-centered">{{queryRate}} qry/s&nbsp;&nbsp;load: {{queryLoad}}</small></span>
-              <span class="chart-control-group chart-mode-tabs">
+              <button type="button" class="chart-expand-btn" data-chart-zoom="query-total" aria-label="Expand query total time chart" title="Expand chart">↗</button>
+              <span class="chart-control-group chart-mode-tabs chart-controls-start">
                 <button type="button" id="chart-type-bar" class="chart-type-btn" aria-pressed="true">Bars</button>
                 <button type="button" id="chart-type-line" class="chart-type-btn" aria-pressed="false">Lines</button>
               </span>
@@ -168,7 +171,7 @@
             </div>
           </article>
 
-          <div class="top-chart-legend" aria-label="Chart series legend">
+          <div class="top-chart-legend" data-chart-legend="query-total" aria-label="Chart series legend">
             {{#legend}}
               <button type="button" class="legend-series-toggle"
                       data-label="{{group}}" aria-pressed="true"
@@ -181,10 +184,11 @@
         </div>
 
         <div class="top-primary-column">
-          <article class="query-total-section">
+          <article class="query-total-section" data-chart-id="query-statistics">
             <header class="chart-section-header" role="toolbar" aria-label="Mean and Max chart controls">
               <span>Query statistics</span>
-              <span class="chart-control-group chart-mode-tabs">
+              <button type="button" class="chart-expand-btn" data-chart-zoom="query-statistics" aria-label="Expand query statistics chart" title="Expand chart">↗</button>
+              <span class="chart-control-group chart-mode-tabs chart-controls-start">
                 <button type="button" id="top-mean-mode-both" class="chart-type-btn"
                         aria-pressed="true">Mean + Max</button>
                 <button type="button" id="top-mean-mode-only" class="chart-type-btn"
@@ -212,7 +216,7 @@
             </div>
           </article>
 
-          <div class="top-chart-legend" aria-label="Chart series legend">
+          <div class="top-chart-legend" data-chart-legend="query-statistics" aria-label="Chart series legend">
             {{#legend}}
               <button type="button" class="legend-series-toggle"
                       data-label="{{group}}" aria-pressed="true"
@@ -279,14 +283,14 @@
 
       {{#showTopRankings}}
         <div class="top-ranking-grid">
-          <article class="query-total-section">
-            <header>Top by time</header>
+          <article class="query-total-section" data-chart-id="top-by-time">
+            <header class="chart-section-header chart-no-controls">Top by time <button type="button" class="chart-expand-btn" data-chart-zoom="top-by-time" aria-label="Expand top by time chart" title="Expand chart">↗</button></header>
             <div class="ranking-chart-wrap">
               <canvas id="top-by-time-chart"></canvas>
             </div>
           </article>
-          <article class="query-total-section">
-            <header>Top by mean</header>
+          <article class="query-total-section" data-chart-id="top-by-mean">
+            <header class="chart-section-header chart-no-controls">Top by mean <button type="button" class="chart-expand-btn" data-chart-zoom="top-by-mean" aria-label="Expand top by mean chart" title="Expand chart">↗</button></header>
             <div class="ranking-chart-wrap">
               <canvas id="top-by-mean-chart"></canvas>
             </div>
@@ -296,16 +300,16 @@
 
       {{#datasourcePoolDashboard}}
         <div class="datasource-pool-grid">
-          <article class="query-total-section datasource-pool-section">
-            <header>Datasource pool size</header>
+          <article class="query-total-section datasource-pool-section" data-chart-id="datasource-pool">
+            <header class="chart-section-header chart-no-controls">Datasource pool size <button type="button" class="chart-expand-btn" data-chart-zoom="datasource-pool" aria-label="Expand datasource pool size chart" title="Expand chart">↗</button></header>
             <div class="chartjs-wrap">
               <canvas id="datasource-pool-chart"></canvas>
               <div id="datasource-pool-tooltip" class="chart-html-tooltip" role="tooltip" aria-hidden="true"></div>
             </div>
             <div id="datasource-pool-legend" class="top-chart-legend" aria-label="Datasource pool series legend"></div>
           </article>
-          <article class="query-total-section datasource-pool-section">
-            <header>Datasource pool wait and acquire time</header>
+          <article class="query-total-section datasource-pool-section" data-chart-id="datasource-pool-timing">
+            <header class="chart-section-header chart-no-controls">Datasource pool wait and acquire time <button type="button" class="chart-expand-btn" data-chart-zoom="datasource-pool-timing" aria-label="Expand datasource pool timing chart" title="Expand chart">↗</button></header>
             <div class="chartjs-wrap">
               <canvas id="datasource-pool-timing-chart"></canvas>
               <div id="datasource-pool-timing-tooltip" class="chart-html-tooltip" role="tooltip" aria-hidden="true"></div>
@@ -317,16 +321,16 @@
 
       {{#jvmDashboard}}
         <div class="jvm-grid">
-          <article class="query-total-section jvm-section">
-            <header>JVM memory by pod</header>
+          <article class="query-total-section jvm-section" data-chart-id="jvm-memory">
+            <header class="chart-section-header chart-no-controls">JVM memory by pod <button type="button" class="chart-expand-btn" data-chart-zoom="jvm-memory" aria-label="Expand JVM memory chart" title="Expand chart">↗</button></header>
             <div class="chartjs-wrap">
               <canvas id="jvm-memory-chart"></canvas>
               <div id="jvm-memory-tooltip" class="chart-html-tooltip" role="tooltip" aria-hidden="true"></div>
             </div>
             <div id="jvm-memory-legend" class="top-chart-legend jvm-legend" aria-label="JVM memory pod legend"></div>
           </article>
-          <article class="query-total-section jvm-section">
-            <header>JVM CPU usage (user + system)</header>
+          <article class="query-total-section jvm-section" data-chart-id="jvm-cpu">
+            <header class="chart-section-header chart-no-controls">JVM CPU usage (user + system) <button type="button" class="chart-expand-btn" data-chart-zoom="jvm-cpu" aria-label="Expand JVM CPU chart" title="Expand chart">↗</button></header>
             <div class="chartjs-wrap">
               <canvas id="jvm-cpu-chart"></canvas>
               <div id="jvm-cpu-tooltip" class="chart-html-tooltip" role="tooltip" aria-hidden="true"></div>
@@ -355,7 +359,7 @@
     <script type="application/json" id="jvm-cpu-data">{{{jvmCpuJson}}}</script>
     <script src="/static/vendor/chart.umd.min.js"></script>
     <script src="/static/dashboard-charts.js?v=15"></script>
-    <script src="/static/query-total.js?v=12"></script>
+    <script src="/static/query-total.js?v=15"></script>
     <script src="/static/datasource-pool.js?v=8"></script>
     <script src="/static/datasource-pool-timing.js?v=7"></script>
     <script src="/static/web-api.js?v=8"></script>

@@ -14,6 +14,162 @@
   touch-action: none;
 }
 
+.chart-expand-btn {
+  width: auto;
+  order: 99;
+  margin: 0 0 0 0.25rem;
+  padding: 0.1rem 0.35rem;
+  border: 1px solid var(--pico-muted-border-color);
+  background: transparent;
+  color: var(--pico-muted-color);
+  font-size: 0.8rem;
+  line-height: 1.2;
+  opacity: 0.7;
+}
+
+.chart-controls-start {
+  margin-left: auto;
+}
+
+.chart-no-controls .chart-expand-btn {
+  margin-left: auto;
+}
+
+.chart-expand-btn:hover,
+.chart-expand-btn:focus-visible {
+  color: var(--pico-primary);
+  border-color: var(--pico-primary);
+  background: transparent;
+  opacity: 1;
+}
+
+.chart-zoom-dialog {
+  position: fixed;
+  top: 4vh;
+  left: 50%;
+  transform: translateX(-50%);
+  box-sizing: border-box;
+  width: calc(100vw - 5rem);
+  max-width: none;
+  height: calc(100vh - 8vh);
+  max-height: none;
+  margin: 0;
+  overflow: hidden;
+  padding: 0.75rem;
+  border: 1px solid var(--pico-muted-border-color);
+  border-radius: var(--pico-border-radius);
+  background: var(--pico-background-color);
+  display: flex;
+  flex-direction: column;
+}
+
+.chart-zoom-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.68);
+}
+
+.chart-zoom-header {
+  width: 100%;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.chart-zoom-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.35rem;
+}
+
+.chart-zoom-controls button,
+.chart-zoom-controls select {
+  width: auto;
+  margin: 0;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+.chart-zoom-frame {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  flex: 1 1 auto;
+  border: 0;
+  background: var(--pico-background-color);
+}
+
+.zoomed-chart .header-filters,
+.zoomed-chart .chart-range-selection,
+.zoomed-chart .legend-toggle {
+  display: none;
+}
+
+.zoomed-chart .site-nav {
+  display: none;
+}
+
+.zoomed-chart footer.container {
+  display: none;
+}
+
+html:has(body.zoomed-chart),
+body.zoomed-chart {
+  height: 100%;
+  overflow: hidden;
+}
+
+.zoomed-chart main.container {
+  box-sizing: border-box;
+  height: 100%;
+  overflow: hidden;
+  padding: 0.5rem;
+}
+
+.zoomed-chart .top-dashboard {
+  height: 100%;
+  margin-top: 0;
+}
+
+.zoomed-chart .web-api-grid,
+.zoomed-chart .datasource-pool-grid,
+.zoomed-chart .jvm-grid,
+.zoomed-chart .top-primary-grid,
+.zoomed-chart .top-ranking-grid {
+  display: block;
+}
+
+.zoomed-chart .query-total-section:not([hidden]) {
+  display: block;
+  width: 100%;
+}
+
+.zoomed-chart .top-chart-legend[hidden] {
+  display: none;
+}
+
+.zoomed-chart .query-total-section:not([hidden]) .chartjs-wrap,
+.zoomed-chart .query-total-section:not([hidden]) .ranking-chart-wrap {
+  height: calc(100vh - 10rem);
+  min-height: 0;
+}
+
+@media (max-width: 700px) {
+  .chart-zoom-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .chart-zoom-controls {
+    flex-wrap: wrap;
+  }
+}
+
 .chart-range-selection {
   display: flex;
   align-items: center;
