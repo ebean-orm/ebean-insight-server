@@ -399,8 +399,7 @@ body:has(.top-dashboard) .header-filters select {
   height: 160px;
 }
 
-.top-dashboard-compact .datasource-pool-section .chartjs-wrap,
-.top-dashboard-compact .jvm-section .chartjs-wrap {
+.top-dashboard-compact .datasource-pool-section .chartjs-wrap {
   height: 108px;
 }
 
