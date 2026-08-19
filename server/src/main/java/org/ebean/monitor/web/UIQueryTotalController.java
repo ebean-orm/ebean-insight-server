@@ -216,11 +216,10 @@ public class UIQueryTotalController {
                                        boolean compactLayout, String timezone) {
     final MetricTimeseriesTop data = topTimeseries(selectedApp, selectedEnv, from, to, windowMinutes);
     final List<MetricTimeseriesTopSeries> series = data.series();
-    if (series.isEmpty()) {
-      return emptyData();
-    }
-
-    final List<MetricTimeBucket> firstBuckets = series.get(0).buckets();
+    final boolean queryData = !series.isEmpty();
+    final List<MetricTimeBucket> firstBuckets = queryData
+      ? series.get(0).buckets()
+      : List.of();
     final int bucketCount = firstBuckets.size();
     final List<String> labels = new ArrayList<>(bucketCount);
     for (MetricTimeBucket bucket : firstBuckets) {
@@ -262,11 +261,13 @@ public class UIQueryTotalController {
     }
 
     final List<Long> timestamps = firstBuckets.stream().map(bucket -> bucket.eventTime().toEpochMilli()).toList();
-    final ChartData chartData = new ChartData(labels, timestamps, datasets, data.bucketMinutes());
-    final ChartData meanMaxMean = derivedChartData(data, false);
-    final ChartData meanMaxMax = derivedChartData(data, true);
-    final ChartData meanMaxCount = countChartData(data);
-    final boolean showTopRankings = !compactLayout && series.size() > 1;
+    final ChartData chartData = queryData
+      ? new ChartData(labels, timestamps, datasets, data.bucketMinutes())
+      : emptyDataChart();
+    final ChartData meanMaxMean = queryData ? derivedChartData(data, false) : emptyDataChart();
+    final ChartData meanMaxMax = queryData ? derivedChartData(data, true) : emptyDataChart();
+    final ChartData meanMaxCount = queryData ? countChartData(data) : emptyDataChart();
+    final boolean showTopRankings = queryData && !compactLayout && series.size() > 1;
     final ChartData topByTime = showTopRankings
       ? rankingChartData(topMetrics(selectedApp, "total", selectedEnv, from, to, windowMinutes), false)
       : emptyDataChart();
@@ -313,11 +314,25 @@ public class UIQueryTotalController {
       ? jvmCpuChartData(selectedApp, selectedEnv, from, to, windowMinutes)
       : emptyDataChart();
 
-    return new QueryTotalData(true, chartData, meanMaxMean, meanMaxMax, meanMaxCount, topByTime, topByMean,
+    final boolean hasData = hasDashboardData(queryData, datasourcePool, datasourcePoolTiming,
+      webApi, webApiMean, webApiMax, webApiCount, jvmMemory, jvmCpu);
+    return new QueryTotalData(hasData, chartData, meanMaxMean, meanMaxMax, meanMaxCount, topByTime, topByMean,
       showTopRankings, legend, datasourcePoolDashboard, datasourcePool, datasourcePoolTiming,
       webApiDashboard, webApiGroups, webApi, webApiMean, webApiMax, webApiCount,
       jvmDashboard, jvmMemory, jvmCpu, queryRate, webApiRate,
       queryLoad, webApiLoad);
+  }
+
+  static boolean hasDashboardData(boolean queryData, ChartData... charts) {
+    if (queryData) {
+      return true;
+    }
+    for (ChartData chart : charts) {
+      if (!chart.labels().isEmpty() && (!chart.datasets().isEmpty() || !chart.timestamps().isEmpty())) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private QueryTotalView buildView(Breadcrumb breadcrumb, List<App> apps, List<Env> envs,

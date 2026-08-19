@@ -88,6 +88,24 @@ class UIQueryTotalControllerTest {
       .containsExactly(2L, 10L);
   }
 
+  @Test
+  void dashboardHasDataWhenOnlySystemChartIsPopulated() {
+    var chart = new ChartData(
+      List.of("08-19 11:00"),
+      List.of(1L),
+      List.of(new ChartData.ChartDataset("pool", List.of(1L), "#fff")),
+      1L);
+
+    assertThat(UIQueryTotalController.hasDashboardData(false, chart)).isTrue();
+  }
+
+  @Test
+  void dashboardHasNoDataWhenAllChartsAreEmpty() {
+    var chart = new ChartData(List.of(), List.of(), List.of(), 0L);
+
+    assertThat(UIQueryTotalController.hasDashboardData(false, chart)).isFalse();
+  }
+
   private static MetricTimeBucket bucket(long count, long total) {
     return MetricTimeBucket.builder()
       .eventTime(Instant.EPOCH)
