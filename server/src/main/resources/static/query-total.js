@@ -101,6 +101,142 @@
     });
   }
 
+  const zoomRangeMinutes = {
+    '30m': 30,
+    '1h': 60,
+    '4h': 240,
+    '6h': 360,
+    '24h': 1440,
+    '2d': 2880,
+    '7d': 10080
+  };
+  const zoomParam = new URLSearchParams(window.location.search).get('zoom');
+  const zoomFrame = window.top !== window.self;
+  if (zoomParam && zoomFrame) {
+    document.body.classList.add('zoomed-chart');
+    document.querySelectorAll('.query-total-section').forEach(function (section) {
+      section.hidden = section.dataset.chartId !== zoomParam;
+    });
+    document.querySelectorAll('.top-chart-legend[data-chart-legend]').forEach(function (legend) {
+      legend.hidden = legend.dataset.chartLegend !== zoomParam;
+    });
+    document.querySelectorAll('.chart-expand-btn').forEach(function (button) {
+      button.hidden = true;
+    });
+  }
+
+  const zoomButtons = document.querySelectorAll('.chart-expand-btn');
+  if (zoomButtons.length && !zoomParam) {
+    const zoomDialog = document.createElement('dialog');
+    zoomDialog.className = 'chart-zoom-dialog';
+    zoomDialog.innerHTML = '<div class="chart-zoom-header">'
+      + '<strong class="chart-zoom-title"></strong>'
+      + '<div class="chart-zoom-controls">'
+      + '<button type="button" class="chart-zoom-range-prev" title="Previous window">←</button>'
+      + '<button type="button" class="chart-zoom-range-next" title="Next window">→</button>'
+      + '<button type="button" class="chart-zoom-range-latest">Latest</button>'
+      + '<select class="chart-zoom-range" aria-label="Zoom time range">'
+      + '<option value="custom">Current window</option>'
+      + '<option value="30m">30 minutes</option><option value="1h">1 hour</option>'
+      + '<option value="4h">4 hours</option><option value="6h">6 hours</option>'
+      + '<option value="24h">24 hours</option><option value="2d">2 days</option>'
+      + '<option value="7d">7 days</option>'
+      + '</select>'
+      + '<button type="button" class="chart-zoom-close">Close</button>'
+      + '</div></div><iframe class="chart-zoom-frame" title="Expanded chart"></iframe>';
+    document.body.appendChild(zoomDialog);
+
+    const title = zoomDialog.querySelector('.chart-zoom-title');
+    const frame = zoomDialog.querySelector('.chart-zoom-frame');
+    const range = zoomDialog.querySelector('.chart-zoom-range');
+    let windowStart = null;
+    let windowEnd = null;
+
+    const currentWindow = function () {
+      const current = new URLSearchParams(window.location.search);
+      const from = Date.parse(current.get('from') || '');
+      const to = Date.parse(current.get('to') || '');
+      if (Number.isFinite(from) && Number.isFinite(to) && from < to) {
+        return {start: from, end: to};
+      }
+      const minutes = zoomRangeMinutes[current.get('range')] || 240;
+      return {start: Date.now() - minutes * 60000, end: Date.now()};
+    };
+
+    const frameUrl = function (chartId, start, end) {
+      const url = new URL(window.location.href);
+      url.pathname = '/ux/top';
+      url.searchParams.set('zoom', chartId);
+      url.searchParams.set('range', 'custom');
+      url.searchParams.set('from', new Date(start).toISOString());
+      url.searchParams.set('to', new Date(end).toISOString());
+      url.searchParams.delete('layout');
+      return url.toString();
+    };
+
+    const loadFrame = function (chartId, start, end) {
+      windowStart = start;
+      windowEnd = end;
+      frame.src = frameUrl(chartId, start, end);
+    };
+
+    const openZoom = function (button) {
+      const chartId = button.dataset.chartZoom;
+      const article = document.querySelector('[data-chart-id="' + chartId + '"]');
+      const current = currentWindow();
+      title.textContent = article ? article.querySelector('header').textContent.trim() : 'Chart';
+      range.value = 'custom';
+      const currentRange = new URLSearchParams(window.location.search).get('range');
+      if (zoomRangeMinutes[currentRange]) {
+        range.value = currentRange;
+      }
+      loadFrame(chartId, current.start, current.end);
+      zoomDialog.showModal();
+    };
+
+    zoomButtons.forEach(function (button) {
+      button.addEventListener('click', function () {
+        openZoom(button);
+      });
+    });
+    zoomDialog.querySelector('.chart-zoom-close').addEventListener('click', function () {
+      zoomDialog.close();
+      frame.removeAttribute('src');
+    });
+    zoomDialog.addEventListener('click', function (event) {
+      if (event.target === zoomDialog) {
+        zoomDialog.close();
+        frame.removeAttribute('src');
+      }
+    });
+    zoomDialog.querySelector('.chart-zoom-range-prev').addEventListener('click', function () {
+      const size = windowEnd - windowStart;
+      loadFrame(new URL(frame.src).searchParams.get('zoom'), windowStart - size, windowEnd - size);
+    });
+    zoomDialog.querySelector('.chart-zoom-range-next').addEventListener('click', function () {
+      const size = windowEnd - windowStart;
+      const end = Math.min(Date.now(), windowEnd + size);
+      loadFrame(new URL(frame.src).searchParams.get('zoom'), end - size, end);
+    });
+    zoomDialog.querySelector('.chart-zoom-range-latest').addEventListener('click', function () {
+      const minutes = zoomRangeMinutes[range.value] || Math.max(1, (windowEnd - windowStart) / 60000);
+      loadFrame(new URL(frame.src).searchParams.get('zoom'),
+        Date.now() - minutes * 60000, Date.now());
+    });
+    range.addEventListener('change', function () {
+      const minutes = zoomRangeMinutes[range.value];
+      if (minutes) {
+        loadFrame(new URL(frame.src).searchParams.get('zoom'),
+          Date.now() - minutes * 60000, Date.now());
+      }
+    });
+    window.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && zoomDialog.open) {
+        zoomDialog.close();
+      }
+    });
+  }
+
   const dataEl = document.getElementById('chart-data');
   const canvas = document.getElementById('chartjs-canvas');
   const meanCanvas = document.getElementById('top-mean-max-chart');
