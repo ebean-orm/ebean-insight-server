@@ -25,8 +25,6 @@
   let meanScale = 'linear';
   let totalChart = null;
   let meanMaxChart = null;
-  let dragStart = null;
-  let dragEnd = null;
   const visible = new Map(total.datasets.map(function (dataset) {
     return [dataset.label, true];
   }));
@@ -250,22 +248,6 @@
     });
   };
 
-  const applySelection = function (start, end) {
-    if (start === null || end === null || start === end) {
-      return;
-    }
-    if (start > end) {
-      const swap = start;
-      start = end;
-      end = swap;
-    }
-    const bucketMillis = total.bucketMinutes * 60 * 1000;
-    const current = new URLSearchParams(window.location.search);
-    current.set('from', new Date(total.timestamps[start] - 1).toISOString());
-    current.set('to', new Date(total.timestamps[end] + bucketMillis - 1).toISOString());
-    window.location.href = window.location.pathname + '?' + current.toString();
-  };
-
   const showSelection = function () {
     const current = new URLSearchParams(window.location.search);
     const from = Date.parse(current.get('from') || '');
@@ -279,34 +261,6 @@
       + ' - ' + new Date(to).toLocaleString();
     status.hidden = false;
   };
-
-  const indexAt = function (event, chart) {
-    if (!chart || !chart.scales.x || !chart.chartArea) {
-      return null;
-    }
-    const position = Chart.helpers.getRelativePosition(event, chart);
-    if (position.x < chart.chartArea.left || position.x > chart.chartArea.right
-      || position.y < chart.chartArea.top || position.y > chart.chartArea.bottom) {
-      return null;
-    }
-    return Math.max(0, Math.min(total.labels.length - 1,
-      Math.round(chart.scales.x.getValueForPixel(position.x))));
-  };
-
-  totalCanvas.addEventListener('mousedown', function (event) {
-    dragStart = indexAt(event, totalChart);
-    dragEnd = dragStart;
-  });
-  totalCanvas.addEventListener('mousemove', function (event) {
-    if (dragStart !== null) {
-      dragEnd = indexAt(event, totalChart);
-    }
-  });
-  totalCanvas.addEventListener('mouseup', function () {
-    applySelection(dragStart, dragEnd);
-    dragStart = null;
-    dragEnd = null;
-  });
 
   document.getElementById('web-api-chart-type-bar').addEventListener('click', function () {
     chartType = 'bar';
@@ -405,14 +359,18 @@
 
   window.addEventListener('insight-top-data', function (event) {
     const data = event.detail;
-    if (!data.webApiDashboard || !data.webApi || !data.webApi.labels
-      || data.webApi.labels.length === 0) {
+    if (!data.webApiDashboard || !data.webApi) {
       return;
     }
-    total = window.DashboardCharts.localize(data.webApi);
-    mean = window.DashboardCharts.localize(data.webApiMean);
-    max = window.DashboardCharts.localize(data.webApiMax);
-    count = window.DashboardCharts.localize(data.webApiCount);
+    const emptyWebApiData = !data.webApi.labels.length && data.timeRange;
+    total = window.DashboardCharts.localize(emptyWebApiData
+      ? window.DashboardCharts.emptyDataForRange(total, data.timeRange) : data.webApi);
+    mean = window.DashboardCharts.localize(emptyWebApiData
+      ? window.DashboardCharts.emptyDataForRange(mean, data.timeRange) : data.webApiMean);
+    max = window.DashboardCharts.localize(emptyWebApiData
+      ? window.DashboardCharts.emptyDataForRange(max, data.timeRange) : data.webApiMax);
+    count = window.DashboardCharts.localize(emptyWebApiData
+      ? window.DashboardCharts.emptyDataForRange(count, data.timeRange) : data.webApiCount);
     const totalRate = document.getElementById('web-api-total-rate');
     if (totalRate) {
       totalRate.textContent = data.webApiRate + ' req/s   load: ' + data.webApiLoad;
@@ -466,6 +424,16 @@
   showSelection();
   updateLegend();
   render();
+  window.DashboardCharts.attachRangeSelection(totalCanvas, function () {
+    return totalChart;
+  }, function () {
+    return total;
+  });
+  window.DashboardCharts.attachRangeSelection(meanMaxCanvas, function () {
+    return meanMaxChart;
+  }, function () {
+    return meanMode === 'count' ? count : mean;
+  });
   window.addEventListener('insight-theme-change', function () {
     render();
   });

@@ -67,6 +67,32 @@ window.DashboardCharts = (function () {
     return data;
   }
 
+  function emptyDataForRange(data, range) {
+    if (!range) {
+      return data;
+    }
+    const from = Number(range.from);
+    const to = Number(range.to);
+    if (!Number.isFinite(from) || !Number.isFinite(to) || from >= to) {
+      return data;
+    }
+    const preferredBucketMinutes = Math.max(1, Number(data.bucketMinutes) || 1);
+    const rangeMinutes = (to - from) / 60000;
+    const bucketMinutes = Math.max(preferredBucketMinutes, Math.ceil(rangeMinutes / 180));
+    const bucketMillis = bucketMinutes * 60000;
+    const timestamps = [];
+    for (let timestamp = Math.floor(from / bucketMillis) * bucketMillis; timestamp < to;
+         timestamp += bucketMillis) {
+      timestamps.push(timestamp);
+    }
+    return {
+      labels: timestamps.map(function (timestamp) { return new Date(timestamp).toISOString(); }),
+      timestamps: timestamps,
+      datasets: [],
+      bucketMinutes: bucketMinutes
+    };
+  }
+
   function minutesOfDay(label) {
     const [hh, mm] = timeOnly(label).split(':');
     return Number(hh) * 60 + Number(mm);
@@ -304,7 +330,7 @@ window.DashboardCharts = (function () {
   };
 
   const rangeSelection = {
-    id: 'range-selection',
+    id: 'rangeSelection',
     beforeDatasetsDraw: function (chart, _, options) {
       if (!options || options.start === undefined || options.end === undefined
         || !chart.scales.x || !chart.chartArea) {
@@ -483,7 +509,7 @@ window.DashboardCharts = (function () {
 
   return {
     timeOnly, minutesOfDay, pickIntervalMinutes, buildXScale, tooltipOptions, htmlTooltip,
-    hideHtmlTooltip, localize,
+    hideHtmlTooltip, localize, emptyDataForRange,
     pointerOnHover, durationUnitFor, compactDuration, detailedDuration,
     durationValue, attachRangeSelection,
     themeColors, applyTheme, crosshair, setSharedCrosshairTimestamp, renderSeriesLegend

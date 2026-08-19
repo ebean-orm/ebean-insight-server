@@ -200,6 +200,8 @@
     window.DashboardCharts.hideHtmlTooltip('jvm-memory-tooltip');
     window.DashboardCharts.hideHtmlTooltip('jvm-cpu-tooltip');
     if (!memory.labels || memory.labels.length === 0) {
+      memoryLegend.replaceChildren();
+      cpuLegend.replaceChildren();
       return;
     }
     memoryChart = new Chart(memoryCanvas.getContext('2d'), {
@@ -268,8 +270,11 @@
     if (!data.jvmDashboard || !data.jvmMemory || !data.jvmCpu) {
       return;
     }
-    memory = window.DashboardCharts.localize(data.jvmMemory);
-    cpu = window.DashboardCharts.localize(data.jvmCpu);
+    const emptyJvmData = !data.jvmMemory.labels.length && data.timeRange;
+    memory = window.DashboardCharts.localize(emptyJvmData
+      ? window.DashboardCharts.emptyDataForRange(memory, data.timeRange) : data.jvmMemory);
+    cpu = window.DashboardCharts.localize(emptyJvmData
+      ? window.DashboardCharts.emptyDataForRange(cpu, data.timeRange) : data.jvmCpu);
     render();
   });
 

@@ -94,10 +94,11 @@
   });
   window.addEventListener('insight-top-data', function (event) {
     const next = event.detail.datasourcePoolTiming;
-    if (!next || !next.labels || next.labels.length === 0 || !chart) {
+    if (!next || !chart) {
       return;
     }
-    data = window.DashboardCharts.localize(next);
+    data = window.DashboardCharts.localize(!next.labels.length && event.detail.timeRange
+      ? window.DashboardCharts.emptyDataForRange(data, event.detail.timeRange) : next);
     chart.data.labels = data.labels;
     chart.data.datasets = datasets();
     chart.options.plugins.tooltip = tooltip();

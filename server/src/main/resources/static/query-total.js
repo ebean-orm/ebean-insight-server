@@ -130,7 +130,6 @@
     const zoomDialog = document.createElement('dialog');
     zoomDialog.className = 'chart-zoom-dialog';
     zoomDialog.innerHTML = '<div class="chart-zoom-header">'
-      + '<strong class="chart-zoom-title"></strong>'
       + '<div class="chart-zoom-controls">'
       + '<button type="button" class="chart-zoom-range-prev" title="Previous window">←</button>'
       + '<button type="button" class="chart-zoom-range-next" title="Next window">→</button>'
@@ -146,7 +145,6 @@
       + '</div></div><iframe class="chart-zoom-frame" title="Expanded chart"></iframe>';
     document.body.appendChild(zoomDialog);
 
-    const title = zoomDialog.querySelector('.chart-zoom-title');
     const frame = zoomDialog.querySelector('.chart-zoom-frame');
     const range = zoomDialog.querySelector('.chart-zoom-range');
     let windowStart = null;
@@ -180,11 +178,18 @@
       frame.src = frameUrl(chartId, start, end);
     };
 
+    const refreshFrame = function (start, end) {
+      if (!frame.contentWindow.insightTopDataRefresh) {
+        return;
+      }
+      windowStart = start;
+      windowEnd = end;
+      frame.contentWindow.insightTopDataRefresh(start, end);
+    };
+
     const openZoom = function (button) {
       const chartId = button.dataset.chartZoom;
-      const article = document.querySelector('[data-chart-id="' + chartId + '"]');
       const current = currentWindow();
-      title.textContent = article ? article.querySelector('header').textContent.trim() : 'Chart';
       range.value = 'custom';
       const currentRange = new URLSearchParams(window.location.search).get('range');
       if (zoomRangeMinutes[currentRange]) {
@@ -211,23 +216,21 @@
     });
     zoomDialog.querySelector('.chart-zoom-range-prev').addEventListener('click', function () {
       const size = windowEnd - windowStart;
-      loadFrame(new URL(frame.src).searchParams.get('zoom'), windowStart - size, windowEnd - size);
+      refreshFrame(windowStart - size, windowEnd - size);
     });
     zoomDialog.querySelector('.chart-zoom-range-next').addEventListener('click', function () {
       const size = windowEnd - windowStart;
       const end = Math.min(Date.now(), windowEnd + size);
-      loadFrame(new URL(frame.src).searchParams.get('zoom'), end - size, end);
+      refreshFrame(end - size, end);
     });
     zoomDialog.querySelector('.chart-zoom-range-latest').addEventListener('click', function () {
       const minutes = zoomRangeMinutes[range.value] || Math.max(1, (windowEnd - windowStart) / 60000);
-      loadFrame(new URL(frame.src).searchParams.get('zoom'),
-        Date.now() - minutes * 60000, Date.now());
+      refreshFrame(Date.now() - minutes * 60000, Date.now());
     });
     range.addEventListener('change', function () {
       const minutes = zoomRangeMinutes[range.value];
       if (minutes) {
-        loadFrame(new URL(frame.src).searchParams.get('zoom'),
-          Date.now() - minutes * 60000, Date.now());
+        refreshFrame(Date.now() - minutes * 60000, Date.now());
       }
     });
     window.addEventListener('keydown', function (event) {
@@ -1272,10 +1275,15 @@
   };
 
   const applyPolledData = function (data) {
-    chartData = window.DashboardCharts.localize(data.queryTotal);
-    meanData = window.DashboardCharts.localize(data.mean);
-    maxData = window.DashboardCharts.localize(data.max);
-    countData = window.DashboardCharts.localize(data.count);
+    const emptyQueryData = !data.queryTotal.labels.length && data.timeRange;
+    chartData = window.DashboardCharts.localize(emptyQueryData
+      ? window.DashboardCharts.emptyDataForRange(chartData, data.timeRange) : data.queryTotal);
+    meanData = window.DashboardCharts.localize(emptyQueryData
+      ? window.DashboardCharts.emptyDataForRange(meanData, data.timeRange) : data.mean);
+    maxData = window.DashboardCharts.localize(emptyQueryData
+      ? window.DashboardCharts.emptyDataForRange(maxData, data.timeRange) : data.max);
+    countData = window.DashboardCharts.localize(emptyQueryData
+      ? window.DashboardCharts.emptyDataForRange(countData, data.timeRange) : data.count);
     const queryRate = document.getElementById('query-total-rate');
     if (queryRate) {
       queryRate.textContent = data.queryRate + ' qry/s   load: ' + data.queryLoad;
@@ -1299,6 +1307,57 @@
       updateSelectionStatus();
     }
     window.dispatchEvent(new CustomEvent('insight-top-data', {detail: data}));
+  };
+
+  const zoomLegendState = function () {
+    return Array.from(document.querySelectorAll('.legend-series-toggle')).filter(function (button) {
+      return !button.closest('[hidden]') && !button.closest('.top-chart-legend[hidden]');
+    }).map(function (button) {
+      return {
+        label: button.dataset.label || '',
+        pod: button.dataset.pod || '',
+        visible: button.getAttribute('aria-pressed') === 'true'
+      };
+    });
+  };
+
+  const restoreZoomLegendState = function (series) {
+    series.forEach(function (state) {
+      const selector = state.pod
+        ? '.legend-series-toggle[data-pod="' + CSS.escape(state.pod) + '"]'
+        : '.legend-series-toggle[data-label="' + CSS.escape(state.label) + '"]';
+      const button = document.querySelector(selector);
+      if (button && (button.getAttribute('aria-pressed') === 'true') !== state.visible) {
+        button.dispatchEvent(new MouseEvent('click', {bubbles: true, ctrlKey: true}));
+      }
+    });
+  };
+
+  window.insightTopDataRefresh = function (from, to) {
+    const url = new URL('/ux/top/data', window.location.origin);
+    const current = new URLSearchParams(window.location.search);
+    ['app', 'env'].forEach(function (name) {
+      const value = current.get(name);
+      if (value) {
+        url.searchParams.set(name, value);
+      }
+    });
+    url.searchParams.set('range', 'custom');
+    url.searchParams.set('from', new Date(from).toISOString());
+    url.searchParams.set('to', new Date(to).toISOString());
+    const series = zoomLegendState();
+    return fetch(url, {headers: {Accept: 'application/json'}, cache: 'no-store'})
+      .then(function (response) {
+        if (!response.ok) {
+          throw new Error('Refresh failed: ' + response.status);
+        }
+        return response.json();
+      })
+      .then(function (data) {
+        data.timeRange = {from: from, to: to};
+        applyPolledData(data);
+        restoreZoomLegendState(series);
+      });
   };
 
   const poll = function () {
