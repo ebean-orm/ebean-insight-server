@@ -321,9 +321,8 @@ body.zoomed-chart {
   stroke-width: 1.8;
 }
 
-#compact-legends-toggle[aria-pressed="false"] .legend-icon-eye-off,
-#compact-legends-toggle[aria-pressed="true"] .legend-icon-eye {
-  display: none;
+.legend-key-icon circle {
+  fill: currentColor;
 }
 
 body:has(.top-dashboard) main.container {
@@ -424,6 +423,11 @@ body:has(.top-dashboard) .header-filters select {
 .top-dashboard-compact.compact-legends-visible .top-chart-legend {
   display: flex;
   margin: 0.35rem 0 0.75rem;
+}
+
+.top-dashboard-compact.compact-chart-controls-hidden .chart-section-header > .chart-control-group,
+.top-dashboard-compact.compact-chart-controls-hidden .chart-section-header > .chart-scale-toggle {
+  display: none;
 }
 
 .chart-html-tooltip {

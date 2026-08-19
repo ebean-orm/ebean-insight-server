@@ -62,14 +62,24 @@
       {{#compactLayout}}
         <button type="button" id="compact-legends-toggle" class="layout-toggle" aria-pressed="false"
                 aria-label="Show legends" title="Show legends">
-          <svg class="legend-icon-eye" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"></path>
-            <circle cx="12" cy="12" r="2.5"></circle>
+          <svg class="legend-key-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="5" cy="6" r="1.5"></circle>
+            <circle cx="5" cy="12" r="1.5"></circle>
+            <circle cx="5" cy="18" r="1.5"></circle>
+            <path d="M9 6h10"></path>
+            <path d="M9 12h10"></path>
+            <path d="M9 18h10"></path>
           </svg>
-          <svg class="legend-icon-eye-off" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="m3 3 18 18"></path>
-            <path d="M10.6 6.2A11.8 11.8 0 0 1 12 6c6.5 0 10 6 10 6a18 18 0 0 1-3.1 3.7"></path>
-            <path d="M6.2 6.2C3.5 8.3 2 12 2 12s3.5 6 10 6c1.4 0 2.7-.3 3.8-.8"></path>
+        </button>
+        <button type="button" id="compact-chart-controls-toggle" class="layout-toggle" aria-pressed="false"
+                aria-label="Show chart controls" title="Show chart controls">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 6h16"></path>
+            <path d="M4 12h16"></path>
+            <path d="M4 18h16"></path>
+            <circle cx="9" cy="6" r="2"></circle>
+            <circle cx="15" cy="12" r="2"></circle>
+            <circle cx="7" cy="18" r="2"></circle>
           </svg>
         </button>
       {{/compactLayout}}
@@ -77,7 +87,7 @@
     </form>
   {{/filters}}
   {{$body}}
-    <link rel="stylesheet" href="/static/query-total.css?v=34">
+    <link rel="stylesheet" href="/static/query-total.css?v=36">
 
     {{^hasData}}
       <article>
@@ -86,7 +96,7 @@
     {{/hasData}}
 
     {{#hasData}}
-      <div class="top-dashboard{{#compactLayout}} top-dashboard-compact{{/compactLayout}}">
+      <div class="top-dashboard{{#compactLayout}} top-dashboard-compact compact-chart-controls-hidden{{/compactLayout}}">
       {{#webApiDashboard}}
         <div class="web-api-grid web-api-primary-grid">
           <article class="query-total-section" data-chart-id="web-api-total">
@@ -359,10 +369,10 @@
     <script type="application/json" id="jvm-cpu-data">{{{jvmCpuJson}}}</script>
     <script src="/static/vendor/chart.umd.min.js"></script>
     <script src="/static/dashboard-charts.js?v=17"></script>
-    <script src="/static/query-total.js?v=21"></script>
+    <script src="/static/query-total.js?v=24"></script>
     <script src="/static/datasource-pool.js?v=10"></script>
     <script src="/static/datasource-pool-timing.js?v=9"></script>
-    <script src="/static/web-api.js?v=11"></script>
+    <script src="/static/web-api.js?v=12"></script>
     <script src="/static/jvm.js?v=32"></script>
   {{/body}}
 {{/fragments/layout}}

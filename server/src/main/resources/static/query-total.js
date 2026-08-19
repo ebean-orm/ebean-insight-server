@@ -100,6 +100,42 @@
       compactLegendsToggle.title = visible ? 'Hide legends' : 'Show legends';
     });
   }
+  const compactChartControlsToggle = document.getElementById('compact-chart-controls-toggle');
+  if (compactChartControlsToggle && compactDashboard) {
+    compactChartControlsToggle.addEventListener('click', function () {
+      const visible = !compactDashboard.classList.toggle('compact-chart-controls-hidden');
+      compactChartControlsToggle.setAttribute('aria-pressed', String(visible));
+      compactChartControlsToggle.setAttribute('aria-label',
+        visible ? 'Hide chart controls' : 'Show chart controls');
+      compactChartControlsToggle.title = visible ? 'Hide chart controls' : 'Show chart controls';
+    });
+  }
+
+  const chartStateNames = [
+    'chart', 'mean', 'meanView', 'scale',
+    'webChart', 'webMean', 'webMeanView', 'webScale'
+  ];
+  const statePreservingForm = document.querySelector('.header-filters');
+  if (statePreservingForm) {
+    statePreservingForm.addEventListener('submit', function () {
+      statePreservingForm.querySelectorAll('.chart-state-bound').forEach(function (input) {
+        input.remove();
+      });
+      const state = new URLSearchParams(window.location.search);
+      chartStateNames.forEach(function (name) {
+        const value = state.get(name);
+        if (!value) {
+          return;
+        }
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = name;
+        input.value = value;
+        input.className = 'chart-state-bound';
+        statePreservingForm.appendChild(input);
+      });
+    });
+  }
 
   const zoomRangeMinutes = {
     '30m': 30,
@@ -716,24 +752,6 @@
         input.className = 'custom-range-bound';
         filterForm.appendChild(input);
       });
-    });
-    filterForm.addEventListener('submit', function () {
-      filterForm.querySelectorAll('.chart-state-bound').forEach(function (input) {
-        input.remove();
-      });
-      const state = new URLSearchParams(window.location.search);
-      [['chart', state.get('chart')], ['mean', state.get('mean')], ['scale', state.get('scale')]]
-        .forEach(function (entry) {
-          if (!entry[1]) {
-            return;
-          }
-          const input = document.createElement('input');
-          input.type = 'hidden';
-          input.name = entry[0];
-          input.value = entry[1];
-          input.className = 'chart-state-bound';
-          filterForm.appendChild(input);
-        });
     });
   }
 

@@ -19,10 +19,12 @@
     return;
   }
 
-  let chartType = 'bar';
-  let meanMode = 'both';
-  let meanChartType = 'dots';
-  let meanScale = 'linear';
+  const initialUrlState = new URLSearchParams(window.location.search);
+  let chartType = initialUrlState.get('webChart') === 'line' ? 'line' : 'bar';
+  let meanMode = ['both', 'only', 'max', 'count'].includes(initialUrlState.get('webMean'))
+    ? initialUrlState.get('webMean') : 'both';
+  let meanChartType = initialUrlState.get('webMeanView') === 'lines' ? 'lines' : 'dots';
+  let meanScale = initialUrlState.get('webScale') === 'log' ? 'logarithmic' : 'linear';
   let totalChart = null;
   let meanMaxChart = null;
   const visible = new Map(total.datasets.map(function (dataset) {
@@ -158,6 +160,12 @@
     }
   };
 
+  const setChartStateUrl = function (name, value) {
+    const current = new URLSearchParams(window.location.search);
+    current.set(name, value);
+    window.history.replaceState(null, '', window.location.pathname + '?' + current.toString());
+  };
+
   const render = function () {
     window.DashboardCharts.hideHtmlTooltip('web-api-total-tooltip');
     window.DashboardCharts.hideHtmlTooltip('web-api-mean-max-tooltip');
@@ -266,12 +274,14 @@
     chartType = 'bar';
     updateButton('web-api-chart-type-bar', true);
     updateButton('web-api-chart-type-line', false);
+    setChartStateUrl('webChart', chartType);
     render();
   });
   document.getElementById('web-api-chart-type-line').addEventListener('click', function () {
     chartType = 'line';
     updateButton('web-api-chart-type-bar', false);
     updateButton('web-api-chart-type-line', true);
+    setChartStateUrl('webChart', chartType);
     render();
   });
   document.getElementById('web-api-mean-mode-both').addEventListener('click', function () {
@@ -280,6 +290,7 @@
     updateButton('web-api-mean-mode-only', false);
     updateButton('web-api-mean-mode-max', false);
     updateButton('web-api-mean-mode-count', false);
+    setChartStateUrl('webMean', meanMode);
     render();
   });
   document.getElementById('web-api-mean-mode-only').addEventListener('click', function () {
@@ -288,6 +299,7 @@
     updateButton('web-api-mean-mode-only', true);
     updateButton('web-api-mean-mode-max', false);
     updateButton('web-api-mean-mode-count', false);
+    setChartStateUrl('webMean', meanMode);
     render();
   });
   document.getElementById('web-api-mean-mode-max').addEventListener('click', function () {
@@ -296,6 +308,7 @@
     updateButton('web-api-mean-mode-only', false);
     updateButton('web-api-mean-mode-max', true);
     updateButton('web-api-mean-mode-count', false);
+    setChartStateUrl('webMean', meanMode);
     render();
   });
   document.getElementById('web-api-mean-mode-count').addEventListener('click', function () {
@@ -304,22 +317,26 @@
     updateButton('web-api-mean-mode-only', false);
     updateButton('web-api-mean-mode-max', false);
     updateButton('web-api-mean-mode-count', true);
+    setChartStateUrl('webMean', meanMode);
     render();
   });
   document.getElementById('web-api-mean-view-dots').addEventListener('click', function () {
     meanChartType = 'dots';
     updateButton('web-api-mean-view-dots', true);
     updateButton('web-api-mean-view-lines', false);
+    setChartStateUrl('webMeanView', meanChartType);
     render();
   });
   document.getElementById('web-api-mean-view-lines').addEventListener('click', function () {
     meanChartType = 'lines';
     updateButton('web-api-mean-view-dots', false);
     updateButton('web-api-mean-view-lines', true);
+    setChartStateUrl('webMeanView', meanChartType);
     render();
   });
   document.getElementById('web-api-mean-scale-log').addEventListener('change', function (event) {
     meanScale = event.target.checked ? 'logarithmic' : 'linear';
+    setChartStateUrl('webScale', meanScale === 'logarithmic' ? 'log' : 'linear');
     render();
   });
   const updateLegend = function () {
@@ -422,6 +439,15 @@
   });
 
   showSelection();
+  updateButton('web-api-chart-type-bar', chartType === 'bar');
+  updateButton('web-api-chart-type-line', chartType === 'line');
+  updateButton('web-api-mean-mode-both', meanMode === 'both');
+  updateButton('web-api-mean-mode-only', meanMode === 'only');
+  updateButton('web-api-mean-mode-max', meanMode === 'max');
+  updateButton('web-api-mean-mode-count', meanMode === 'count');
+  updateButton('web-api-mean-view-dots', meanChartType === 'dots');
+  updateButton('web-api-mean-view-lines', meanChartType === 'lines');
+  document.getElementById('web-api-mean-scale-log').checked = meanScale === 'logarithmic';
   updateLegend();
   render();
   window.DashboardCharts.attachRangeSelection(totalCanvas, function () {
