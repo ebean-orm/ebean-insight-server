@@ -47,9 +47,6 @@
     autoRefreshRemaining = 60;
     updateAutoRefreshDisplay();
     autoRefreshTimer = window.setInterval(function () {
-      if (document.visibilityState !== 'visible') {
-        return;
-      }
       autoRefreshRemaining -= 1;
       updateAutoRefreshDisplay();
       if (autoRefreshRemaining <= 0) {
@@ -1379,7 +1376,7 @@
   };
 
   const poll = function () {
-    if (autoRefreshInFlight || document.visibilityState !== 'visible') {
+    if (autoRefreshInFlight) {
       return;
     }
     autoRefreshInFlight = true;

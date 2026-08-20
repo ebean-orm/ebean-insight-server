@@ -8,10 +8,40 @@ documentation, especially [`../install-server.md`](../install-server.md).
 
 - Java matching the repository compiler configuration.
 - Maven.
-- PostgreSQL for persist-mode development.
+- Docker for the local PostgreSQL container.
 - Node.js for JavaScript syntax checks.
 
 The server listens on port `8091` by default.
+
+## Local PostgreSQL
+
+On a fresh checkout, install the reactor artifacts first. The PostgreSQL
+launcher uses the server test classpath, which includes the unreleased local
+`api` and `client` modules:
+
+```shell
+mvn -q -pl server -am install -DskipTests
+```
+
+Then start the repository's local PostgreSQL container before seeding or
+running the server in persist mode:
+
+```shell
+mvn -q -pl server \
+  -Dexec.mainClass=main.StartPostgresDocker \
+  -Dexec.classpathScope=test \
+  org.codehaus.mojo:exec-maven-plugin:3.5.0:java
+```
+
+This starts (or reuses) the `eb_insight` Docker container with PostgreSQL
+available at `localhost:7432`, database `ebean_insight`, and the credentials
+expected by `server/src/main/resources/application.yaml`. The local server and
+the [demo-data seed](demo-data.md) use this same database.
+
+If an existing `eb_insight` container cannot authenticate, it may have been
+initialized previously with different credentials. Inspect it first; do not
+delete or recreate the local container automatically because that discards its
+data.
 
 ## Build
 

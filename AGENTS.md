@@ -74,3 +74,12 @@ build, start, restart, seed-data, and troubleshooting instructions.
 
 The full maintenance guide index is
 [`docs/development/README.md`](docs/development/README.md).
+
+## UX workflow
+
+Before changing a UX page, read
+[`docs/development/ux-agent-workflow.md`](docs/development/ux-agent-workflow.md).
+It is the canonical agent workflow for starting local PostgreSQL, seeding
+repeatable dashboard data, rebuilding and restarting the server, and validating
+browser behavior. Use it rather than guessing at local processes or validating
+only the Java build.

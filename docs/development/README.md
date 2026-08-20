@@ -8,6 +8,8 @@ deploying, and using the product.
 
 - [`local-server.md`](local-server.md) - build, start, stop, restart, seed, and
   inspect a local server.
+- [`ux-agent-workflow.md`](ux-agent-workflow.md) - end-to-end local workflow
+  for agents making UX changes.
 - [`ui.md`](ui.md) - trace UX requests through controllers, templates, CSS,
   JavaScript, and Chart.js payloads.
 - [`demo-data.md`](demo-data.md) - maintain and run the repeatable UX seed.

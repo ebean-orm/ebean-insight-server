@@ -393,16 +393,20 @@ public class UIQueryTotalController {
       .sorted(Comparator.comparingLong(MetricTimeseriesTopSeries::totalMicros))
       .toList()) {
       datasets.add(new ChartData.ChartDataset(series.group(),
-        poolSizeValues(series.buckets(), data.bucketMinutes()),
+        poolSizeValues(series.buckets()),
         poolSizeColor(colorIndex++)));
     }
     return new ChartData(labels, timestamps, datasets, data.bucketMinutes());
   }
 
-  static List<Long> poolSizeValues(List<MetricTimeBucket> buckets, long bucketMinutes) {
-    final long divisor = Math.max(1L, bucketMinutes);
+  /**
+   * Gauge query buckets already contain the peak one-minute total for their
+   * display interval. Dividing by the display interval would incorrectly reduce
+   * a two-minute bucket to half its observed pool size.
+   */
+  static List<Long> poolSizeValues(List<MetricTimeBucket> buckets) {
     return buckets.stream()
-      .map(bucket -> bucket.total() / divisor)
+      .map(MetricTimeBucket::total)
       .toList();
   }
 
@@ -429,10 +433,14 @@ public class UIQueryTotalController {
     final List<ChartData.ChartDataset> datasets = data.series().stream()
       .sorted(Comparator.comparingInt(series -> series.group().startsWith("Acquire") ? 0 : 1))
       .map(series -> new ChartData.ChartDataset(series.group(),
-        series.buckets().stream().map(bucket -> bucket.total() / 1000L).toList(),
+        poolTimingValues(series.buckets()),
         timingColor(series.group(), poolColors)))
       .toList();
     return new ChartData(labels, timestamps, datasets, data.bucketMinutes());
+  }
+
+  static List<Long> poolTimingValues(List<MetricTimeBucket> buckets) {
+    return buckets.stream().map(MetricTimeBucket::total).toList();
   }
 
   private Map<String, String> poolColors(ChartData data) {

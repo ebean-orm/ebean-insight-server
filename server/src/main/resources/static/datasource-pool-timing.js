@@ -12,12 +12,42 @@
   }
 
   let chart = null;
+  const durationUnit = function () {
+    const max = data.labels.reduce(function (maximum, _, index) {
+      const total = data.datasets.reduce(function (sum, dataset) {
+        return sum + (Number(dataset.data[index]) || 0);
+      }, 0);
+      return Math.max(maximum, total);
+    }, 0);
+    if (max < 1_000) {
+      return 'us';
+    }
+    if (max < 1_000_000) {
+      return 'ms';
+    }
+    if (max < 60_000_000) {
+      return 's';
+    }
+    if (max < 3_600_000_000) {
+      return 'min';
+    }
+    return 'h';
+  };
+  const durationValue = function (value, unit) {
+    const divisor = unit === 'ms' ? 1_000
+      : unit === 's' ? 1_000_000
+        : unit === 'min' ? 60_000_000
+          : unit === 'h' ? 3_600_000_000 : 1;
+    const rounded = Math.round((value / divisor) * 10) / 10;
+    return String(rounded).replace(/\.0$/, '');
+  };
   const tooltip = function () {
+    const unit = durationUnit();
     return window.DashboardCharts.htmlTooltip(data.labels, 'datasource-pool-timing-tooltip', function (point) {
       return {
         label: point.dataset.label,
         metric: 'Duration',
-        value: point.parsed.y.toFixed(1) + ' ms'
+        value: durationValue(point.parsed.y, unit) + ' ' + unit
       };
     });
   };
@@ -34,16 +64,6 @@
         borderSkipped: false
       };
     });
-  };
-
-  const durationUnit = function () {
-    const max = data.labels.reduce(function (maximum, _, index) {
-      const total = data.datasets.reduce(function (sum, dataset) {
-        return sum + (Number(dataset.data[index]) || 0);
-      }, 0);
-      return Math.max(maximum, total);
-    }, 0);
-    return window.DashboardCharts.durationUnitFor(max);
   };
 
   const render = function () {
@@ -69,7 +89,7 @@
           title: {display: true, text: 'Duration (' + unit + ')'},
           ticks: {
             callback: function (value) {
-              return window.DashboardCharts.durationValue(value, unit);
+              return durationValue(value, unit);
             }
           }
         }
@@ -109,7 +129,7 @@
     const unit = durationUnit();
     chart.options.scales.y.title.text = 'Duration (' + unit + ')';
     chart.options.scales.y.ticks.callback = function (value) {
-      return window.DashboardCharts.durationValue(value, unit);
+      return durationValue(value, unit);
     };
     chart.update('none');
     window.DashboardCharts.renderSeriesLegend(legend, chart);
