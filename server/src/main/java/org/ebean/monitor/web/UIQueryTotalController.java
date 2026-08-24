@@ -406,7 +406,7 @@ public class UIQueryTotalController {
    */
   static List<Long> poolSizeValues(List<MetricTimeBucket> buckets) {
     return buckets.stream()
-      .map(MetricTimeBucket::total)
+      .map(MetricTimeBucket::max)
       .toList();
   }
 
