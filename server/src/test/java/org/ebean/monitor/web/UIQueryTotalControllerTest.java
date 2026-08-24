@@ -79,11 +79,11 @@ class UIQueryTotalControllerTest {
   @Test
   void poolSizeValues_preservePeakGaugeTotalAcrossDisplayBuckets() {
     var buckets = List.of(
-      bucket(1, 24L),
-      bucket(1, 100L));
+      bucket(1, 24L, 30L),
+      bucket(1, 100L, 120L));
 
     assertThat(UIQueryTotalController.poolSizeValues(buckets))
-      .containsExactly(24L, 100L);
+      .containsExactly(30L, 120L);
   }
 
   @Test
@@ -115,11 +115,15 @@ class UIQueryTotalControllerTest {
   }
 
   private static MetricTimeBucket bucket(long count, long total) {
+    return bucket(count, total, total);
+  }
+
+  private static MetricTimeBucket bucket(long count, long total, long max) {
     return MetricTimeBucket.builder()
       .eventTime(Instant.EPOCH)
       .count(count)
       .total(total)
-      .max(total)
+      .max(max)
       .build();
   }
 }

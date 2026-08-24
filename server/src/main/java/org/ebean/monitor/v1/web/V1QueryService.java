@@ -764,7 +764,7 @@ public final class V1QueryService {
   /**
    * Per-bucket gauge time-series grouped by a metric tag. The datasource-pool
    * dashboard uses this for {@code datasource.pool.size} grouped by
-   * {@code type}; gauge totals represent the summed reading for each bucket.
+   * {@code type}; gauge maxima represent the peak reading for each bucket.
    */
   public MetricTimeseriesTop getGaugeTimeseries(String appName, String name, String by,
                                                 @Nullable Long sinceMinutes, @Nullable Long sinceHours,
