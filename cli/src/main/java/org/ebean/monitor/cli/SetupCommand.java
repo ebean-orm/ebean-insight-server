@@ -72,7 +72,7 @@ final class SetupCommand implements Callable<Integer> {
     if (remote.authTenantId() != null) {
       write(config, "auth-tenant-id", remote.authTenantId());
     }
-    String scope = remote.authScope() != null ? remote.authScope() : "openid";
+    String scope = resolveScope(remote);
     write(config, "auth-scope", scope);
 
     String profileLabel = profile != null ? " [" + profile + "]" : "";
@@ -120,6 +120,15 @@ final class SetupCommand implements Callable<Integer> {
     } catch (Exception e) {
       throw new CliException("Failed to reach " + baseUrl + "/api/cli-config: " + e.getMessage());
     }
+  }
+
+  static String resolveScope(CliConfigResponse remote) {
+    String scope = remote.authScope() != null ? remote.authScope() : "openid";
+    if (remote.authTenantId() != null && !remote.authTenantId().isBlank() && !scope.contains("offline_access")) {
+      // for Entra ID add offline_access to include refresh token for token renewal
+      return "offline_access " + scope;
+    }
+    return scope;
   }
 
   private void write(InsightConfig config, String key, String value) {
