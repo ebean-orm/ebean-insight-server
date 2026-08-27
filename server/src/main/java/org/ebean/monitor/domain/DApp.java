@@ -15,7 +15,7 @@ import java.util.Map;
 /**
  * The "Application" metrics relate to.
  */
-@Cache(nearCache = true, naturalKey = {"org", "name"})
+@Cache(nearCache = true, naturalKey = {"name"})
 @Entity
 @Table(name = "ebean_insight.app")
 public class DApp extends BaseDomain {
