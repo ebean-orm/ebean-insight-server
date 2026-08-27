@@ -15,7 +15,7 @@ load.properties: /app/config/insight-config.yaml
 insight.selfReport.enabled: false
 
 ebean.queryPlan.enable: true
-ebean.migration.rebaseMigrationHistory: true
+#ebean.migration.rebaseMigrationHistory: true
 
 ##
 ## Auth: when enabled, every endpoint requires a valid `Authorization: Bearer`
