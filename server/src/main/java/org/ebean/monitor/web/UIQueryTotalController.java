@@ -393,20 +393,15 @@ public class UIQueryTotalController {
       .sorted(Comparator.comparingLong(MetricTimeseriesTopSeries::totalMicros))
       .toList()) {
       datasets.add(new ChartData.ChartDataset(series.group(),
-        poolSizeValues(series.buckets()),
+        poolSizeValues(series.buckets(), data.bucketMinutes()),
         poolSizeColor(colorIndex++)));
     }
     return new ChartData(labels, timestamps, datasets, data.bucketMinutes());
   }
 
-  /**
-   * Gauge query buckets already contain the peak one-minute total for their
-   * display interval. Dividing by the display interval would incorrectly reduce
-   * a two-minute bucket to half its observed pool size.
-   */
-  static List<Long> poolSizeValues(List<MetricTimeBucket> buckets) {
+  static List<Long> poolSizeValues(List<MetricTimeBucket> buckets, long bucketMinutes) {
     return buckets.stream()
-      .map(MetricTimeBucket::max)
+      .map(bucket -> bucket.total() / bucketMinutes)
       .toList();
   }
 

@@ -77,13 +77,13 @@ class UIQueryTotalControllerTest {
   }
 
   @Test
-  void poolSizeValues_preservePeakGaugeTotalAcrossDisplayBuckets() {
+  void poolSizeValues_normalizedToPerMinuteRate() {
     var buckets = List.of(
-      bucket(1, 24L, 30L),
-      bucket(1, 100L, 120L));
+      bucket(1, 240L),
+      bucket(1, 1000L));
 
-    assertThat(UIQueryTotalController.poolSizeValues(buckets))
-      .containsExactly(30L, 120L);
+    assertThat(UIQueryTotalController.poolSizeValues(buckets, 10L))
+      .containsExactly(24L, 100L);
   }
 
   @Test

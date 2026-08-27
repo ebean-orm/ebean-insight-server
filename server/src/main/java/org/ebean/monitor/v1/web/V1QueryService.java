@@ -764,7 +764,7 @@ public final class V1QueryService {
   /**
    * Per-bucket gauge time-series grouped by a metric tag. The datasource-pool
    * dashboard uses this for {@code datasource.pool.size} grouped by
-   * {@code type}; gauge maxima represent the peak reading for each bucket.
+   * {@code type}; gauge totals represent the summed reading for each bucket.
    */
   public MetricTimeseriesTop getGaugeTimeseries(String appName, String name, String by,
                                                 @Nullable Long sinceMinutes, @Nullable Long sinceHours,
@@ -809,7 +809,7 @@ public final class V1QueryService {
                  cast(floor(extract(epoch from t.event_time) / :step) as bigint) * :step
                ) as event_time,
                m.tags ->> :by as grp,
-               max(t.total)::bigint as total,
+               sum(t.total)::bigint as total,
                max(t.max)::bigint as max
         from %s t
         join ebean_insight.app_metric m on m.id = t.metric_id
