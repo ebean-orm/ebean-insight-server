@@ -25,7 +25,7 @@
     <avaje-inject.version>12.5</avaje-inject.version>
     <avaje-http.version>3.11</avaje-http.version>
     <avaje-jex.version>3.5</avaje-jex.version>
-    <avaje-jsonb.version>3.14</avaje-jsonb.version>
+    <avaje-jsonb.version>3.15</avaje-jsonb.version>
     <avaje-openapi.version>1.0</avaje-openapi.version>
     <avaje-validator.version>2.17</avaje-validator.version>
     <avaje-record-builder.version>1.4</avaje-record-builder.version>
