@@ -304,6 +304,9 @@ insight:
       # Entra instead uses tenant-id (and may optionally set domain):
       # tenant-id: "<tenant-id>"
       scope: "openid profile email"
+      # Required when the provider app registration is confidential.
+      # Omit for a public client using PKCE.
+      # client-secret: "<entra-client-secret>"
       redirect-uri: "https://insight.example.com/auth/callback"
       cookie-secure: true
       persistent-store: true
@@ -316,6 +319,9 @@ corresponding `insight.cli.auth.*` values, so existing CLI-style configuration
 can be reused. `redirect-uri` should be the exact callback URL registered with
 the provider. A client secret may be supplied as
 `insight.ui.auth.client-secret` for a confidential client; PKCE is still used.
+For Entra ID, a confidential app registration requires this secret during the
+authorization-code exchange. It is sent to the provider's token endpoint and
+is not the UI token-encryption key.
 
 For a Cognito deployment, configure `user-pool-id`, `domain`, `client-id`, and
 the exact callback URL. For Entra, configure `tenant-id`, `client-id`, and an
@@ -324,9 +330,21 @@ API scope exposed by the app registration (for example
 JWT access token required by the server.
 
 The corresponding environment variables use the `INSIGHT_UI_AUTH_` prefix,
-for example `INSIGHT_UI_AUTH_ENABLED`, `INSIGHT_UI_AUTH_CLIENTID`,
-`INSIGHT_UI_AUTH_REDIRECTURI`, and
-`INSIGHT_UI_AUTH_TOKENENCRYPTIONKEY`.
+for example:
+
+```
+INSIGHT_UI_AUTH_ENABLED=true
+INSIGHT_UI_AUTH_CLIENTID=<entra-app-client-id>
+INSIGHT_UI_AUTH_CLIENTSECRET=<entra-client-secret>
+INSIGHT_UI_AUTH_REDIRECTURI=https://insight.example.com/auth/callback
+INSIGHT_UI_AUTH_TOKENENCRYPTIONKEY=<base64-encoded-32-byte-key>
+```
+
+`INSIGHT_UI_AUTH_CLIENTSECRET` is only needed for a confidential client. The
+`INSIGHT_UI_AUTH_TOKENENCRYPTIONKEY` value is a local AES-GCM key for session
+and OAuth-token data; it is never sent to Cognito or Entra ID. When persistent
+storage is enabled, it must be Base64 that decodes to exactly 32 bytes and
+must remain stable across restarts and replicas.
 
 When enabled, `/ux` and `/ux/top/data` require the UI session. HTML requests
 redirect to `/auth/login`; the chart-data endpoint returns `401` so browser

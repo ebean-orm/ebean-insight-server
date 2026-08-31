@@ -41,6 +41,7 @@ insight:
       # tenant-id: ""
       # domain: ""
       # client-id: ""
+      # client-secret: "" # required for confidential clients; omit for public PKCE clients
       # issuer: ""
       # jwks-uri: ""
       # redirect-uri: ""
