@@ -35,6 +35,9 @@ interface UiTokenVerifier {
 
       @Override
       public void verifyIdToken(String token) {
+        if (token == null || token.isBlank()) {
+          throw new UiTokenException("OIDC response did not contain an ID token");
+        }
         try {
           verifier.verify(SignedJwt.parse(token));
         } catch (RuntimeException e) {
