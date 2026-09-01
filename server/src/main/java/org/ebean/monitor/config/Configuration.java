@@ -72,16 +72,24 @@ class Configuration {
   @RequiresProperty(value = "insight.selfReport.enabled", equalTo = "true")
   InsightClient withDatabase(Database database) {
     int port = Config.getInt("server.port", 9080);
-    return InsightClient.builder()
+    String ingestKey = System.getenv("INSIGHT_INGEST_KEY");
+    String envName = System.getenv("ENVIRONMENT_NAME");
+    var builder = InsightClient.builder()
       .url("http://localhost:" + port)
       .appName("ebean-insight")
-      .environment(Config.get("app.environment", "prod"))
-      .key("insight")
       .instanceId(null)
+      .metricsV2(true)
       .gzip(false)
       .database(database)
       .capturePlans(true)
-      .build();
+      ;
+    if (envName != null) {
+      builder.environment(envName);
+    }
+    if (ingestKey != null) {
+      builder.key(ingestKey);
+    }
+    return builder.build();
   }
 
 }
