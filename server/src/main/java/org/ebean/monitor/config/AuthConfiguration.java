@@ -4,6 +4,8 @@ import io.avaje.config.Config;
 import io.avaje.inject.Bean;
 import io.avaje.inject.Factory;
 import io.avaje.inject.RequiresProperty;
+import io.avaje.jex.http.Context;
+import io.avaje.jex.http.HttpFilter;
 import io.avaje.jex.spi.JexPlugin;
 import io.avaje.oauth2.core.jwt.JwtVerifier;
 import io.avaje.oauth2.jex.jwtfilter.JwtAuthFilter;
@@ -34,6 +36,8 @@ import org.ebean.monitor.web.ApiKeyValidator;
 @Factory
 @RequiresProperty(value = "insight.auth.enabled", equalTo = "true")
 class AuthConfiguration {
+
+  private static final RootRedirectFilter ROOT_REDIRECT = new RootRedirectFilter();
 
   /**
    * JwtVerifier built from the configured issuer.
@@ -85,6 +89,20 @@ class AuthConfiguration {
    */
   @Bean
   JexPlugin authFilterPlugin(JwtAuthFilter jwtAuthFilter) {
-    return jex -> jex.filter(jwtAuthFilter);
+    return jex -> {
+      jex.filter(ROOT_REDIRECT);
+      jex.filter(jwtAuthFilter);
+    };
+  }
+
+  private static final class RootRedirectFilter implements HttpFilter {
+    @Override
+    public void filter(Context context, FilterChain chain) {
+      if ("/".equals(context.path())) {
+        context.redirect("/ux");
+      } else {
+        chain.proceed();
+      }
+    }
   }
 }
