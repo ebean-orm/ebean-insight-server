@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<migration xmlns="http://ebean-orm.github.io/xml/ns/dbmigration">
+    <changeSet type="apply">
+        <addColumn tableName="ebean_insight.ui_session">
+            <column name="user_sub" type="varchar"/>
+        </addColumn>
+        <createTable name="ebean_insight.user_usage" pkName="pk_user_usage">
+            <column name="minute_at" type="timestamp" notnull="true"/>
+            <column name="user_id" type="varchar(200)" notnull="true"/>
+            <column name="method" type="varchar(10)" notnull="true"/>
+            <column name="path" type="varchar(300)" notnull="true"/>
+            <column name="request_count" type="bigint" notnull="true"/>
+            <column name="total_micros" type="bigint" notnull="true"/>
+            <column name="max_micros" type="bigint" notnull="true"/>
+        </createTable>
+        <createIndex indexName="ix_user_usage_minute" tableName="ebean_insight.user_usage" columns="minute_at"/>
+        <createIndex indexName="ix_user_usage_user_minute" tableName="ebean_insight.user_usage" columns="user_id,minute_at"/>
+    </changeSet>
+</migration>

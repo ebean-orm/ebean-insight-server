@@ -1,0 +1,36 @@
+{{<fragments/layout}}
+  {{$body}}
+    <article class="applications-card">
+      <header>Authenticated user usage (last {{windowMinutes}} minutes)</header>
+      {{#hasData}}
+        <div class="applications-table-wrap">
+          <table class="applications-table">
+            <thead>
+              <tr>
+                <th scope="col">User</th>
+                <th scope="col">Requests</th>
+                <th scope="col">Total time</th>
+                <th scope="col">Mean time</th>
+                <th scope="col">Max time</th>
+              </tr>
+            </thead>
+            <tbody>
+              {{#users}}
+              <tr>
+                <th scope="row">{{user}}</th>
+                <td>{{count}}</td>
+                <td>{{totalMicros}} micros</td>
+                <td>{{meanMicros}} micros</td>
+                <td>{{maxMicros}} micros</td>
+              </tr>
+              {{/users}}
+            </tbody>
+          </table>
+        </div>
+      {{/hasData}}
+      {{^hasData}}
+        <p>No authenticated usage recorded in this window.</p>
+      {{/hasData}}
+    </article>
+  {{/body}}
+{{/fragments/layout}}

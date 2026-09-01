@@ -44,6 +44,7 @@ tags:
   - name: envs
   - name: metrics
   - name: plans
+  - name: usage
 
 paths:
   /v1/apps:
@@ -560,6 +561,50 @@ paths:
                 items:
                   $ref: '#/components/schemas/Env'
 
+  /v1/usage:
+    get:
+      tags: [usage]
+      operationId: listUserUsage
+      summary: List minute-level authenticated user usage
+      parameters:
+        - $ref: '#/components/parameters/SinceMinutes'
+        - $ref: '#/components/parameters/SinceHours'
+        - $ref: '#/components/parameters/UserQuery'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Minute-level request aggregates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserUsage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /v1/usage/summary:
+    get:
+      tags: [usage]
+      operationId: summarizeUserUsage
+      summary: Summarize authenticated user usage
+      parameters:
+        - $ref: '#/components/parameters/SinceMinutes'
+        - $ref: '#/components/parameters/SinceHours'
+        - $ref: '#/components/parameters/UserQuery'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Usage totals grouped by user
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserUsageSummary'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
 components:
   parameters:
     AppPath:
@@ -720,6 +765,12 @@ components:
         type: string
         enum: [FIRST, CHANGED]
       description: Filter plan-change events by type. Unknown values yield 400.
+    UserQuery:
+      name: user
+      in: query
+      schema:
+        type: string
+      description: Stable authenticated user identity (the Entra `sub` claim, or `api-key`).
 
   responses:
     BadRequest:
@@ -1015,6 +1066,58 @@ components:
             regardless of its own magnitude.
           items:
             $ref: '#/components/schemas/MetricTimeseriesTopSeries'
+
+    UserUsage:
+      type: object
+      required: [minuteAt, user, method, path, count, totalMicros, maxMicros]
+      properties:
+        minuteAt:
+          type: string
+          format: date-time
+          description: UTC minute bucket start.
+        user:
+          type: string
+          description: Stable user identity (Entra `sub`, or `api-key`).
+        method:
+          type: string
+        path:
+          type: string
+        count:
+          type: integer
+          format: int64
+        totalMicros:
+          type: integer
+          format: int64
+          description: Total request time in microseconds.
+        maxMicros:
+          type: integer
+          format: int64
+          description: Maximum request time in microseconds.
+
+    UserUsageSummary:
+      type: object
+      required: [user, count, totalMicros, meanMicros, maxMicros, windowMinutes]
+      properties:
+        user:
+          type: string
+        count:
+          type: integer
+          format: int64
+        totalMicros:
+          type: integer
+          format: int64
+          description: Total request time in microseconds.
+        meanMicros:
+          type: integer
+          format: int64
+          description: Mean request time in microseconds.
+        maxMicros:
+          type: integer
+          format: int64
+          description: Maximum request time in microseconds.
+        windowMinutes:
+          type: integer
+          format: int64
 
     MissingPlanMetric:
       type: object

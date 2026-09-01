@@ -98,5 +98,6 @@ public class OnStart {
     DB.script().run("/extend-partitions.sql");
     cleanupPartitions.run();
     cleanupPartitions.cleanupCaptureRequests();
+    cleanupPartitions.cleanupUserUsage();
   }
 }

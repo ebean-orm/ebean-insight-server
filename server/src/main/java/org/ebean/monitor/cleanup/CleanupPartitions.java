@@ -3,6 +3,7 @@ package org.ebean.monitor.cleanup;
 import io.avaje.config.Config;
 import io.ebean.DB;
 import org.ebean.monitor.domain.query.QDCaptureRequest;
+import org.ebean.monitor.domain.query.QDUserUsage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,6 +54,21 @@ public class CleanupPartitions {
       .delete();
     if (deleted > 0) {
       log.info("deleted {} capture_request rows older than {} days", deleted, retentionDays);
+    }
+    return deleted;
+  }
+
+  /**
+   * Delete minute-level usage data beyond its configured retention window.
+   */
+  public int cleanupUserUsage() {
+    final int retentionDays = Config.getInt("insight.userUsage.retentionDays", 90);
+    final Instant before = Instant.now().minus(Duration.ofDays(retentionDays));
+    final int deleted = new QDUserUsage()
+      .minuteAt.before(before)
+      .delete();
+    if (deleted > 0) {
+      log.info("deleted {} user_usage rows older than {} days", deleted, retentionDays);
     }
     return deleted;
   }

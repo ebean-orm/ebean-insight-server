@@ -72,6 +72,7 @@ final class UiAuthService {
     String sessionId = randomValue();
     Instant now = Instant.now();
     UiSession session = UiSession.of(sessionId, tokens, now, now.plus(settings.sessionTtl()));
+    session = session.withUserSub(subject(tokens.idToken(), tokens.accessToken()));
     sessions.save(session);
     if (login.previousSessionId() != null) sessions.delete(login.previousSessionId());
     return new UiLoginResult(session, login.returnPath());
@@ -82,9 +83,16 @@ final class UiAuthService {
     Optional<UiSession> found = sessions.find(sessionId);
     if (found.isEmpty()) return found;
     UiSession session = found.get();
+    if (session.userSub() == null) {
+      String sub = subject(session.idToken(), session.accessToken());
+      if (sub != null) {
+        session = session.withUserSub(sub);
+        sessions.save(session);
+      }
+    }
     Instant now = Instant.now();
     if (session.accessTokenExpiresAt().isAfter(now.plus(settings.refreshSkew()))) {
-      return found;
+      return Optional.of(session);
     }
     if (session.refreshToken() == null || session.refreshToken().isBlank()) {
       sessions.delete(sessionId);
@@ -94,6 +102,10 @@ final class UiAuthService {
       OidcTokens tokens = oidc.refreshAccessToken(session.refreshToken());
       tokenVerifier.verifyAccessToken(tokens.accessToken());
       UiSession refreshed = session.refreshed(tokens, now);
+      String sub = subject(tokens.idToken(), tokens.accessToken());
+      if (sub != null) {
+        refreshed = refreshed.withUserSub(sub);
+      }
       sessions.save(refreshed);
       return Optional.of(refreshed);
     } catch (UiTokenException e) {
@@ -188,6 +200,25 @@ final class UiAuthService {
       }
     } catch (IllegalArgumentException e) {
       throw new UiTokenException("Invalid OIDC ID token");
+    }
+  }
+
+  private String subject(String idToken, String accessToken) {
+    String sub = claim(accessToken, "sub");
+    return sub == null ? claim(idToken, "sub") : sub;
+  }
+
+  private String claim(String token, String name) {
+    if (token == null || token.isBlank()) return null;
+    String[] parts = token.split("\\.", -1);
+    if (parts.length != 3) return null;
+    try {
+      String payload = new String(Base64.getUrlDecoder().decode(parts[1]), StandardCharsets.UTF_8);
+      Map<?, ?> claims = jsonb.type(Map.class).fromJson(payload);
+      Object value = claims.get(name);
+      return value instanceof String text && !text.isBlank() ? text : null;
+    } catch (IllegalArgumentException e) {
+      return null;
     }
   }
 

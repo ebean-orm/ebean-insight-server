@@ -36,6 +36,7 @@ class UiAuthServiceTest {
     assertThat(result.session().id()).isNotEqualTo("old-session");
     assertThat(service.authenticate("old-session")).isEmpty();
     assertThat(service.authenticate(result.session().id())).isPresent();
+    assertThat(result.session().userSub()).isEqualTo("entra-sub");
   }
 
   @Test
@@ -111,7 +112,8 @@ class UiAuthServiceTest {
       String header = Base64.getUrlEncoder().withoutPadding()
         .encodeToString("{\"alg\":\"none\"}".getBytes(StandardCharsets.UTF_8));
       String payload = Base64.getUrlEncoder().withoutPadding()
-        .encodeToString(("{\"nonce\":\"" + nonce + "\"}").getBytes(StandardCharsets.UTF_8));
+        .encodeToString(("{\"nonce\":\"" + nonce + "\",\"sub\":\"entra-sub\"}")
+          .getBytes(StandardCharsets.UTF_8));
       return header + "." + payload + ".signature";
     }
   }

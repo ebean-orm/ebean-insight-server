@@ -69,6 +69,12 @@ insight:
   ## for rotation. Separate from `ingest.key` (metric ingestion) — different
   ## credential, different blast radius.
   api.key: ""
+  ## Authenticated /v1 and /ux requests are aggregated in memory and flushed
+  ## as minute-level rows. The active map is atomically swapped before writes.
+  userUsage:
+    flushSeconds: 60
+    maxAggregates: 10000
+    retentionDays: 90
 
 ##
 ## Forwarder: forward incoming metrics to an OTLP/HTTP endpoint (e.g. Grafana Alloy).

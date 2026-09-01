@@ -32,6 +32,9 @@ public class DUiSession extends Model {
   @Column
   private String idToken;
 
+  @Column
+  private String userSub;
+
   @Column(nullable = false)
   private Instant accessTokenExpiresAt;
 
@@ -68,6 +71,14 @@ public class DUiSession extends Model {
 
   public void setIdToken(String idToken) {
     this.idToken = idToken;
+  }
+
+  public String getUserSub() {
+    return userSub;
+  }
+
+  public void setUserSub(String userSub) {
+    this.userSub = userSub;
   }
 
   public Instant getAccessTokenExpiresAt() {

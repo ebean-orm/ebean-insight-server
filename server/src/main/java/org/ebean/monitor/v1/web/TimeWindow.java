@@ -16,7 +16,7 @@ import java.time.temporal.ChronoUnit;
  * (callers should skip the time-bound clauses). {@link #minutes()} is the
  * window size in minutes (zero when "no filter").
  */
-record TimeWindow(Instant from, Instant to, long minutes) {
+public record TimeWindow(Instant from, Instant to, long minutes) {
 
   /**
    * Build a time window from caller-supplied minute / hour parameters.
@@ -28,7 +28,7 @@ record TimeWindow(Instant from, Instant to, long minutes) {
    * @throws BadRequestException if both {@code minutes} and {@code hours}
    *                             are supplied
    */
-  static TimeWindow of(Long minutes, Long hours, long defaultMinutes) {
+  public static TimeWindow of(Long minutes, Long hours, long defaultMinutes) {
     if (minutes != null && hours != null) {
       throw new BadRequestException(
         "Supply only one of the minute / hour window parameters, not both");
@@ -54,7 +54,7 @@ record TimeWindow(Instant from, Instant to, long minutes) {
    * @throws BadRequestException if either timestamp is missing or the window
    *                             is empty or reversed
    */
-  static TimeWindow between(Instant from, Instant to) {
+  public static TimeWindow between(Instant from, Instant to) {
     if (from == null || to == null || !from.isBefore(to)) {
       throw new BadRequestException("The from timestamp must be before the to timestamp");
     }
@@ -64,12 +64,12 @@ record TimeWindow(Instant from, Instant to, long minutes) {
   }
 
   /** True when this window has a lower-bound timestamp. */
-  boolean hasFrom() {
+  public boolean hasFrom() {
     return from != null;
   }
 
   /** True when this window has an upper-bound timestamp. */
-  boolean hasTo() {
+  public boolean hasTo() {
     return to != null;
   }
 }

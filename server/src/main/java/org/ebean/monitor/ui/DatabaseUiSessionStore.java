@@ -26,6 +26,7 @@ final class DatabaseUiSessionStore implements UiSessionStore {
     bean.setAccessToken(codec.encrypt(session.accessToken()));
     bean.setRefreshToken(codec.encrypt(session.refreshToken()));
     bean.setIdToken(codec.encrypt(session.idToken()));
+    bean.setUserSub(codec.encrypt(session.userSub()));
     bean.setAccessTokenExpiresAt(session.accessTokenExpiresAt());
     bean.setExpiresAt(session.expiresAt());
     database.save(bean);
@@ -43,7 +44,8 @@ final class DatabaseUiSessionStore implements UiSessionStore {
       codec.decrypt(bean.getRefreshToken()),
       codec.decrypt(bean.getIdToken()),
       bean.getAccessTokenExpiresAt(),
-      bean.getExpiresAt()));
+      bean.getExpiresAt(),
+      codec.decrypt(bean.getUserSub())));
   }
 
   @Override

@@ -22,7 +22,12 @@ final class UiAuthFilter implements HttpFilter {
       return;
     }
     String sessionId = context.cookie(service.cookieName());
-    if (service.authenticate(sessionId).isPresent()) {
+    var session = service.authenticate(sessionId);
+    if (session.isPresent()) {
+      String userSub = session.get().userSub();
+      if (userSub != null) {
+        context.attribute("security.principal", userSub);
+      }
       chain.proceed();
       return;
     }

@@ -363,3 +363,10 @@ stable across restarts and replicas. Set `persistent-store: false` for local
 development to use the in-memory stores. Return paths are restricted to local
 absolute paths to prevent open redirects. Access tokens are refreshed
 server-side near expiry when a refresh token is available.
+
+Authenticated `/v1` and `/ux` requests are recorded in the user-usage
+aggregator. The identity is taken only from the verified Entra/OIDC `sub`
+claim; email and UPN claims are deliberately ignored. Requests authenticated
+with the configured read-side API key are recorded as `api-key`. Reports are
+available at `/v1/usage` and `/v1/usage/summary`, and the UI summary is at
+`/ux/usage`.

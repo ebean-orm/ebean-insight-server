@@ -121,6 +121,24 @@ curl -H "Insight-Key: $KEY" "http://localhost:8090/v1/plans/pending"
 curl -H "Insight-Key: $KEY" "http://localhost:8090/v1/plans/pending?app=myapp&env=test"
 ```
 
+### Authenticated user usage
+
+When authentication is enabled, authenticated `/v1` and `/ux` requests are
+aggregated in memory and flushed to minute-level Postgres rows every 60 seconds
+by default. User identity is the OIDC/Entra `sub` claim; API-key requests use
+the stable identity `api-key` (email and UPN are never used).
+
+```shell
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:8090/v1/usage/summary?sinceHours=24&limit=50"
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:8090/v1/usage?sinceMinutes=60&user=api-key"
+```
+
+Configure `insight.userUsage.flushSeconds`, `maxAggregates`, and
+`retentionDays` in `application.yaml`. Forward-only mode does not schedule or
+persist usage aggregates.
+
 ### Conventions
 
 - **Natural keys** — `{app}` and `?env=` are names, not ids. Unknown
