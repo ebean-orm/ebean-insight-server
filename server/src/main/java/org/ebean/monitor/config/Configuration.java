@@ -71,7 +71,7 @@ class Configuration {
   @Bean
   @RequiresProperty(value = "insight.selfReport.enabled", equalTo = "true")
   InsightClient withDatabase(Database database) {
-    int port = Config.getInt("server.port", 9080);
+    int port = Config.getInt("server.port", 8091);
     String ingestKey = System.getenv("INSIGHT_INGEST_KEY");
     String envName = System.getenv("ENVIRONMENT_NAME");
     var builder = InsightClient.builder()
@@ -80,6 +80,8 @@ class Configuration {
       .instanceId(null)
       .metricsV2(true)
       .gzip(false)
+      .collectAvajeMetrics(true)
+      .collectEbeanMetrics(true)
       .database(database)
       .capturePlans(true)
       ;

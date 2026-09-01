@@ -37,7 +37,7 @@ record UiAuthSettings(
     if (cookieName == null) {
       cookieName = secure ? "__Host-insight-ui-session" : "insight-ui-session";
     }
-    int port = Config.getInt("server.port", 9080);
+    int port = Config.getInt("server.port", 8091);
     String redirectUri = value("insight.ui.auth.redirect-uri", null);
     if (redirectUri == null && !enabled) {
       redirectUri = "http://localhost:" + port + "/auth/callback";
