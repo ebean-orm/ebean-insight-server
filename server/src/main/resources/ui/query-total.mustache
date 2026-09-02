@@ -87,7 +87,7 @@
     </form>
   {{/filters}}
   {{$body}}
-    <link rel="stylesheet" href="/static/query-total.css?v=36">
+    <link rel="stylesheet" href="/static/query-total.css?v=37">
 
     {{^hasData}}
       <article>
@@ -159,6 +159,69 @@
           </article>
         </div>
       {{/webApiDashboard}}
+
+      {{#appComponentDashboard}}
+        <div class="timer-dashboard-grid timer-dashboard-primary-grid app-component-grid">
+          <article class="query-total-section" data-chart-id="component-total">
+            <header class="chart-section-header" role="toolbar" aria-label="Application component total chart controls">
+              <span class="chart-title">Application component total time <small id="component-total-rate" class="chart-rate-centered">{{appComponentRate}} calls/s&nbsp;&nbsp;load: {{appComponentLoad}}</small></span>
+              <button type="button" class="chart-expand-btn" data-chart-zoom="component-total" aria-label="Expand application component total time chart" title="Expand chart">↗</button>
+              <span class="chart-control-group chart-mode-tabs chart-controls-start">
+                <button type="button" id="component-chart-type-bar" class="chart-type-btn" aria-pressed="true">Bars</button>
+                <button type="button" id="component-chart-type-line" class="chart-type-btn" aria-pressed="false">Lines</button>
+              </span>
+            </header>
+            <div class="chartjs-wrap">
+              <canvas id="component-chart"></canvas>
+              <div id="component-total-tooltip" class="chart-html-tooltip" role="tooltip" aria-hidden="true"></div>
+            </div>
+            <div id="component-range-selection" class="chart-range-selection" hidden>
+              <span id="component-range-selection-text"></span>
+              <button type="button" id="component-range-selection-clear">Use preset range</button>
+            </div>
+            <div class="top-chart-legend timer-dashboard-legend component-legend" aria-label="App component series legend">
+              {{#appComponentGroups}}
+                <button type="button" class="legend-series-toggle timer-dashboard-series-toggle component-series-toggle"
+                        data-label="{{.}}" aria-pressed="true" aria-label="Toggle {{.}}" title="{{.}}">
+                  <span class="legend-swatch"></span>
+                </button>
+              {{/appComponentGroups}}
+            </div>
+          </article>
+          <article class="query-total-section" data-chart-id="component-statistics">
+            <header class="chart-section-header" role="toolbar" aria-label="App component statistics chart controls">
+              <span>Application component statistics</span>
+              <button type="button" class="chart-expand-btn" data-chart-zoom="component-statistics" aria-label="Expand application component statistics chart" title="Expand chart">↗</button>
+              <span class="chart-control-group chart-mode-tabs chart-controls-start">
+                <button type="button" id="component-mean-mode-both" class="chart-type-btn" aria-pressed="true">Mean + Max</button>
+                <button type="button" id="component-mean-mode-only" class="chart-type-btn" aria-pressed="false">Mean</button>
+                <button type="button" id="component-mean-mode-max" class="chart-type-btn" aria-pressed="false">Max</button>
+                <button type="button" id="component-mean-mode-count" class="chart-type-btn" aria-pressed="false">Count</button>
+              </span>
+              <span id="component-mean-view-group" class="chart-control-group chart-mode-tabs">
+                <button type="button" id="component-mean-view-dots" class="chart-type-btn" aria-pressed="true">Dots</button>
+                <button type="button" id="component-mean-view-lines" class="chart-type-btn" aria-pressed="false">Lines</button>
+              </span>
+              <label id="component-mean-scale-group" class="chart-scale-toggle">
+                <input type="checkbox" id="component-mean-scale-log" aria-label="Use logarithmic scale">
+                Log scale
+              </label>
+            </header>
+            <div class="chartjs-wrap">
+              <canvas id="component-mean-max-chart"></canvas>
+              <div id="component-mean-max-tooltip" class="chart-html-tooltip" role="tooltip" aria-hidden="true"></div>
+            </div>
+            <div class="top-chart-legend timer-dashboard-legend component-legend" aria-label="App component series legend">
+              {{#appComponentGroups}}
+                <button type="button" class="legend-series-toggle timer-dashboard-series-toggle component-series-toggle"
+                        data-label="{{.}}" aria-pressed="true" aria-label="Toggle {{.}}" title="{{.}}">
+                  <span class="legend-swatch"></span>
+                </button>
+              {{/appComponentGroups}}
+            </div>
+          </article>
+        </div>
+      {{/appComponentDashboard}}
 
       <div class="top-primary-grid">
         <div class="top-primary-column">
@@ -434,13 +497,18 @@
     <script type="application/json" id="dml-mean-data">{{{dmlMeanJson}}}</script>
     <script type="application/json" id="dml-max-data">{{{dmlMaxJson}}}</script>
     <script type="application/json" id="dml-count-data">{{{dmlCountJson}}}</script>
+    <script type="application/json" id="component-data">{{{appComponentJson}}}</script>
+    <script type="application/json" id="component-mean-data">{{{appComponentMeanJson}}}</script>
+    <script type="application/json" id="component-max-data">{{{appComponentMaxJson}}}</script>
+    <script type="application/json" id="component-count-data">{{{appComponentCountJson}}}</script>
     <script src="/static/vendor/chart.umd.min.js"></script>
     <script src="/static/dashboard-charts.js?v=17"></script>
-    <script src="/static/query-total.js?v=26"></script>
+    <script src="/static/query-total.js?v=27"></script>
     <script src="/static/datasource-pool.js?v=10"></script>
     <script src="/static/datasource-pool-timing.js?v=10"></script>
-    <script src="/static/web-api.js?v=13"></script>
-    <script src="/static/web-api.js?v=13" data-dashboard="dml"></script>
+    <script src="/static/web-api.js?v=14"></script>
+    <script src="/static/web-api.js?v=14" data-dashboard="dml"></script>
+    <script src="/static/web-api.js?v=14" data-dashboard="component"></script>
     <script src="/static/jvm.js?v=32"></script>
   {{/body}}
 {{/fragments/layout}}

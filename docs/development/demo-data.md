@@ -10,11 +10,15 @@ The seed creates or refreshes a representative `shop-app` application and
 
 - The datasource-pool dashboard enabled in the application's JSONB
   application configuration.
-- The Web API, DML, and JVM dashboards enabled for the seeded application.
+- The Web API, DML, application-component, and JVM dashboards enabled for the
+  seeded application.
 - 1-minute, 10-minute, and 1-hour rollup history.
 - Multiple labels and query hashes.
 - Representative `ebean.dml` labels such as `Order.insert`, `Order.update`,
   and `Order.delete`.
+- Representative `app.component` labels such as
+  `OrderService.placeOrder`, `BillingClient.charge`, and a sparse
+  `ReportExport.run` batch component.
 - Query-family timing values.
 - Query-plan rows, including plan-shape changes.
 - Long production-style locations for wrapping and table-layout testing.

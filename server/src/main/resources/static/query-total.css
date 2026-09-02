@@ -136,6 +136,7 @@ body.zoomed-chart {
 }
 
 .zoomed-chart .web-api-grid,
+.zoomed-chart .timer-dashboard-grid,
 .zoomed-chart .datasource-pool-grid,
 .zoomed-chart .jvm-grid,
 .zoomed-chart .top-primary-grid,
@@ -367,7 +368,8 @@ body:has(.top-dashboard) .header-filters select {
   margin-bottom: 1rem;
 }
 
-.web-api-grid {
+.web-api-grid,
+.timer-dashboard-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1.5rem;
@@ -404,6 +406,7 @@ body:has(.top-dashboard) .header-filters select {
 
 .top-dashboard-compact .top-primary-grid,
 .top-dashboard-compact .web-api-grid,
+.top-dashboard-compact .timer-dashboard-grid,
 .top-dashboard-compact .datasource-pool-grid,
 .top-dashboard-compact .jvm-grid {
   gap: 0.75rem;
@@ -495,6 +498,7 @@ body:has(.top-dashboard) .header-filters select {
 
 @media (max-width: 900px) {
   .web-api-grid,
+  .timer-dashboard-grid,
   .jvm-grid {
     grid-template-columns: 1fr;
   }

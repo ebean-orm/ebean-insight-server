@@ -23,6 +23,7 @@ class DAppConfigTest {
     assertThat(app.isWebApiDashboardEnabled()).isFalse();
     assertThat(app.isJvmDashboardEnabled()).isFalse();
     assertThat(app.isDmlDashboardEnabled()).isFalse();
+    assertThat(app.isAppComponentDashboardEnabled()).isFalse();
   }
 
   @Test
@@ -33,6 +34,7 @@ class DAppConfigTest {
     app.setWebApiDashboardEnabled(false);
     app.setJvmDashboardEnabled(true);
     app.setDmlDashboardEnabled(true);
+    app.setAppComponentDashboardEnabled(true);
 
     assertThat(app.isDatasourcePoolDashboardEnabled()).isTrue();
     assertThat(app.isWebApiDashboardEnabled()).isFalse();
@@ -40,7 +42,8 @@ class DAppConfigTest {
       .containsEntry("datasourcePool", "true")
       .containsEntry("webApi", "false")
       .containsEntry("jvm", "true")
-      .containsEntry("dml", "true");
+      .containsEntry("dml", "true")
+      .containsEntry("appComponent", "true");
   }
 
   @Test
@@ -52,6 +55,7 @@ class DAppConfigTest {
     assertThat(app.isWebApiDashboardEnabled()).isFalse();
     assertThat(app.isJvmDashboardEnabled()).isFalse();
     assertThat(app.isDmlDashboardEnabled()).isFalse();
+    assertThat(app.isAppComponentDashboardEnabled()).isFalse();
   }
 
   @Test
@@ -61,6 +65,7 @@ class DAppConfigTest {
     app.setDatasourcePoolDashboardEnabled(true);
     app.setJvmDashboardEnabled(true);
     app.setDmlDashboardEnabled(true);
+    app.setAppComponentDashboardEnabled(true);
     database.save(app);
 
     var reloaded = new QDApp().name.eq(name).findOne();
@@ -70,5 +75,6 @@ class DAppConfigTest {
     assertThat(reloaded.isWebApiDashboardEnabled()).isFalse();
     assertThat(reloaded.isJvmDashboardEnabled()).isTrue();
     assertThat(reloaded.isDmlDashboardEnabled()).isTrue();
+    assertThat(reloaded.isAppComponentDashboardEnabled()).isTrue();
   }
 }

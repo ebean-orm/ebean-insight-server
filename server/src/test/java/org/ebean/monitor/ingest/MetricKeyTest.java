@@ -36,6 +36,13 @@ class MetricKeyTest {
   }
 
   @Test
+  void v2_applicationComponentTagsDifferentiateSameFamily() {
+    String order = MetricKey.of(metric("app.component", null, "label:OrderService.placeOrder"));
+    String billing = MetricKey.of(metric("app.component", null, "label:BillingClient.charge"));
+    assertThat(order).isNotEqualTo(billing);
+  }
+
+  @Test
   void v2_differsFromV1FlatNameKey() {
     String v1 = MetricKey.of(metric("iud.User.save", null, null));
     String v2 = MetricKey.of(metric("ebean.dml", null, "label:User.save"));

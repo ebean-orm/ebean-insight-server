@@ -1,11 +1,41 @@
 (function () {
-  // This shared renderer is loaded for both the Web API and optional DML
-  // timer dashboards; the script data attribute selects the dashboard.
+  // This shared renderer is loaded for each optional timer dashboard; the
+  // script data attribute selects the dashboard.
   const script = document.currentScript;
-  const dashboard = script && script.dataset.dashboard === 'dml' ? 'dml' : 'web-api';
-  const statePrefix = dashboard === 'dml' ? 'dml' : 'web';
+  const dashboardConfigs = {
+    'web-api': {
+      domPrefix: 'web-api',
+      statePrefix: 'web',
+      dataPrefix: 'webApi',
+      enabledProperty: 'webApiDashboard',
+      rateUnit: 'req/s',
+      countLabel: 'Requests',
+      seriesClass: 'web-api-series-toggle'
+    },
+    dml: {
+      domPrefix: 'dml',
+      statePrefix: 'dml',
+      dataPrefix: 'dml',
+      enabledProperty: 'dmlDashboard',
+      rateUnit: 'op/s',
+      countLabel: 'Operations',
+      seriesClass: 'dml-series-toggle'
+    },
+    component: {
+      domPrefix: 'component',
+      statePrefix: 'component',
+      dataPrefix: 'appComponent',
+      enabledProperty: 'appComponentDashboard',
+      rateUnit: 'calls/s',
+      countLabel: 'Calls',
+      seriesClass: 'component-series-toggle'
+    }
+  };
+  const dashboard = script && script.dataset.dashboard;
+  const config = dashboardConfigs[dashboard] || dashboardConfigs['web-api'];
+  const statePrefix = config.statePrefix;
   const id = function (suffix) {
-    return dashboard + '-' + suffix;
+    return config.domPrefix + '-' + suffix;
   };
   const totalElement = document.getElementById(id('data'));
   const meanElement = document.getElementById(id('mean-data'));
@@ -52,7 +82,7 @@
   const statisticsTooltip = function (activeData, countMode) {
     return window.DashboardCharts.htmlTooltip(activeData.labels, id('mean-max-tooltip'), function (point) {
       const metric = countMode
-        ? dashboard === 'dml' ? 'Operations' : 'Requests'
+        ? config.countLabel
         : point.dataset.pointStyle === 'triangle' ? 'Max' : 'Mean';
       return {
         label: point.dataset.label,
@@ -348,7 +378,7 @@
     render();
   });
   const updateLegend = function () {
-    document.querySelectorAll('.' + dashboard + '-series-toggle').forEach(function (button) {
+    document.querySelectorAll('.' + config.seriesClass).forEach(function (button) {
       const label = button.dataset.label;
       const dataset = total.datasets.find(function (entry) { return entry.label === label; });
       const swatch = button.querySelector('.legend-swatch');
@@ -358,7 +388,7 @@
       }
     });
   };
-  document.querySelectorAll('.' + dashboard + '-series-toggle').forEach(function (button) {
+  document.querySelectorAll('.' + config.seriesClass).forEach(function (button) {
     button.addEventListener('click', function (event) {
       const label = button.dataset.label;
       if (event.ctrlKey || event.metaKey) {
@@ -384,15 +414,15 @@
 
   window.addEventListener('insight-top-data', function (event) {
     const data = event.detail;
-    const enabled = dashboard === 'dml' ? data.dmlDashboard : data.webApiDashboard;
-    const nextData = dashboard === 'dml' ? data.dml : data.webApi;
+    const enabled = data[config.enabledProperty];
+    const nextData = data[config.dataPrefix];
     if (!enabled || !nextData) {
       return;
     }
     const emptyTimerData = !nextData.labels.length && data.timeRange;
-    const nextMean = dashboard === 'dml' ? data.dmlMean : data.webApiMean;
-    const nextMax = dashboard === 'dml' ? data.dmlMax : data.webApiMax;
-    const nextCount = dashboard === 'dml' ? data.dmlCount : data.webApiCount;
+    const nextMean = data[config.dataPrefix + 'Mean'];
+    const nextMax = data[config.dataPrefix + 'Max'];
+    const nextCount = data[config.dataPrefix + 'Count'];
     total = window.DashboardCharts.localize(emptyTimerData
       ? window.DashboardCharts.emptyDataForRange(total, data.timeRange) : nextData);
     mean = window.DashboardCharts.localize(emptyTimerData
@@ -403,9 +433,9 @@
       ? window.DashboardCharts.emptyDataForRange(count, data.timeRange) : nextCount);
     const totalRate = document.getElementById(id('total-rate'));
     if (totalRate) {
-      const rate = dashboard === 'dml' ? data.dmlRate : data.webApiRate;
-      const load = dashboard === 'dml' ? data.dmlLoad : data.webApiLoad;
-      totalRate.textContent = rate + (dashboard === 'dml' ? ' op/s   load: ' : ' req/s   load: ') + load;
+      const rate = data[config.dataPrefix + 'Rate'];
+      const load = data[config.dataPrefix + 'Load'];
+      totalRate.textContent = rate + ' ' + config.rateUnit + '   load: ' + load;
     }
     total.datasets.forEach(function (dataset) {
       if (!visible.has(dataset.label)) {

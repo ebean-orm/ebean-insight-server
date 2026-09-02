@@ -37,7 +37,7 @@ import java.util.Random;
  * synthetic pre-aggregated rows are inserted directly into each tier,
  * following a daily business-hours "wave" (plus weekend dip, per-bucket
  * jitter, and one spiky batch-job label) across a fixed set of query labels
- * and DML labels so the top-15 + "Other" stacked bars look realistic at every
+ * and timer labels so the top-15 + "Other" stacked bars look realistic at every
  * range. Several query labels are split across two underlying query hashes
  * (e.g. an indexed fast path and a slower sequential-scan path) so the
  * metric-detail drill-down's "breakdown by hash" table has more than one row
@@ -88,6 +88,10 @@ public class SeedDemoData {
 
   /** A synthetic DML timer label, without query-hash or plan metadata. */
   private record DmlSpec(String label, double weight, long meanMicros, Integer batchHourUtc) {
+  }
+
+  /** A synthetic application-component timer label. */
+  private record AppComponentSpec(String label, double weight, long meanMicros, Integer batchHourUtc) {
   }
 
   private static final List<LabelSpec> LABELS = List.of(
@@ -246,6 +250,13 @@ public class SeedDemoData {
     new DmlSpec("CommonOrderAudit.insert", 2.5, 7_000L, 14)
   );
 
+  private static final List<AppComponentSpec> APP_COMPONENT_LABELS = List.of(
+    new AppComponentSpec("OrderService.placeOrder", 2.8, 48_000L, null),
+    new AppComponentSpec("CustomerCache.refresh", 1.6, 12_000L, null),
+    new AppComponentSpec("BillingClient.charge", 2.2, 72_000L, null),
+    new AppComponentSpec("ReportExport.run", 0.5, 125_000L, 3)
+  );
+
   public static void main(String[] args) {
     Database database = Database.builder().name(DB_NAME).loadFromProperties().defaultDatabase(true).build();
     try {
@@ -273,6 +284,7 @@ public class SeedDemoData {
     app.setWebApiDashboardEnabled(true);
     app.setJvmDashboardEnabled(true);
     app.setDmlDashboardEnabled(true);
+    app.setAppComponentDashboardEnabled(true);
     db.save(app);
     DEnv env = findOrCreateEnv();
     DAppDatabase appDb = findOrCreateAppDb(app);
@@ -281,6 +293,7 @@ public class SeedDemoData {
     Map<String, DAppMetric> poolMetrics = findOrCreatePoolMetrics(app);
     Map<String, DAppMetric> poolTimingMetrics = findOrCreatePoolTimingMetrics(app);
     Map<String, DAppMetric> webApiMetrics = findOrCreateWebApiMetrics(app);
+    Map<String, DAppMetric> appComponentMetrics = findOrCreateAppComponentMetrics(app);
     Map<String, DAppMetric> jvmMetrics = findOrCreateJvmMetrics(app);
     List<DAppPod> jvmPods = findOrCreateJvmPods(app);
 
@@ -308,6 +321,12 @@ public class SeedDemoData {
       env, app, dmlMetrics);
     int dmlM60 = seedDml("timed_m60", roundDown(now.minus(7, ChronoUnit.DAYS), 60), now, 60,
       env, app, dmlMetrics);
+    int appComponentM1 = seedAppComponents("timed_m1", roundDown(now.minus(4, ChronoUnit.HOURS), 1), now, 1,
+      env, app, appComponentMetrics);
+    int appComponentM10 = seedAppComponents("timed_m10", roundDown(now.minus(2, ChronoUnit.DAYS), 10), now, 10,
+      env, app, appComponentMetrics);
+    int appComponentM60 = seedAppComponents("timed_m60", roundDown(now.minus(7, ChronoUnit.DAYS), 60), now, 60,
+      env, app, appComponentMetrics);
     int poolM1 = seedPoolGauge("gauge_m1", roundDown(now.minus(4, ChronoUnit.HOURS), 1), now,
       1, env, app, poolMetrics);
     int poolM10 = seedPoolGauge("gauge_m10", roundDown(now.minus(2, ChronoUnit.DAYS), 10), now,
@@ -323,6 +342,8 @@ public class SeedDemoData {
       + " -> timed_m1:" + m1 + " timed_m10:" + m10 + " timed_m60:" + m60
       + " gauge_m1:" + poolM1 + " gauge_m10:" + poolM10 + " gauge_m60:" + poolM60
       + " dml_m1:" + dmlM1 + " dml_m10:" + dmlM10 + " dml_m60:" + dmlM60
+      + " app_component_m1:" + appComponentM1 + " app_component_m10:" + appComponentM10
+      + " app_component_m60:" + appComponentM60
       + " jvm:" + jvm
       + " query_plan:" + plans + " rows");
     System.out.println("View at http://localhost:8091/ux/top?app=" + APP_NAME + "&range=30m");
@@ -457,6 +478,21 @@ public class SeedDemoData {
         .where().eq("app", app).eq("key", key).findOne();
       if (metric == null) {
         metric = new DAppMetric(app, key, "ebean.dml", Map.of("label", spec.label()), false);
+      }
+      db.save(metric);
+      result.put(spec.label(), metric);
+    }
+    return result;
+  }
+
+  private Map<String, DAppMetric> findOrCreateAppComponentMetrics(DApp app) {
+    var result = new LinkedHashMap<String, DAppMetric>();
+    for (AppComponentSpec spec : APP_COMPONENT_LABELS) {
+      String key = seedKey(spec.label(), "component");
+      DAppMetric metric = db.find(DAppMetric.class)
+        .where().eq("app", app).eq("key", key).findOne();
+      if (metric == null) {
+        metric = new DAppMetric(app, key, "app.component", Map.of("label", spec.label()), false);
       }
       db.save(metric);
       result.put(spec.label(), metric);
@@ -700,6 +736,53 @@ public class SeedDemoData {
         int hour = zoned.getHour();
         DayOfWeek dow = zoned.getDayOfWeek();
         for (DmlSpec spec : DML_LABELS) {
+          double activity;
+          if (spec.batchHourUtc() != null) {
+            activity = hour == spec.batchHourUtc() ? 8.0 : 0.05;
+          } else {
+            activity = diurnalFactor(hour) * weekendFactor(dow);
+          }
+          long count = Math.round(spec.weight() * bucketMinutes * activity
+            * (0.85 + random.nextDouble() * 0.3));
+          if (count <= 0L) {
+            if (spec.batchHourUtc() != null) {
+              continue;
+            }
+            count = 1L;
+          }
+          long mean = Math.round(spec.meanMicros() * (0.8 + random.nextDouble() * 0.4));
+          long max = Math.max(mean, Math.round(mean * (1.5 + random.nextDouble() * 1.5)));
+          db.sqlUpdate(sql)
+            .setParameter("eventTime", t)
+            .setParameter("metricId", metrics.get(spec.label()).getId())
+            .setParameter("envId", env.getId())
+            .setParameter("appId", app.getId())
+            .setParameter("count", count)
+            .setParameter("mean", mean)
+            .setParameter("max", max)
+            .setParameter("total", count * mean)
+            .execute();
+          inserted++;
+        }
+      }
+      txn.commit();
+    }
+    return inserted;
+  }
+
+  private int seedAppComponents(String table, Instant from, Instant to, int bucketMinutes,
+                                DEnv env, DApp app, Map<String, DAppMetric> metrics) {
+    String sql = "insert into ebean_insight." + table
+      + " (event_time, metric_id, env_id, app_id, count, mean, max, total)"
+      + " values (:eventTime, :metricId, :envId, :appId, :count, :mean, :max, :total)";
+    int inserted = 0;
+    try (Transaction txn = db.beginTransaction()) {
+      txn.setBatchMode(true);
+      for (Instant t = from; !t.isAfter(to); t = t.plus(bucketMinutes, ChronoUnit.MINUTES)) {
+        var zoned = t.atZone(ZoneOffset.UTC);
+        int hour = zoned.getHour();
+        DayOfWeek dow = zoned.getDayOfWeek();
+        for (AppComponentSpec spec : APP_COMPONENT_LABELS) {
           double activity;
           if (spec.batchHourUtc() != null) {
             activity = hour == spec.batchHourUtc() ? 8.0 : 0.05;

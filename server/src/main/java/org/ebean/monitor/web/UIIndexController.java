@@ -40,8 +40,9 @@ public class UIIndexController {
                       @QueryParam("datasourcePool") boolean datasourcePool,
                       @QueryParam("webApi") boolean webApi,
                       @QueryParam("jvm") boolean jvm,
-                      @QueryParam("dml") boolean dml) {
-    service.setDashboardConfig(appName, datasourcePool, webApi, jvm, dml);
+                      @QueryParam("dml") boolean dml,
+                      @QueryParam("appComponent") boolean appComponent) {
+    service.setDashboardConfig(appName, datasourcePool, webApi, jvm, dml, appComponent);
     return home();
   }
 
@@ -64,20 +65,24 @@ public class UIIndexController {
     final boolean webApi = service.isWebApiDashboardEnabled(appName);
     final boolean jvm = service.isJvmDashboardEnabled(appName);
     final boolean dml = service.isDmlDashboardEnabled(appName);
+    final boolean appComponent = service.isAppComponentDashboardEnabled(appName);
     final String datasourcePoolConfigUrl = "/ux/app-config?app=" + urlEncode(appName)
       + "&datasourcePool=" + !datasourcePool + "&webApi=" + webApi + "&jvm=" + jvm
-      + "&dml=" + dml;
+      + "&dml=" + dml + "&appComponent=" + appComponent;
     final String webApiConfigUrl = "/ux/app-config?app=" + urlEncode(appName)
       + "&datasourcePool=" + datasourcePool + "&webApi=" + !webApi + "&jvm=" + jvm
-      + "&dml=" + dml;
+      + "&dml=" + dml + "&appComponent=" + appComponent;
     final String jvmConfigUrl = "/ux/app-config?app=" + urlEncode(appName)
       + "&datasourcePool=" + datasourcePool + "&webApi=" + webApi + "&jvm=" + !jvm
-      + "&dml=" + dml;
+      + "&dml=" + dml + "&appComponent=" + appComponent;
     final String dmlConfigUrl = "/ux/app-config?app=" + urlEncode(appName)
       + "&datasourcePool=" + datasourcePool + "&webApi=" + webApi + "&jvm=" + jvm
-      + "&dml=" + !dml;
+      + "&dml=" + !dml + "&appComponent=" + appComponent;
+    final String appComponentConfigUrl = "/ux/app-config?app=" + urlEncode(appName)
+      + "&datasourcePool=" + datasourcePool + "&webApi=" + webApi + "&jvm=" + jvm
+      + "&dml=" + dml + "&appComponent=" + !appComponent;
     return new AppLink(appName, topUrl, envs, datasourcePoolConfigUrl, webApiConfigUrl, jvmConfigUrl,
-      dmlConfigUrl, datasourcePool, webApi, jvm, dml);
+      dmlConfigUrl, appComponentConfigUrl, datasourcePool, webApi, jvm, dml, appComponent);
   }
 
   private static String urlEncode(String value) {

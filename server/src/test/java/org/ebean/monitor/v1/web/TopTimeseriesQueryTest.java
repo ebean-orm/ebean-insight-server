@@ -141,6 +141,26 @@ class TopTimeseriesQueryTest {
       assertThat(series.other()).isFalse());
   }
 
+  @Test
+  @Order(5)
+  void appComponentFamily_usesLabelSeries() {
+    seedMinute(eventMinute, """
+      {"name": "app.component", "tags": "label:OrderService.placeOrder", "count": 4, "total": 1200, "mean": 300, "max": 450, "hash": "componenthash00000000000000000001", "loc": "x.java:8"},
+      {"name": "app.component", "tags": "label:BillingClient.charge", "count": 2, "total": 900, "mean": 450, "max": 600, "hash": "componenthash00000000000000000002", "loc": "x.java:9"}
+      """);
+    awaitTimedEntries(APP, "app.component", 2);
+    new Rollup(database, eventMinute).rollup();
+
+    final MetricsApi metrics = httpClient.create(MetricsApi.class);
+    final MetricTimeseriesTop result = metrics.topAppMetricsTimeseries(
+      APP, "app.component", null, null, "total", null, null, 10, null, ENV);
+
+    assertThat(result.series()).extracting(MetricTimeseriesTopSeries::group)
+      .contains("OrderService.placeOrder", "BillingClient.charge");
+    assertThat(result.series()).allSatisfy(series ->
+      assertThat(series.other()).isFalse());
+  }
+
   private static long bucketTotal(MetricTimeseriesTopSeries series, Instant bucketTime) {
     return series.buckets().stream()
       .filter(b -> b.eventTime().equals(bucketTime))

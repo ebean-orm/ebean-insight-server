@@ -29,8 +29,13 @@ breadcrumb, filters, theme toggle, and common Pico CSS/style includes.
 The `/ux/top` page always includes the query dashboard. When the selected
 application enables them in `DApp.config`, it can also include the predefined
 datasource-pool chart for `datasource.pool.size`, the Web API timer dashboard,
-the DML timer dashboard for `ebean.dml`, or JVM charts. Applications without
-an optional dashboard flag do not get its chart section.
+the DML timer dashboard for `ebean.dml`, the application-component timer
+dashboard for `app.component`, or JVM charts. Applications without an optional
+dashboard flag do not get its chart section.
+
+The optional timer dashboards use the same total-time and mean/max/count chart
+controls. The application-component section is rendered directly below Web
+API charts, while DML remains below the core query/ranking charts.
 
 The `/ux/top` chart payload is embedded in `query-total.mustache` and rendered
 by `query-total.js`. Metric-detail payloads and interactions are rendered by

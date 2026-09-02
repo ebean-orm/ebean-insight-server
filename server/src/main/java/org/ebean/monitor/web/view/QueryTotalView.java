@@ -55,7 +55,15 @@ public record QueryTotalView(
   String dmlMaxJson,
   String dmlCountJson,
   String dmlRate,
-  String dmlLoad
+  String dmlLoad,
+  boolean appComponentDashboard,
+  List<String> appComponentGroups,
+  String appComponentJson,
+  String appComponentMeanJson,
+  String appComponentMaxJson,
+  String appComponentCountJson,
+  String appComponentRate,
+  String appComponentLoad
 ) {
 
   /** One row of the shared legend/summary table below the chart. */

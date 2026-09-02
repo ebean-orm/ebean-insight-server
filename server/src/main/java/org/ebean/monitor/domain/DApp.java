@@ -25,6 +25,7 @@ public class DApp extends BaseDomain {
   private static final String WEB_API_DASHBOARD = "webApi";
   private static final String JVM_DASHBOARD = "jvm";
   private static final String DML_DASHBOARD = "dml";
+  private static final String APP_COMPONENT_DASHBOARD = "appComponent";
 
   @Column(nullable = false, length = 200)
   private String name;
@@ -64,6 +65,10 @@ public class DApp extends BaseDomain {
     return isDashboardEnabled(DML_DASHBOARD);
   }
 
+  public boolean isAppComponentDashboardEnabled() {
+    return isDashboardEnabled(APP_COMPONENT_DASHBOARD);
+  }
+
   public void setDatasourcePoolDashboardEnabled(boolean enabled) {
     setDashboardEnabled(DATASOURCE_POOL_DASHBOARD, enabled);
   }
@@ -78,6 +83,10 @@ public class DApp extends BaseDomain {
 
   public void setDmlDashboardEnabled(boolean enabled) {
     setDashboardEnabled(DML_DASHBOARD, enabled);
+  }
+
+  public void setAppComponentDashboardEnabled(boolean enabled) {
+    setDashboardEnabled(APP_COMPONENT_DASHBOARD, enabled);
   }
 
   public Map<String, String> getConfig() {

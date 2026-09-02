@@ -51,6 +51,12 @@
                       {{#webApiEnabled}}Web API{{/webApiEnabled}}
                       {{^webApiEnabled}}Enable Web API{{/webApiEnabled}}
                     </a>
+                    <a class="dashboard-toggle{{#appComponentEnabled}} is-enabled{{/appComponentEnabled}}"
+                       href="{{appComponentConfigUrl}}">
+                      <span class="dashboard-toggle-indicator" aria-hidden="true"></span>
+                      {{#appComponentEnabled}}Application components{{/appComponentEnabled}}
+                      {{^appComponentEnabled}}Enable application components{{/appComponentEnabled}}
+                    </a>
                     <a class="dashboard-toggle{{#jvmEnabled}} is-enabled{{/jvmEnabled}}"
                        href="{{jvmConfigUrl}}">
                       <span class="dashboard-toggle-indicator" aria-hidden="true"></span>

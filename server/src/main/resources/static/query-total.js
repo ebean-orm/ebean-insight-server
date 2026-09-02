@@ -111,6 +111,7 @@
   const chartStateNames = [
     'chart', 'mean', 'meanView', 'scale',
     'webChart', 'webMean', 'webMeanView', 'webScale',
+    'componentChart', 'componentMean', 'componentMeanView', 'componentScale',
     'dmlChart', 'dmlMean', 'dmlMeanView', 'dmlScale'
   ];
   const statePreservingForm = document.querySelector('.header-filters');
