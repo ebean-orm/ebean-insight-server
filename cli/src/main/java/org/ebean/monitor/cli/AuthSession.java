@@ -53,24 +53,28 @@ final class AuthSession {
     TokenData token = cached.get();
     long now = clock.getAsLong();
     if (!token.isExpired(now)) {
-      return Optional.of(token.accessToken());
+      return present(token.accessToken());
     }
     if (token.refreshToken() != null && authConfig.isConfigured()) {
       TokenData refreshed = tryRefresh(token, now);
       if (refreshed != null) {
-        return Optional.of(refreshed.accessToken());
+        return present(refreshed.accessToken());
       }
     }
     // expired with no usable refresh path — send it anyway for a clear 401
-    return Optional.of(token.accessToken());
+    return present(token.accessToken());
   }
 
   private TokenData tryRefresh(TokenData token, long now) {
     try {
       OidcTokens tokens = oidcFactory.apply(authConfig).refreshAccessToken(token.refreshToken());
+      String accessToken = tokens.accessToken();
+      if (accessToken == null || accessToken.isBlank()) {
+        return null;
+      }
       String refreshToken = tokens.refreshToken() != null ? tokens.refreshToken() : token.refreshToken();
       TokenData updated = new TokenData(
-          tokens.accessToken(),
+          accessToken,
           refreshToken,
           tokens.idToken() != null ? tokens.idToken() : token.idToken(),
           tokens.tokenType() != null ? tokens.tokenType() : token.tokenType(),
@@ -81,5 +85,9 @@ final class AuthSession {
     } catch (RuntimeException e) {
       return null;
     }
+  }
+
+  private static Optional<String> present(@Nullable String token) {
+    return token == null || token.isBlank() ? Optional.empty() : Optional.of(token);
   }
 }

@@ -69,6 +69,19 @@ class AuthSessionTest {
   }
 
   @Test
+  void expiredToken_refreshWithoutAccessToken_fallsBackToCached(@TempDir Path dir) {
+    var store = store(dir);
+    store.save(new TokenData("access-old", "refresh-old", null, "Bearer", 1_000L, 0L));
+
+    Function<AuthConfig, OidcLoginClient> factory = cfg ->
+        fake(() -> new OidcTokens("id-new", null, "refresh-new", 3_600L, "Bearer"));
+
+    var session = new AuthSession(store, configured(), () -> 2_000L, factory);
+    assertThat(session.bearerToken()).contains("access-old");
+    assertThat(store.load().orElseThrow().accessToken()).isEqualTo("access-old");
+  }
+
+  @Test
   void expiredToken_refreshFailure_fallsBackToCached(@TempDir Path dir) {
     var store = store(dir);
     store.save(new TokenData("access-old", "refresh-old", null, "Bearer", 1_000L, 0L));
