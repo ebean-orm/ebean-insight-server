@@ -33,6 +33,12 @@
                 </td>
                 <td>
                   <div class="app-dashboard-actions">
+                    <a class="dashboard-toggle{{#dmlEnabled}} is-enabled{{/dmlEnabled}}"
+                       href="{{dmlConfigUrl}}">
+                      <span class="dashboard-toggle-indicator" aria-hidden="true"></span>
+                      {{#dmlEnabled}}DML{{/dmlEnabled}}
+                      {{^dmlEnabled}}Enable DML{{/dmlEnabled}}
+                    </a>
                     <a class="dashboard-toggle{{#datasourcePoolEnabled}} is-enabled{{/datasourcePoolEnabled}}"
                        href="{{datasourcePoolConfigUrl}}">
                       <span class="dashboard-toggle-indicator" aria-hidden="true"></span>

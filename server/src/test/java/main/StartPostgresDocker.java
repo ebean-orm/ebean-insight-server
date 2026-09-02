@@ -13,7 +13,7 @@ import java.time.temporal.ChronoUnit;
  */
 public class StartPostgresDocker {
 
-  static void main(String[] args) {
+  public static void main(String[] args) {
 
     PostgresContainer container = PostgresContainer.builder("17")
       .containerName("eb_insight")

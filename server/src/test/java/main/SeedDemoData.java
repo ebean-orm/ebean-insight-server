@@ -37,10 +37,11 @@ import java.util.Random;
  * synthetic pre-aggregated rows are inserted directly into each tier,
  * following a daily business-hours "wave" (plus weekend dip, per-bucket
  * jitter, and one spiky batch-job label) across a fixed set of query labels
- * so the top-15 + "Other" stacked bar looks realistic at every range. Several
- * labels are split across two underlying query hashes (e.g. an indexed fast
- * path and a slower sequential-scan path) so the metric-detail drill-down's
- * "breakdown by hash" table has more than one row to look right.
+ * and DML labels so the top-15 + "Other" stacked bars look realistic at every
+ * range. Several query labels are split across two underlying query hashes
+ * (e.g. an indexed fast path and a slower sequential-scan path) so the
+ * metric-detail drill-down's "breakdown by hash" table has more than one row
+ * to look right.
  * <p>
  * Run against the local docker Postgres started by {@link StartPostgresDocker}
  * (see {@code src/test/main/StartPostgresDocker.main()}). Re-running is safe -
@@ -83,6 +84,10 @@ public class SeedDemoData {
    */
   private record LabelSpec(String label, String type, double weight, long meanMicros,
                            Integer batchHourUtc, List<HashSpec> hashes) {
+  }
+
+  /** A synthetic DML timer label, without query-hash or plan metadata. */
+  private record DmlSpec(String label, double weight, long meanMicros, Integer batchHourUtc) {
   }
 
   private static final List<LabelSpec> LABELS = List.of(
@@ -232,6 +237,15 @@ public class SeedDemoData {
     ))
   );
 
+  private static final List<DmlSpec> DML_LABELS = List.of(
+    new DmlSpec("Customer.insert", 3.0, 2_500L, null),
+    new DmlSpec("Order.insert", 2.0, 6_500L, null),
+    new DmlSpec("Order.update", 8.0, 4_000L, null),
+    new DmlSpec("Order.delete", 1.2, 3_000L, null),
+    new DmlSpec("OrderLine.insertBatch", 4.0, 1_800L, null),
+    new DmlSpec("CommonOrderAudit.insert", 2.5, 7_000L, 14)
+  );
+
   public static void main(String[] args) {
     Database database = Database.builder().name(DB_NAME).loadFromProperties().defaultDatabase(true).build();
     try {
@@ -258,10 +272,12 @@ public class SeedDemoData {
     app.setDatasourcePoolDashboardEnabled(true);
     app.setWebApiDashboardEnabled(true);
     app.setJvmDashboardEnabled(true);
+    app.setDmlDashboardEnabled(true);
     db.save(app);
     DEnv env = findOrCreateEnv();
     DAppDatabase appDb = findOrCreateAppDb(app);
     Map<String, List<HashMetric>> metricsByLabel = findOrCreateMetrics(app);
+    Map<String, DAppMetric> dmlMetrics = findOrCreateDmlMetrics(app);
     Map<String, DAppMetric> poolMetrics = findOrCreatePoolMetrics(app);
     Map<String, DAppMetric> poolTimingMetrics = findOrCreatePoolTimingMetrics(app);
     Map<String, DAppMetric> webApiMetrics = findOrCreateWebApiMetrics(app);
@@ -286,6 +302,12 @@ public class SeedDemoData {
       env, app, webApiMetrics);
     seedWebApi("timed_m60", roundDown(now.minus(7, ChronoUnit.DAYS), 60), now, 60,
       env, app, webApiMetrics);
+    int dmlM1 = seedDml("timed_m1", roundDown(now.minus(4, ChronoUnit.HOURS), 1), now, 1,
+      env, app, dmlMetrics);
+    int dmlM10 = seedDml("timed_m10", roundDown(now.minus(2, ChronoUnit.DAYS), 10), now, 10,
+      env, app, dmlMetrics);
+    int dmlM60 = seedDml("timed_m60", roundDown(now.minus(7, ChronoUnit.DAYS), 60), now, 60,
+      env, app, dmlMetrics);
     int poolM1 = seedPoolGauge("gauge_m1", roundDown(now.minus(4, ChronoUnit.HOURS), 1), now,
       1, env, app, poolMetrics);
     int poolM10 = seedPoolGauge("gauge_m10", roundDown(now.minus(2, ChronoUnit.DAYS), 10), now,
@@ -300,6 +322,7 @@ public class SeedDemoData {
     System.out.println("Seeded app=" + APP_NAME + " env=" + ENV_NAME
       + " -> timed_m1:" + m1 + " timed_m10:" + m10 + " timed_m60:" + m60
       + " gauge_m1:" + poolM1 + " gauge_m10:" + poolM10 + " gauge_m60:" + poolM60
+      + " dml_m1:" + dmlM1 + " dml_m10:" + dmlM10 + " dml_m60:" + dmlM60
       + " jvm:" + jvm
       + " query_plan:" + plans + " rows");
     System.out.println("View at http://localhost:8091/ux/top?app=" + APP_NAME + "&range=30m");
@@ -422,6 +445,21 @@ public class SeedDemoData {
       }
       db.save(metric);
       result.put(label, metric);
+    }
+    return result;
+  }
+
+  private Map<String, DAppMetric> findOrCreateDmlMetrics(DApp app) {
+    var result = new LinkedHashMap<String, DAppMetric>();
+    for (DmlSpec spec : DML_LABELS) {
+      String key = seedKey(spec.label(), "dml");
+      DAppMetric metric = db.find(DAppMetric.class)
+        .where().eq("app", app).eq("key", key).findOne();
+      if (metric == null) {
+        metric = new DAppMetric(app, key, "ebean.dml", Map.of("label", spec.label()), false);
+      }
+      db.save(metric);
+      result.put(spec.label(), metric);
     }
     return result;
   }
@@ -640,6 +678,53 @@ public class SeedDemoData {
             .setParameter("mean", mean)
             .setParameter("max", mean * 2L)
             .setParameter("total", total)
+            .execute();
+          inserted++;
+        }
+      }
+      txn.commit();
+    }
+    return inserted;
+  }
+
+  private int seedDml(String table, Instant from, Instant to, int bucketMinutes,
+                      DEnv env, DApp app, Map<String, DAppMetric> metrics) {
+    String sql = "insert into ebean_insight." + table
+      + " (event_time, metric_id, env_id, app_id, count, mean, max, total)"
+      + " values (:eventTime, :metricId, :envId, :appId, :count, :mean, :max, :total)";
+    int inserted = 0;
+    try (Transaction txn = db.beginTransaction()) {
+      txn.setBatchMode(true);
+      for (Instant t = from; !t.isAfter(to); t = t.plus(bucketMinutes, ChronoUnit.MINUTES)) {
+        var zoned = t.atZone(ZoneOffset.UTC);
+        int hour = zoned.getHour();
+        DayOfWeek dow = zoned.getDayOfWeek();
+        for (DmlSpec spec : DML_LABELS) {
+          double activity;
+          if (spec.batchHourUtc() != null) {
+            activity = hour == spec.batchHourUtc() ? 8.0 : 0.05;
+          } else {
+            activity = diurnalFactor(hour) * weekendFactor(dow);
+          }
+          long count = Math.round(spec.weight() * bucketMinutes * activity
+            * (0.85 + random.nextDouble() * 0.3));
+          if (count <= 0L) {
+            if (spec.batchHourUtc() != null) {
+              continue;
+            }
+            count = 1L;
+          }
+          long mean = Math.round(spec.meanMicros() * (0.8 + random.nextDouble() * 0.4));
+          long max = Math.max(mean, Math.round(mean * (1.5 + random.nextDouble() * 1.5)));
+          db.sqlUpdate(sql)
+            .setParameter("eventTime", t)
+            .setParameter("metricId", metrics.get(spec.label()).getId())
+            .setParameter("envId", env.getId())
+            .setParameter("appId", app.getId())
+            .setParameter("count", count)
+            .setParameter("mean", mean)
+            .setParameter("max", max)
+            .setParameter("total", count * mean)
             .execute();
           inserted++;
         }

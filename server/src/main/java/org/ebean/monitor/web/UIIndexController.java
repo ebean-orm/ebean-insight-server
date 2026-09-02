@@ -39,8 +39,9 @@ public class UIIndexController {
   IndexView configure(@QueryParam("app") String appName,
                       @QueryParam("datasourcePool") boolean datasourcePool,
                       @QueryParam("webApi") boolean webApi,
-                      @QueryParam("jvm") boolean jvm) {
-    service.setDashboardConfig(appName, datasourcePool, webApi, jvm);
+                      @QueryParam("jvm") boolean jvm,
+                      @QueryParam("dml") boolean dml) {
+    service.setDashboardConfig(appName, datasourcePool, webApi, jvm, dml);
     return home();
   }
 
@@ -62,14 +63,21 @@ public class UIIndexController {
     final boolean datasourcePool = service.isDatasourcePoolDashboardEnabled(appName);
     final boolean webApi = service.isWebApiDashboardEnabled(appName);
     final boolean jvm = service.isJvmDashboardEnabled(appName);
+    final boolean dml = service.isDmlDashboardEnabled(appName);
     final String datasourcePoolConfigUrl = "/ux/app-config?app=" + urlEncode(appName)
-      + "&datasourcePool=" + !datasourcePool + "&webApi=" + webApi + "&jvm=" + jvm;
+      + "&datasourcePool=" + !datasourcePool + "&webApi=" + webApi + "&jvm=" + jvm
+      + "&dml=" + dml;
     final String webApiConfigUrl = "/ux/app-config?app=" + urlEncode(appName)
-      + "&datasourcePool=" + datasourcePool + "&webApi=" + !webApi + "&jvm=" + jvm;
+      + "&datasourcePool=" + datasourcePool + "&webApi=" + !webApi + "&jvm=" + jvm
+      + "&dml=" + dml;
     final String jvmConfigUrl = "/ux/app-config?app=" + urlEncode(appName)
-      + "&datasourcePool=" + datasourcePool + "&webApi=" + webApi + "&jvm=" + !jvm;
+      + "&datasourcePool=" + datasourcePool + "&webApi=" + webApi + "&jvm=" + !jvm
+      + "&dml=" + dml;
+    final String dmlConfigUrl = "/ux/app-config?app=" + urlEncode(appName)
+      + "&datasourcePool=" + datasourcePool + "&webApi=" + webApi + "&jvm=" + jvm
+      + "&dml=" + !dml;
     return new AppLink(appName, topUrl, envs, datasourcePoolConfigUrl, webApiConfigUrl, jvmConfigUrl,
-      datasourcePool, webApi, jvm);
+      dmlConfigUrl, datasourcePool, webApi, jvm, dml);
   }
 
   private static String urlEncode(String value) {

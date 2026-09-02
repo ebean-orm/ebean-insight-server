@@ -110,7 +110,8 @@
 
   const chartStateNames = [
     'chart', 'mean', 'meanView', 'scale',
-    'webChart', 'webMean', 'webMeanView', 'webScale'
+    'webChart', 'webMean', 'webMeanView', 'webScale',
+    'dmlChart', 'dmlMean', 'dmlMeanView', 'dmlScale'
   ];
   const statePreservingForm = document.querySelector('.header-filters');
   if (statePreservingForm) {
@@ -753,7 +754,7 @@
   }
 
   const updateLegend = function () {
-    document.querySelectorAll('.legend-series-toggle:not(.jvm-series-toggle)').forEach(function (button) {
+    document.querySelectorAll('.legend-series-toggle:not(.timer-dashboard-series-toggle):not(.jvm-series-toggle)').forEach(function (button) {
       button.setAttribute('aria-pressed', String(visible.get(button.dataset.label)));
     });
   };
@@ -795,7 +796,7 @@
     });
   };
 
-  document.querySelectorAll('.legend-series-toggle:not(.web-api-series-toggle):not(.jvm-series-toggle)')
+  document.querySelectorAll('.legend-series-toggle:not(.timer-dashboard-series-toggle):not(.jvm-series-toggle)')
     .forEach(bindLegendButton);
 
   const legendDetails = document.querySelector('.legend-toggle');
@@ -1269,7 +1270,7 @@
   };
 
   const updatePrimaryLegends = function (legend) {
-    document.querySelectorAll('.top-chart-legend:not(.web-api-legend):not(.jvm-legend)').forEach(function (container) {
+    document.querySelectorAll('.top-chart-legend:not(.timer-dashboard-legend):not(.web-api-legend):not(.jvm-legend)').forEach(function (container) {
       container.replaceChildren();
       legend.forEach(function (entry) {
         const button = document.createElement('button');

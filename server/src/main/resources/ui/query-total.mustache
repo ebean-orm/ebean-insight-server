@@ -112,9 +112,9 @@
               <canvas id="web-api-chart"></canvas>
               <div id="web-api-total-tooltip" class="chart-html-tooltip" role="tooltip" aria-hidden="true"></div>
             </div>
-            <div class="top-chart-legend web-api-legend" aria-label="Web API series legend">
+            <div class="top-chart-legend timer-dashboard-legend web-api-legend" aria-label="Web API series legend">
               {{#webApiGroups}}
-                <button type="button" class="legend-series-toggle web-api-series-toggle"
+                <button type="button" class="legend-series-toggle timer-dashboard-series-toggle web-api-series-toggle"
                         data-label="{{.}}" aria-pressed="true" aria-label="Toggle {{.}}" title="{{.}}">
                   <span class="legend-swatch"></span>
                 </button>
@@ -148,9 +148,9 @@
               <canvas id="web-api-mean-max-chart"></canvas>
               <div id="web-api-mean-max-tooltip" class="chart-html-tooltip" role="tooltip" aria-hidden="true"></div>
             </div>
-            <div class="top-chart-legend web-api-legend" aria-label="Web API series legend">
+            <div class="top-chart-legend timer-dashboard-legend web-api-legend" aria-label="Web API series legend">
               {{#webApiGroups}}
-                <button type="button" class="legend-series-toggle web-api-series-toggle"
+                <button type="button" class="legend-series-toggle timer-dashboard-series-toggle web-api-series-toggle"
                         data-label="{{.}}" aria-pressed="true" aria-label="Toggle {{.}}" title="{{.}}">
                   <span class="legend-swatch"></span>
                 </button>
@@ -308,6 +308,69 @@
         </div>
       {{/showTopRankings}}
 
+      {{#dmlDashboard}}
+        <div class="web-api-grid web-api-primary-grid dml-grid">
+          <article class="query-total-section" data-chart-id="dml-total">
+            <header class="chart-section-header" role="toolbar" aria-label="DML total chart controls">
+              <span class="chart-title">DML total time <small id="dml-total-rate" class="chart-rate-centered">{{dmlRate}} op/s&nbsp;&nbsp;load: {{dmlLoad}}</small></span>
+              <button type="button" class="chart-expand-btn" data-chart-zoom="dml-total" aria-label="Expand DML total time chart" title="Expand chart">↗</button>
+              <span class="chart-control-group chart-mode-tabs chart-controls-start">
+                <button type="button" id="dml-chart-type-bar" class="chart-type-btn" aria-pressed="true">Bars</button>
+                <button type="button" id="dml-chart-type-line" class="chart-type-btn" aria-pressed="false">Lines</button>
+              </span>
+            </header>
+            <div class="chartjs-wrap">
+              <canvas id="dml-chart"></canvas>
+              <div id="dml-total-tooltip" class="chart-html-tooltip" role="tooltip" aria-hidden="true"></div>
+            </div>
+            <div id="dml-range-selection" class="chart-range-selection" hidden>
+              <span id="dml-range-selection-text"></span>
+              <button type="button" id="dml-range-selection-clear">Use preset range</button>
+            </div>
+            <div class="top-chart-legend timer-dashboard-legend dml-legend" aria-label="DML series legend">
+              {{#dmlGroups}}
+                <button type="button" class="legend-series-toggle timer-dashboard-series-toggle dml-series-toggle"
+                        data-label="{{.}}" aria-pressed="true" aria-label="Toggle {{.}}" title="{{.}}">
+                  <span class="legend-swatch"></span>
+                </button>
+              {{/dmlGroups}}
+            </div>
+          </article>
+          <article class="query-total-section" data-chart-id="dml-statistics">
+            <header class="chart-section-header" role="toolbar" aria-label="DML statistics chart controls">
+              <span>DML statistics</span>
+              <button type="button" class="chart-expand-btn" data-chart-zoom="dml-statistics" aria-label="Expand DML statistics chart" title="Expand chart">↗</button>
+              <span class="chart-control-group chart-mode-tabs chart-controls-start">
+                <button type="button" id="dml-mean-mode-both" class="chart-type-btn" aria-pressed="true">Mean + Max</button>
+                <button type="button" id="dml-mean-mode-only" class="chart-type-btn" aria-pressed="false">Mean</button>
+                <button type="button" id="dml-mean-mode-max" class="chart-type-btn" aria-pressed="false">Max</button>
+                <button type="button" id="dml-mean-mode-count" class="chart-type-btn" aria-pressed="false">Count</button>
+              </span>
+              <span id="dml-mean-view-group" class="chart-control-group chart-mode-tabs">
+                <button type="button" id="dml-mean-view-dots" class="chart-type-btn" aria-pressed="true">Dots</button>
+                <button type="button" id="dml-mean-view-lines" class="chart-type-btn" aria-pressed="false">Lines</button>
+              </span>
+              <label id="dml-mean-scale-group" class="chart-scale-toggle">
+                <input type="checkbox" id="dml-mean-scale-log" aria-label="Use logarithmic scale">
+                Log scale
+              </label>
+            </header>
+            <div class="chartjs-wrap">
+              <canvas id="dml-mean-max-chart"></canvas>
+              <div id="dml-mean-max-tooltip" class="chart-html-tooltip" role="tooltip" aria-hidden="true"></div>
+            </div>
+            <div class="top-chart-legend timer-dashboard-legend dml-legend" aria-label="DML series legend">
+              {{#dmlGroups}}
+                <button type="button" class="legend-series-toggle timer-dashboard-series-toggle dml-series-toggle"
+                        data-label="{{.}}" aria-pressed="true" aria-label="Toggle {{.}}" title="{{.}}">
+                  <span class="legend-swatch"></span>
+                </button>
+              {{/dmlGroups}}
+            </div>
+          </article>
+        </div>
+      {{/dmlDashboard}}
+
       {{#datasourcePoolDashboard}}
         <div class="datasource-pool-grid">
           <article class="query-total-section datasource-pool-section" data-chart-id="datasource-pool">
@@ -367,12 +430,17 @@
     <script type="application/json" id="web-api-count-data">{{{webApiCountJson}}}</script>
     <script type="application/json" id="jvm-memory-data">{{{jvmMemoryJson}}}</script>
     <script type="application/json" id="jvm-cpu-data">{{{jvmCpuJson}}}</script>
+    <script type="application/json" id="dml-data">{{{dmlJson}}}</script>
+    <script type="application/json" id="dml-mean-data">{{{dmlMeanJson}}}</script>
+    <script type="application/json" id="dml-max-data">{{{dmlMaxJson}}}</script>
+    <script type="application/json" id="dml-count-data">{{{dmlCountJson}}}</script>
     <script src="/static/vendor/chart.umd.min.js"></script>
     <script src="/static/dashboard-charts.js?v=17"></script>
-    <script src="/static/query-total.js?v=25"></script>
+    <script src="/static/query-total.js?v=26"></script>
     <script src="/static/datasource-pool.js?v=10"></script>
     <script src="/static/datasource-pool-timing.js?v=10"></script>
-    <script src="/static/web-api.js?v=12"></script>
+    <script src="/static/web-api.js?v=13"></script>
+    <script src="/static/web-api.js?v=13" data-dashboard="dml"></script>
     <script src="/static/jvm.js?v=32"></script>
   {{/body}}
 {{/fragments/layout}}

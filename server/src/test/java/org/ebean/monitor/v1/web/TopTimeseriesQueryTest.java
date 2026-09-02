@@ -121,6 +121,26 @@ class TopTimeseriesQueryTest {
     assertThat(result.series()).isEmpty();
   }
 
+  @Test
+  @Order(4)
+  void dmlFamily_usesLabelSeries() {
+    seedMinute(eventMinute, """
+      {"name": "ebean.dml", "tags": "label:Customer.insert", "count": 3, "total": 900, "mean": 300, "max": 400, "hash": "dmlhash000000000000000000000001", "loc": "x.java:6"},
+      {"name": "ebean.dml", "tags": "label:Order.update", "count": 2, "total": 500, "mean": 250, "max": 300, "hash": "dmlhash000000000000000000000002", "loc": "x.java:7"}
+      """);
+    awaitTimedEntries(APP, "ebean.dml", 2);
+    new Rollup(database, eventMinute).rollup();
+
+    final MetricsApi metrics = httpClient.create(MetricsApi.class);
+    final MetricTimeseriesTop result = metrics.topAppMetricsTimeseries(
+      APP, "ebean.dml", null, null, "total", null, null, 10, null, ENV);
+
+    assertThat(result.series()).extracting(MetricTimeseriesTopSeries::group)
+      .contains("Customer.insert", "Order.update");
+    assertThat(result.series()).allSatisfy(series ->
+      assertThat(series.other()).isFalse());
+  }
+
   private static long bucketTotal(MetricTimeseriesTopSeries series, Instant bucketTime) {
     return series.buckets().stream()
       .filter(b -> b.eventTime().equals(bucketTime))

@@ -46,8 +46,9 @@ import java.util.Map;
  * <p>
  * Filters (app/env/range) are plain dropdowns that resubmit via a full page
  * GET with query params — no HTMX partial-swap wiring yet. Each non-"Other"
- * label (legend row or stacked-bar segment) links through to
- * {@link UIMetricDetailController} for a per-label drill-down.
+ * query label (legend row or stacked-bar segment) links through to
+ * {@link UIMetricDetailController} for a per-label drill-down; optional timer
+ * dashboards intentionally do not provide detail links.
  */
 @Html
 @Controller
@@ -56,6 +57,7 @@ public class UIQueryTotalController {
 
   /** Metric family backing the Datadog `ebean.query.total` reference chart. */
   private static final String METRIC_NAME = "ebean.query";
+  private static final String DML_METRIC_NAME = "ebean.dml";
 
   /** Top-N stacked series before the remainder is folded into "Other". */
   private static final int SERIES_LIMIT = 15;
@@ -85,7 +87,9 @@ public class UIQueryTotalController {
                         ChartData webApi, ChartData webApiMean, ChartData webApiMax,
                         ChartData webApiCount, boolean jvmDashboard, ChartData jvmMemory,
                         ChartData jvmCpu, String queryRate, String webApiRate,
-                        String queryLoad, String webApiLoad) {
+                        String queryLoad, String webApiLoad, boolean dmlDashboard,
+                        List<String> dmlGroups, ChartData dml, ChartData dmlMean,
+                        ChartData dmlMax, ChartData dmlCount, String dmlRate, String dmlLoad) {
   }
 
   @Json
@@ -289,13 +293,13 @@ public class UIQueryTotalController {
     final MetricTimeseriesTop webApiData = webApiDashboard
       ? webApiTimeseries(selectedApp, selectedEnv, from, to, windowMinutes)
       : MetricTimeseriesTop.builder().series(List.of()).build();
-    final ChartData webApi = webApiDashboard ? webApiChartData(webApiData, "total") : emptyDataChart();
+    final ChartData webApi = webApiDashboard ? timerChartData(webApiData, "total") : emptyDataChart();
     final ChartData webApiMean = webApiDashboard
-      ? webApiChartData(webApiData, "mean") : emptyDataChart();
+      ? timerChartData(webApiData, "mean") : emptyDataChart();
     final ChartData webApiMax = webApiDashboard
-      ? webApiChartData(webApiData, "max") : emptyDataChart();
+      ? timerChartData(webApiData, "max") : emptyDataChart();
     final ChartData webApiCount = webApiDashboard
-      ? webApiChartData(webApiData, "count") : emptyDataChart();
+      ? timerChartData(webApiData, "count") : emptyDataChart();
     final List<String> webApiGroups = webApiData.series().stream()
       .map(MetricTimeseriesTopSeries::group).toList();
     final long webApiExecutions = webApiData.series().stream()
@@ -306,6 +310,22 @@ public class UIQueryTotalController {
     final String webApiRate = formatRate(webApiExecutions / elapsedSeconds);
     final String queryLoad = formatRate(totalMicros / 1_000_000d / elapsedSeconds);
     final String webApiLoad = formatRate(webApiMicros / 1_000_000d / elapsedSeconds);
+    final boolean dmlDashboard = service.isDmlDashboardEnabled(selectedApp);
+    final MetricTimeseriesTop dmlData = dmlDashboard
+      ? timerTimeseries(selectedApp, DML_METRIC_NAME, selectedEnv, from, to, windowMinutes)
+      : MetricTimeseriesTop.builder().series(List.of()).build();
+    final ChartData dml = dmlDashboard ? timerChartData(dmlData, "total") : emptyDataChart();
+    final ChartData dmlMean = dmlDashboard ? timerChartData(dmlData, "mean") : emptyDataChart();
+    final ChartData dmlMax = dmlDashboard ? timerChartData(dmlData, "max") : emptyDataChart();
+    final ChartData dmlCount = dmlDashboard ? timerChartData(dmlData, "count") : emptyDataChart();
+    final List<String> dmlGroups = dmlData.series().stream()
+      .map(MetricTimeseriesTopSeries::group).toList();
+    final long dmlExecutions = dmlData.series().stream()
+      .mapToLong(s -> s.buckets().stream().mapToLong(MetricTimeBucket::count).sum()).sum();
+    final long dmlMicros = dmlData.series().stream()
+      .mapToLong(MetricTimeseriesTopSeries::totalMicros).sum();
+    final String dmlRate = formatRate(dmlExecutions / elapsedSeconds);
+    final String dmlLoad = formatRate(dmlMicros / 1_000_000d / elapsedSeconds);
     final boolean jvmDashboard = service.isJvmDashboardEnabled(selectedApp);
     final ChartData jvmMemory = jvmDashboard
       ? jvmMemoryChartData(selectedApp, selectedEnv, from, to, windowMinutes)
@@ -315,12 +335,13 @@ public class UIQueryTotalController {
       : emptyDataChart();
 
     final boolean hasData = hasDashboardData(queryData, datasourcePool, datasourcePoolTiming,
-      webApi, webApiMean, webApiMax, webApiCount, jvmMemory, jvmCpu);
+      webApi, webApiMean, webApiMax, webApiCount, jvmMemory, jvmCpu,
+      dml, dmlMean, dmlMax, dmlCount);
     return new QueryTotalData(hasData, chartData, meanMaxMean, meanMaxMax, meanMaxCount, topByTime, topByMean,
       showTopRankings, legend, datasourcePoolDashboard, datasourcePool, datasourcePoolTiming,
       webApiDashboard, webApiGroups, webApi, webApiMean, webApiMax, webApiCount,
       jvmDashboard, jvmMemory, jvmCpu, queryRate, webApiRate,
-      queryLoad, webApiLoad);
+      queryLoad, webApiLoad, dmlDashboard, dmlGroups, dml, dmlMean, dmlMax, dmlCount, dmlRate, dmlLoad);
   }
 
   static boolean hasDashboardData(boolean queryData, ChartData... charts) {
@@ -348,7 +369,9 @@ public class UIQueryTotalController {
       toChartJson(data.datasourcePoolTiming()), data.webApiDashboard(), data.webApiGroups(),
       toChartJson(data.webApi()), toChartJson(data.webApiMean()), toChartJson(data.webApiMax()),
       toChartJson(data.webApiCount()), data.jvmDashboard(), toChartJson(data.jvmMemory()),
-      toChartJson(data.jvmCpu()), data.queryRate(), data.webApiRate(), data.queryLoad(), data.webApiLoad());
+      toChartJson(data.jvmCpu()), data.queryRate(), data.webApiRate(), data.queryLoad(), data.webApiLoad(),
+      data.dmlDashboard(), data.dmlGroups(), toChartJson(data.dml()), toChartJson(data.dmlMean()),
+      toChartJson(data.dmlMax()), toChartJson(data.dmlCount()), data.dmlRate(), data.dmlLoad());
   }
 
   private QueryTotalView emptyView(Breadcrumb breadcrumb, List<App> apps, List<Env> envs,
@@ -360,18 +383,25 @@ public class UIQueryTotalController {
       List.of(), false, emptyChartJson(), emptyChartJson(),
       false, List.of(), emptyChartJson(), emptyChartJson(), emptyChartJson(), emptyChartJson(), false,
       emptyChartJson(), emptyChartJson(),
-      "-", "-", "-", "-");
+      "-", "-", "-", "-", false, List.of(), emptyChartJson(), emptyChartJson(), emptyChartJson(),
+      emptyChartJson(), "-", "-");
   }
 
   private MetricTimeseriesTop webApiTimeseries(String app, String env,
                                                @Nullable Instant from, @Nullable Instant to,
                                                long windowMinutes) {
+    return timerTimeseries(app, "web.api", env, from, to, windowMinutes);
+  }
+
+  private MetricTimeseriesTop timerTimeseries(String app, String metricName, String env,
+                                              @Nullable Instant from, @Nullable Instant to,
+                                              long windowMinutes) {
     final String selectedEnv = env.isBlank() ? null : env;
     if (from != null) {
-      return service.getTopAppMetricsTimeseries(app, "web.api", null, null, "total",
+      return service.getTopAppMetricsTimeseries(app, metricName, null, null, "total",
         SERIES_LIMIT, null, selectedEnv, from, to);
     }
-    return service.getTopAppMetricsTimeseries(app, "web.api", null, null, "total",
+    return service.getTopAppMetricsTimeseries(app, metricName, null, null, "total",
       windowMinutes, null, SERIES_LIMIT, null, selectedEnv);
   }
 
@@ -463,7 +493,7 @@ public class UIQueryTotalController {
     return readonly ? "#f6b26b" : "#b45f06";
   }
 
-  private ChartData webApiChartData(MetricTimeseriesTop data, String mode) {
+  private ChartData timerChartData(MetricTimeseriesTop data, String mode) {
     if (data.series().isEmpty()) {
       return emptyDataChart();
     }
@@ -680,7 +710,7 @@ public class UIQueryTotalController {
     final ChartData empty = emptyDataChart();
     return new QueryTotalData(false, empty, empty, empty, empty, empty, empty, false, List.of(),
       false, empty, empty, false, List.of(), empty, empty, empty, empty,
-      false, empty, empty, "-", "-", "-", "-");
+      false, empty, empty, "-", "-", "-", "-", false, List.of(), empty, empty, empty, empty, "-", "-");
   }
 
   private String toChartJson(ChartData data) {

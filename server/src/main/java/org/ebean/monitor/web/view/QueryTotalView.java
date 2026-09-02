@@ -47,7 +47,15 @@ public record QueryTotalView(
   String queryRate,
   String webApiRate,
   String queryLoad,
-  String webApiLoad
+  String webApiLoad,
+  boolean dmlDashboard,
+  List<String> dmlGroups,
+  String dmlJson,
+  String dmlMeanJson,
+  String dmlMaxJson,
+  String dmlCountJson,
+  String dmlRate,
+  String dmlLoad
 ) {
 
   /** One row of the shared legend/summary table below the chart. */

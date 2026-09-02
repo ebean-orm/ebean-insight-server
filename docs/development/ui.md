@@ -27,10 +27,10 @@ breadcrumb, filters, theme toggle, and common Pico CSS/style includes.
 - `/ux/query-hash` shows one query hash, its metadata, statistics, and plans.
 
 The `/ux/top` page always includes the query dashboard. When the selected
-application enables it in `DApp.config`, it also includes the
-predefined datasource-pool chart for `datasource.pool.size`, grouped by the
-`type` tag. Applications without that flag do not get an empty infrastructure
-chart.
+application enables them in `DApp.config`, it can also include the predefined
+datasource-pool chart for `datasource.pool.size`, the Web API timer dashboard,
+the DML timer dashboard for `ebean.dml`, or JVM charts. Applications without
+an optional dashboard flag do not get its chart section.
 
 The `/ux/top` chart payload is embedded in `query-total.mustache` and rendered
 by `query-total.js`. Metric-detail payloads and interactions are rendered by
