@@ -29,14 +29,9 @@ record UiAuthSettings(
   Duration refreshSkew) {
 
   static UiAuthSettings load() {
-    boolean enabled = Config.getBool("insight.ui.auth.enabled", false);
-    String environment = Config.get("app.environment", "prod");
-    boolean secure = Config.getBool("insight.ui.auth.cookie-secure",
-      "prod".equalsIgnoreCase(environment) || "production".equalsIgnoreCase(environment));
-    String cookieName = value("insight.ui.auth.cookie-name", null);
-    if (cookieName == null) {
-      cookieName = secure ? "__Host-insight-ui-session" : "insight-ui-session";
-    }
+    boolean enabled = Config.getBool("insight.ui.auth.enabled", true);
+    boolean secure = Config.getBool("insight.ui.auth.cookie-secure", true);
+    String cookieName = value("insight.ui.auth.cookie-name", secure ? "__Host-ebi-session" : "ebi-session");
     int port = Config.getInt("server.port", 8091);
     String redirectUri = value("insight.ui.auth.redirect-uri", null);
     if (redirectUri == null && !enabled) {
@@ -53,8 +48,7 @@ record UiAuthSettings(
       redirectUri,
       secure,
       cookieName,
-      Config.getBool("insight.ui.auth.persistent-store", enabled)
-        && !Application.isForwardOnly(),
+      Config.getBool("insight.ui.auth.persistent-store", enabled) && !Application.isForwardOnly(),
       Duration.ofSeconds(Config.getLong("insight.ui.auth.session-ttl-seconds", 28_800)),
       Duration.ofSeconds(Config.getLong("insight.ui.auth.transaction-ttl-seconds", 600)),
       Duration.ofSeconds(Config.getLong("insight.ui.auth.refresh-skew-seconds", 60)));

@@ -351,10 +351,10 @@ redirect to `/auth/login`; the chart-data endpoint returns `401` so browser
 JavaScript can handle the unauthenticated state. `/static` remains public.
 `/auth/login` and `/auth/callback` are the login endpoints. Logout is performed
 with `POST /auth/logout`.
-The session cookie is `HttpOnly`, `SameSite=Lax`, `Path=/`, and Secure in
-production by default (or whenever `cookie-secure` is true). Secure cookies use
-the `__Host-` prefix. Logout removes the server-side session and expires the
-cookie.
+The session cookie is `HttpOnly`, `SameSite=Lax`, `Path=/`, and Secure by
+default (or whenever `cookie-secure` is true). Secure cookies use the `__Host-`
+prefix. Set `cookie-secure: false` only for local development over plain HTTP.
+Logout removes the server-side session and expires the cookie.
 
 Persistent storage is enabled by default when UI auth is enabled. It stores
 sessions and login transactions in the Insight database, hashes opaque session
