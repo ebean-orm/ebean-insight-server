@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<migration xmlns="http://ebean-orm.github.io/xml/ns/dbmigration">
+    <changeSet type="apply">
+        <createIndex indexName="ix_timed_m1_app_id" tableName="ebean_insight.timed_m1" columns="app_id"/>
+        <createIndex indexName="ix_timed_m1_env_id" tableName="ebean_insight.timed_m1" columns="env_id"/>
+        <createIndex indexName="ix_timed_m1_metric_id" tableName="ebean_insight.timed_m1" columns="metric_id"/>
+    </changeSet>
+</migration>

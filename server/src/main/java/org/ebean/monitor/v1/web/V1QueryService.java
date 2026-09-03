@@ -134,6 +134,7 @@ public final class V1QueryService {
       limit :guard
       """;
     return DB.sqlQuery(sql)
+      .setLabel("listAppsInTimeWindow")
       .setParameter("from", window.from())
       .setParameter("guard", MAX_ROWS_GUARD)
       .mapTo((rs, i) -> new App(rs.getLong("id"), rs.getString("name")))
@@ -149,6 +150,7 @@ public final class V1QueryService {
         (select max(t.event_time) from ebean_insight.timed_m1 t where t.app_id = :appId) as last_report_at
       """;
     return DB.sqlQuery(sql)
+      .setLabel("appSummary")
       .setParameter("appId", app.getId())
       .mapTo((rs, i) -> toAppSummary(rs, app))
       .findOne();
@@ -193,26 +195,9 @@ public final class V1QueryService {
     DB.save(app);
   }
 
-  public List<Env> listAppEnvs(String appName) {
-    final DApp app = findApp(appName);
-    if (app == null) {
-      return List.of();
-    }
-    return DB.sqlQuery("""
-        select distinct e.name
-        from ebean_insight.timed_m1 t
-        join ebean_insight.env e on e.id = t.env_id
-        where t.app_id = :appId
-        order by e.name
-        """)
-      .setParameter("appId", app.getId())
-      .mapTo((rs, _) -> new Env(rs.getString("name")))
-      .findList();
-  }
-
   private static AppSummary toAppSummary(ResultSet rs, DApp app) throws SQLException {
     return AppSummary.builder()
-      .id((long) app.getId())
+      .id(app.getId())
       .name(app.getName())
       .lastReportAt(toInstant(rs.getTimestamp("last_report_at")))
       .metricCount(rs.getLong("metric_count"))
@@ -310,6 +295,7 @@ public final class V1QueryService {
           and t.event_time > :from
         """
       + (envId == null ? "" : "  and t.env_id = :envId\n")).formatted(table))
+      .setLabel("getMetricStatsByHash")
       .setParameter("metricId", metric.getId())
       .setParameter("from", window.from());
     if (envId != null) {
@@ -407,6 +393,7 @@ public final class V1QueryService {
         group by grid.event_time
         order by grid.event_time asc
         """).formatted(table))
+      .setLabel("getMetricTimeseries")
       .setParameter("metricId", metric.getId())
       .setParameter("from", window.from())
       .setParameter("step", stepSeconds);
@@ -842,6 +829,7 @@ public final class V1QueryService {
       order by grid.event_time, groups.grp
       """.formatted(values, table, envId == null ? "" : "and t.env_id = :envId");
     final SqlQuery query = DB.sqlQuery(sql)
+      .setLabel("getGaugeTimeseries")
       .setParameter("from", window.from())
       .setParameter("to", window.to())
       .setParameter("step", bucketMinutes * 60L)
@@ -913,6 +901,7 @@ public final class V1QueryService {
           %s
         order by g.pod_id, g.event_time desc
         """.formatted(envPredicate))
+      .setLabel("getLatestPodGaugeValues")
       .setParameter("to", to == null ? Instant.now() : to)
       .setParameter("appId", app.getId())
       .setParameter("name", name);
@@ -959,6 +948,7 @@ public final class V1QueryService {
           %s
         order by grp
         """.formatted(envPredicate))
+      .setLabel("getPodGaugeTimeseriesGroups")
       .setParameter("from", window.from())
       .setParameter("to", window.to())
       .setParameter("appId", app.getId())
@@ -1006,6 +996,7 @@ public final class V1QueryService {
       order by grid.event_time, groups.grp
       """.formatted(groupValues, envPredicate);
     final SqlQuery query = DB.sqlQuery(sql)
+      .setLabel("getPodGaugeTimeseries")
       .setParameter("from", window.from())
       .setParameter("to", window.to())
       .setParameter("step", bucketMinutes * 60L)
@@ -1088,6 +1079,7 @@ public final class V1QueryService {
           %s
         order by grp
         """.formatted(table, envId == null ? "" : "and t.env_id = :envId"))
+      .setLabel("getDatasourcePoolTimingTimeseriesGroups")
       .setParameter("from", window.from())
       .setParameter("to", window.to())
       .setParameter("appId", app.getId())
@@ -1146,6 +1138,7 @@ public final class V1QueryService {
       order by grid.event_time, metric_names.metric_name, groups.grp
       """.formatted(groupValues, table, envId == null ? "" : "and t.env_id = :envId");
     final SqlQuery query = DB.sqlQuery(sql)
+      .setLabel("getDatasourcePoolTimingTimeseries")
       .setParameter("from", window.from())
       .setParameter("to", window.to())
       .setParameter("step", bucketMinutes * 60L)
@@ -1238,6 +1231,7 @@ public final class V1QueryService {
       """).formatted(table, orderByExpression(sortKey));
 
     final SqlQuery query = DB.sqlQuery(sql)
+      .setLabel("rankLabels")
       .setParameter("from", window.from())
       .setParameter("appId", app.getId())
       .setParameter("limit", limit);
@@ -1325,6 +1319,7 @@ public final class V1QueryService {
       """).formatted(valuesList, inList, OTHER_SENTINEL, table);
 
     final SqlQuery query = DB.sqlQuery(sql)
+      .setLabel("denseBucketsByGroup")
       .setParameter("from", window.from())
       .setParameter("to", window.to())
       .setParameter("step", stepSeconds)
@@ -1399,6 +1394,7 @@ public final class V1QueryService {
       """).formatted(valuesList, inList, OTHER_SENTINEL, table);
 
     final SqlQuery query = DB.sqlQuery(sql)
+      .setLabel("denseBucketsByHash")
       .setParameter("from", window.from())
       .setParameter("step", stepSeconds)
       .setParameter("appId", app.getId())
@@ -1448,6 +1444,7 @@ public final class V1QueryService {
       .formatted(table);
 
     final SqlQuery query = DB.sqlQuery(sql)
+      .setLabel("grandHashCount")
       .setParameter("from", window.from())
       .setParameter("appId", app.getId());
     bindCommonFilters(query, name, kind, type, planCapable, envId);
@@ -1584,6 +1581,7 @@ public final class V1QueryService {
       """).formatted(grpSelect, table, groupCols, orderByExpression(sortKey));
 
     final SqlQuery sqlQuery = DB.sqlQuery(sql)
+      .setLabel("runTopQuery")
       .setParameter("from", window.from())
       .setParameter("limit", limit);
     if (window.hasTo()) {
@@ -1662,6 +1660,7 @@ public final class V1QueryService {
       """).formatted(tagExpr, table, tagExpr, tagExpr, tagExpr, orderByExpression("total"));
 
     final SqlQuery sqlQuery = DB.sqlQuery(sql)
+      .setLabel("runLabelFamilyQuery")
       .setParameter("from", window.from())
       .setParameter("appId", app.getId())
       .setParameter("root", root)
@@ -1798,6 +1797,7 @@ public final class V1QueryService {
       """).formatted(table, orderByExpression(sortKey));
 
     final SqlQuery query = DB.sqlQuery(sql)
+      .setLabel("runMissingPlansQuery")
       .setParameter("from", costWindow.from())
       .setParameter("limit", limit);
     if (app != null) {
@@ -1889,6 +1889,7 @@ public final class V1QueryService {
       LIMIT :limit
       """;
     return DB.sqlQuery(sql)
+      .setLabel("topRegressionPlans")
       .setParameter("recentFrom", recentFrom)
       .setParameter("baselineFrom", baselineFrom)
       .setParameter("minCount", minCount)
@@ -1943,6 +1944,7 @@ public final class V1QueryService {
       limit 1
       """;
     return DB.sqlQuery(sql)
+      .setLabel("getMetricSql")
       .setParameter("app", appName)
       .setParameter("hash", hash)
       .setParameter("label", label)

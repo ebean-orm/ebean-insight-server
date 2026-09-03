@@ -29,8 +29,9 @@ public class UIIndexController {
 
   @Get
   IndexView home() {
+    final List<Env> envs = service.listEnvs();
     final List<AppLink> apps = service.listApps(null, null).stream()
-      .map(app -> appLink(app.name()))
+      .map(app -> appLink(app.name(), envs))
       .toList();
     return new IndexView(Breadcrumb.EMPTY, apps, !apps.isEmpty());
   }
@@ -46,12 +47,11 @@ public class UIIndexController {
     return home();
   }
 
-  private AppLink appLink(String appName) {
-    final List<Env> envs = service.listAppEnvs(appName);
+  private AppLink appLink(String appName, List<Env> envs) {
     if (envs.size() <= 1) {
       final String topUrl = envs.isEmpty()
         ? "/ux/top?app=" + urlEncode(appName) + "&range=4h"
-        : topUrl(appName, envs.get(0).name());
+        : topUrl(appName, envs.getFirst().name());
       return appLink(appName, topUrl, List.of());
     }
     final List<EnvLink> links = envs.stream()

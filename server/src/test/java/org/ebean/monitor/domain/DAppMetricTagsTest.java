@@ -52,6 +52,7 @@ class DAppMetricTagsTest {
     // confirm the jsonb '->>' expression resolves a tag value for the saved row
     SqlRow row = database.sqlQuery(
         "select tags ->> 'label' as label from ebean_insight.app_metric where key = ?")
+      .setLabel("readMetricTags")
       .setParameter(key)
       .findOne();
     assertThat(row).isNotNull();

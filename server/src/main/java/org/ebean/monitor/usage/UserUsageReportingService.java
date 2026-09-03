@@ -73,7 +73,8 @@ public final class UserUsageReportingService {
        order by total_micros desc, user_id
        limit :limit
       """.formatted(timeClause, userClause))
-      .setParameter("limit", resolveLimit(limit));
+       .setLabel("summarizeUserUsage")
+       .setParameter("limit", resolveLimit(limit));
     if (window.hasFrom()) {
       query.setParameter("from", window.from());
     }

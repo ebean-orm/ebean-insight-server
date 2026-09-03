@@ -8,10 +8,6 @@ import org.ebean.monitor.domain.DAppMetric;
 import org.ebean.monitor.domain.DAppPod;
 import org.ebean.monitor.domain.DEnv;
 import org.ebean.monitor.domain.DQueryPlan;
-import org.ebean.monitor.domain.query.QDApp;
-import org.ebean.monitor.domain.query.QDAppDatabase;
-import org.ebean.monitor.domain.query.QDAppMetric;
-import org.ebean.monitor.domain.query.QDEnv;
 
 import java.time.DayOfWeek;
 import java.time.Duration;
@@ -360,6 +356,7 @@ public class SeedDemoData {
     for (String table : List.of("timed_m1", "timed_m10", "timed_m60",
       "gauge_entry", "gauge_m1", "gauge_m10", "gauge_m60")) {
       db.sqlQuery("select partition(:mode, :table, :count, :schema, :from)")
+        .setLabel("extendSeedPartitions")
         .setParameter("mode", "day")
         .setParameter("table", table)
         .setParameter("count", 14)

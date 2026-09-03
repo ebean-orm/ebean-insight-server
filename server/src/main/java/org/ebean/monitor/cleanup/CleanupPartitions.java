@@ -77,6 +77,7 @@ public class CleanupPartitions {
 
     final String sql = sql(schemaName, prefix);
     final List<String> names = DB.sqlQuery(sql)
+      .setLabel("listPartitionNames")
       .mapToScalar(String.class)
       .findList();
 
