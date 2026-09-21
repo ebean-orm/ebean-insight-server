@@ -23,7 +23,7 @@
 
   <properties>
     <main.class>org.ebean.monitor.cli.InsightCli</main.class>
-    <avaje-oauth2.version>1.6</avaje-oauth2.version>
+    <avaje-oauth2.version>1.7</avaje-oauth2.version>
   </properties>
 
   <dependencies>
@@ -162,7 +162,7 @@
           <plugin>
             <groupId>org.graalvm.buildtools</groupId>
             <artifactId>native-maven-plugin</artifactId>
-            <version>1.1.12</version>
+            <version>1.1.14</version>
             <executions>
               <execution>
                 <id>build-native</id>
