@@ -25,7 +25,7 @@ public final class V1PlansController implements PlansApi {
   }
 
   @Override
-  public QueryPlan getPlan(Long planId) {
+  public QueryPlan getPlan(long planId) {
     return service.getPlan(planId);
   }
 
@@ -45,7 +45,7 @@ public final class V1PlansController implements PlansApi {
   }
 
   @Override
-  public PlanChangeDetail getPlanChange(Long id) {
+  public PlanChangeDetail getPlanChange(long id) {
     return service.getPlanChange(id);
   }
 }

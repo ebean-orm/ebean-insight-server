@@ -40,7 +40,7 @@
     </form>
   {{/filters}}
   {{$body}}
-    <link rel="stylesheet" href="/static/query-total.css?v=22">
+    <link rel="stylesheet" href="/static/query-total.css?v=25">
     <link rel="stylesheet" href="/static/metric-detail.css?v=2">
 
     {{^hasData}}
@@ -67,12 +67,14 @@
                 <div id="metric-total-tooltip" class="chart-html-tooltip" role="tooltip" aria-hidden="true"></div>
             </div>
           </article>
-          <div class="top-chart-legend metric-hash-legend" aria-label="Query hash legend">
+          <div class="top-chart-legend metric-hash-legend" data-label-state="metricTotalLabels"
+               aria-label="Query hash legend">
             {{#hashBreakdown}}
                 <button type="button" class="legend-series-toggle hash-series-toggle"
                         data-label="{{hash}}" aria-pressed="true"
                         aria-label="Toggle {{hash}}" title="{{hash}}">
                   <span class="legend-swatch" style="background-color: {{color}}"></span>
+                  <span class="legend-label">{{hash}}</span>
                 </button>
             {{/hashBreakdown}}
           </div>
@@ -109,12 +111,14 @@
                 <div id="metric-mean-tooltip" class="chart-html-tooltip" role="tooltip" aria-hidden="true"></div>
             </div>
           </article>
-          <div class="top-chart-legend metric-hash-legend" aria-label="Query hash legend">
+          <div class="top-chart-legend metric-hash-legend" data-label-state="metricStatisticsLabels"
+               aria-label="Query hash legend">
             {{#hashBreakdown}}
                 <button type="button" class="legend-series-toggle hash-series-toggle"
                         data-label="{{hash}}" aria-pressed="true"
                         aria-label="Toggle {{hash}}" title="{{hash}}">
                   <span class="legend-swatch" style="background-color: {{color}}"></span>
+                  <span class="legend-label">{{hash}}</span>
                 </button>
             {{/hashBreakdown}}
           </div>
@@ -242,7 +246,7 @@
     <script type="application/json" id="max-chart-data">{{{maxChartDataJson}}}</script>
     <script type="application/json" id="count-chart-data">{{{countChartDataJson}}}</script>
     <script src="/static/vendor/chart.umd.min.js"></script>
-    <script src="/static/dashboard-charts.js?v=15"></script>
-    <script src="/static/metric-detail.js?v=7"></script>
+    <script src="/static/dashboard-charts.js?v=16"></script>
+    <script src="/static/metric-detail.js?v=8"></script>
   {{/body}}
 {{/fragments/layout}}

@@ -87,6 +87,7 @@
       swatch.className = 'legend-swatch';
       swatch.style.backgroundColor = colorForPod ? colorForPod(pod) || dataset.backgroundColor : dataset.backgroundColor;
       button.appendChild(swatch);
+      window.DashboardCharts.appendSeriesLegendLabel(button, pod);
 
       const podDatasets = function () {
         return chart.data.datasets
@@ -144,6 +145,7 @@
       legend.appendChild(button);
       updatePressed();
     });
+    window.DashboardCharts.renderSeriesLegendLabelToggle(legend);
   };
 
   const renderMemoryLegend = function () {

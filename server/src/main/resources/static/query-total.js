@@ -22,6 +22,53 @@
   let autoRefreshInFlight = false;
   const autoRefreshStatus = document.getElementById('auto-refresh-status');
 
+  document.querySelectorAll('.top-chart-legend[data-label-state]').forEach(function (legend) {
+    window.DashboardCharts.renderSeriesLegendLabelToggle(legend);
+  });
+
+  const globalLegendLabelsToggle = document.getElementById('all-chart-labels-toggle');
+  const legendLabelToggles = function () {
+    return Array.from(document.querySelectorAll('.top-chart-legend .legend-label-toggle'));
+  };
+  const updateGlobalLegendLabelsToggle = function () {
+    if (!globalLegendLabelsToggle) {
+      return;
+    }
+    const toggles = legendLabelToggles();
+    const allVisible = toggles.length > 0 && toggles.every(function (button) {
+      return button.getAttribute('aria-pressed') === 'true';
+    });
+    globalLegendLabelsToggle.hidden = toggles.length === 0;
+    globalLegendLabelsToggle.setAttribute('aria-pressed', String(allVisible));
+    const action = allVisible ? 'Hide' : 'Show';
+    globalLegendLabelsToggle.setAttribute('aria-label', action + ' series names on all charts');
+    globalLegendLabelsToggle.title = action + ' series names on all charts';
+  };
+  if (globalLegendLabelsToggle) {
+    globalLegendLabelsToggle.addEventListener('click', function () {
+      const toggles = legendLabelToggles();
+      const showAll = toggles.some(function (button) {
+        return button.getAttribute('aria-pressed') !== 'true';
+      });
+      toggles.forEach(function (button) {
+        if ((button.getAttribute('aria-pressed') === 'true') !== showAll) {
+          button.click();
+        }
+      });
+      updateGlobalLegendLabelsToggle();
+    });
+    document.addEventListener('click', function (event) {
+      if (event.target instanceof Element && event.target.closest('.legend-label-toggle')) {
+        updateGlobalLegendLabelsToggle();
+      }
+    });
+    window.addEventListener('load', updateGlobalLegendLabelsToggle);
+    window.addEventListener('insight-top-data', function () {
+      window.setTimeout(updateGlobalLegendLabelsToggle, 0);
+    });
+    updateGlobalLegendLabelsToggle();
+  }
+
   const updateAutoRefreshDisplay = function () {
     if (autoRefreshTimerDisplay) {
       autoRefreshTimerDisplay.hidden = !autoRefreshToggle.checked;
@@ -112,7 +159,13 @@
     'chart', 'mean', 'meanView', 'scale',
     'webChart', 'webMean', 'webMeanView', 'webScale',
     'componentChart', 'componentMean', 'componentMeanView', 'componentScale',
-    'dmlChart', 'dmlMean', 'dmlMeanView', 'dmlScale'
+    'dmlChart', 'dmlMean', 'dmlMeanView', 'dmlScale',
+    'queryTotalLabels', 'queryStatisticsLabels',
+    'webTotalLabels', 'webStatisticsLabels',
+    'componentTotalLabels', 'componentStatisticsLabels',
+    'dmlTotalLabels', 'dmlStatisticsLabels',
+    'datasourcePoolLabels', 'datasourcePoolTimingLabels',
+    'jvmMemoryLabels', 'jvmCpuLabels'
   ];
   const statePreservingForm = document.querySelector('.header-filters');
   if (statePreservingForm) {
@@ -1285,9 +1338,11 @@
         swatch.className = 'legend-swatch';
         swatch.style.backgroundColor = entry.color;
         button.appendChild(swatch);
+        window.DashboardCharts.appendSeriesLegendLabel(button, entry.group);
         bindLegendButton(button);
         container.appendChild(button);
       });
+      window.DashboardCharts.renderSeriesLegendLabelToggle(container);
     });
   };
 

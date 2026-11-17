@@ -59,6 +59,12 @@
           </svg>
         {{/compactLayout}}
       </button>
+      <button type="button" id="all-chart-labels-toggle"
+              class="layout-toggle legend-label-global-toggle" aria-pressed="false"
+              aria-label="Show series names on all charts"
+              title="Show series names on all charts" hidden>
+        <span class="legend-label-icon" aria-hidden="true">A</span>
+      </button>
       {{#compactLayout}}
         <button type="button" id="compact-legends-toggle" class="layout-toggle" aria-pressed="false"
                 aria-label="Show legends" title="Show legends">
@@ -87,7 +93,7 @@
     </form>
   {{/filters}}
   {{$body}}
-    <link rel="stylesheet" href="/static/query-total.css?v=37">
+    <link rel="stylesheet" href="/static/query-total.css?v=41">
 
     {{^hasData}}
       <article>
@@ -112,11 +118,13 @@
               <canvas id="web-api-chart"></canvas>
               <div id="web-api-total-tooltip" class="chart-html-tooltip" role="tooltip" aria-hidden="true"></div>
             </div>
-            <div class="top-chart-legend timer-dashboard-legend web-api-legend" aria-label="Web API series legend">
+            <div class="top-chart-legend timer-dashboard-legend web-api-legend"
+                 data-label-state="webTotalLabels" aria-label="Web API series legend">
               {{#webApiGroups}}
                 <button type="button" class="legend-series-toggle timer-dashboard-series-toggle web-api-series-toggle"
                         data-label="{{.}}" aria-pressed="true" aria-label="Toggle {{.}}" title="{{.}}">
                   <span class="legend-swatch"></span>
+                  <span class="legend-label">{{.}}</span>
                 </button>
               {{/webApiGroups}}
             </div>
@@ -148,11 +156,13 @@
               <canvas id="web-api-mean-max-chart"></canvas>
               <div id="web-api-mean-max-tooltip" class="chart-html-tooltip" role="tooltip" aria-hidden="true"></div>
             </div>
-            <div class="top-chart-legend timer-dashboard-legend web-api-legend" aria-label="Web API series legend">
+            <div class="top-chart-legend timer-dashboard-legend web-api-legend"
+                 data-label-state="webStatisticsLabels" aria-label="Web API series legend">
               {{#webApiGroups}}
                 <button type="button" class="legend-series-toggle timer-dashboard-series-toggle web-api-series-toggle"
                         data-label="{{.}}" aria-pressed="true" aria-label="Toggle {{.}}" title="{{.}}">
                   <span class="legend-swatch"></span>
+                  <span class="legend-label">{{.}}</span>
                 </button>
               {{/webApiGroups}}
             </div>
@@ -179,11 +189,13 @@
               <span id="component-range-selection-text"></span>
               <button type="button" id="component-range-selection-clear">Use preset range</button>
             </div>
-            <div class="top-chart-legend timer-dashboard-legend component-legend" aria-label="App component series legend">
+            <div class="top-chart-legend timer-dashboard-legend component-legend"
+                 data-label-state="componentTotalLabels" aria-label="App component series legend">
               {{#appComponentGroups}}
                 <button type="button" class="legend-series-toggle timer-dashboard-series-toggle component-series-toggle"
                         data-label="{{.}}" aria-pressed="true" aria-label="Toggle {{.}}" title="{{.}}">
                   <span class="legend-swatch"></span>
+                  <span class="legend-label">{{.}}</span>
                 </button>
               {{/appComponentGroups}}
             </div>
@@ -211,11 +223,13 @@
               <canvas id="component-mean-max-chart"></canvas>
               <div id="component-mean-max-tooltip" class="chart-html-tooltip" role="tooltip" aria-hidden="true"></div>
             </div>
-            <div class="top-chart-legend timer-dashboard-legend component-legend" aria-label="App component series legend">
+            <div class="top-chart-legend timer-dashboard-legend component-legend"
+                 data-label-state="componentStatisticsLabels" aria-label="App component series legend">
               {{#appComponentGroups}}
                 <button type="button" class="legend-series-toggle timer-dashboard-series-toggle component-series-toggle"
                         data-label="{{.}}" aria-pressed="true" aria-label="Toggle {{.}}" title="{{.}}">
                   <span class="legend-swatch"></span>
+                  <span class="legend-label">{{.}}</span>
                 </button>
               {{/appComponentGroups}}
             </div>
@@ -244,12 +258,14 @@
             </div>
           </article>
 
-          <div class="top-chart-legend" data-chart-legend="query-total" aria-label="Chart series legend">
+          <div class="top-chart-legend" data-chart-legend="query-total"
+               data-label-state="queryTotalLabels" aria-label="Chart series legend">
             {{#legend}}
               <button type="button" class="legend-series-toggle"
                       data-label="{{group}}" aria-pressed="true"
                       aria-label="Toggle {{group}}" title="{{group}}">
                 <span class="legend-swatch" style="background-color: {{color}};"></span>
+                <span class="legend-label">{{group}}</span>
               </button>
             {{/legend}}
           </div>
@@ -289,12 +305,14 @@
             </div>
           </article>
 
-          <div class="top-chart-legend" data-chart-legend="query-statistics" aria-label="Chart series legend">
+          <div class="top-chart-legend" data-chart-legend="query-statistics"
+               data-label-state="queryStatisticsLabels" aria-label="Chart series legend">
             {{#legend}}
               <button type="button" class="legend-series-toggle"
                       data-label="{{group}}" aria-pressed="true"
                       aria-label="Toggle {{group}}" title="{{group}}">
                 <span class="legend-swatch" style="background-color: {{color}};"></span>
+                <span class="legend-label">{{group}}</span>
               </button>
             {{/legend}}
           </div>
@@ -390,11 +408,13 @@
               <span id="dml-range-selection-text"></span>
               <button type="button" id="dml-range-selection-clear">Use preset range</button>
             </div>
-            <div class="top-chart-legend timer-dashboard-legend dml-legend" aria-label="DML series legend">
+            <div class="top-chart-legend timer-dashboard-legend dml-legend"
+                 data-label-state="dmlTotalLabels" aria-label="DML series legend">
               {{#dmlGroups}}
                 <button type="button" class="legend-series-toggle timer-dashboard-series-toggle dml-series-toggle"
                         data-label="{{.}}" aria-pressed="true" aria-label="Toggle {{.}}" title="{{.}}">
                   <span class="legend-swatch"></span>
+                  <span class="legend-label">{{.}}</span>
                 </button>
               {{/dmlGroups}}
             </div>
@@ -422,11 +442,13 @@
               <canvas id="dml-mean-max-chart"></canvas>
               <div id="dml-mean-max-tooltip" class="chart-html-tooltip" role="tooltip" aria-hidden="true"></div>
             </div>
-            <div class="top-chart-legend timer-dashboard-legend dml-legend" aria-label="DML series legend">
+            <div class="top-chart-legend timer-dashboard-legend dml-legend"
+                 data-label-state="dmlStatisticsLabels" aria-label="DML series legend">
               {{#dmlGroups}}
                 <button type="button" class="legend-series-toggle timer-dashboard-series-toggle dml-series-toggle"
                         data-label="{{.}}" aria-pressed="true" aria-label="Toggle {{.}}" title="{{.}}">
                   <span class="legend-swatch"></span>
+                  <span class="legend-label">{{.}}</span>
                 </button>
               {{/dmlGroups}}
             </div>
@@ -442,7 +464,8 @@
               <canvas id="datasource-pool-chart"></canvas>
               <div id="datasource-pool-tooltip" class="chart-html-tooltip" role="tooltip" aria-hidden="true"></div>
             </div>
-            <div id="datasource-pool-legend" class="top-chart-legend" aria-label="Datasource pool series legend"></div>
+            <div id="datasource-pool-legend" class="top-chart-legend"
+                 data-label-state="datasourcePoolLabels" aria-label="Datasource pool series legend"></div>
           </article>
           <article class="query-total-section datasource-pool-section" data-chart-id="datasource-pool-timing">
             <header class="chart-section-header chart-no-controls">Datasource pool wait and acquire time <button type="button" class="chart-expand-btn" data-chart-zoom="datasource-pool-timing" aria-label="Expand datasource pool timing chart" title="Expand chart">↗</button></header>
@@ -450,7 +473,8 @@
               <canvas id="datasource-pool-timing-chart"></canvas>
               <div id="datasource-pool-timing-tooltip" class="chart-html-tooltip" role="tooltip" aria-hidden="true"></div>
             </div>
-            <div id="datasource-pool-timing-legend" class="top-chart-legend" aria-label="Datasource pool timing series legend"></div>
+            <div id="datasource-pool-timing-legend" class="top-chart-legend"
+                 data-label-state="datasourcePoolTimingLabels" aria-label="Datasource pool timing series legend"></div>
           </article>
         </div>
       {{/datasourcePoolDashboard}}
@@ -463,7 +487,8 @@
               <canvas id="jvm-memory-chart"></canvas>
               <div id="jvm-memory-tooltip" class="chart-html-tooltip" role="tooltip" aria-hidden="true"></div>
             </div>
-            <div id="jvm-memory-legend" class="top-chart-legend jvm-legend" aria-label="JVM memory pod legend"></div>
+            <div id="jvm-memory-legend" class="top-chart-legend jvm-legend"
+                 data-label-state="jvmMemoryLabels" aria-label="JVM memory pod legend"></div>
           </article>
           <article class="query-total-section jvm-section" data-chart-id="jvm-cpu">
             <header class="chart-section-header chart-no-controls">JVM CPU usage (user + system) <button type="button" class="chart-expand-btn" data-chart-zoom="jvm-cpu" aria-label="Expand JVM CPU chart" title="Expand chart">↗</button></header>
@@ -471,7 +496,8 @@
               <canvas id="jvm-cpu-chart"></canvas>
               <div id="jvm-cpu-tooltip" class="chart-html-tooltip" role="tooltip" aria-hidden="true"></div>
             </div>
-            <div id="jvm-cpu-legend" class="top-chart-legend jvm-legend" aria-label="JVM CPU pod legend"></div>
+            <div id="jvm-cpu-legend" class="top-chart-legend jvm-legend"
+                 data-label-state="jvmCpuLabels" aria-label="JVM CPU pod legend"></div>
           </article>
         </div>
       {{/jvmDashboard}}
@@ -502,13 +528,13 @@
     <script type="application/json" id="component-max-data">{{{appComponentMaxJson}}}</script>
     <script type="application/json" id="component-count-data">{{{appComponentCountJson}}}</script>
     <script src="/static/vendor/chart.umd.min.js"></script>
-    <script src="/static/dashboard-charts.js?v=17"></script>
-    <script src="/static/query-total.js?v=27"></script>
+    <script src="/static/dashboard-charts.js?v=18"></script>
+    <script src="/static/query-total.js?v=29"></script>
     <script src="/static/datasource-pool.js?v=10"></script>
     <script src="/static/datasource-pool-timing.js?v=10"></script>
     <script src="/static/web-api.js?v=14"></script>
     <script src="/static/web-api.js?v=14" data-dashboard="dml"></script>
     <script src="/static/web-api.js?v=14" data-dashboard="component"></script>
-    <script src="/static/jvm.js?v=32"></script>
+    <script src="/static/jvm.js?v=33"></script>
   {{/body}}
 {{/fragments/layout}}

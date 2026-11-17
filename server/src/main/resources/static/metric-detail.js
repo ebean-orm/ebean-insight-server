@@ -207,6 +207,27 @@
   let totalChart = null;
   let meanChart = null;
   const initialUrlState = new URLSearchParams(window.location.search);
+  const statePreservingForm = document.querySelector('.header-filters');
+  if (statePreservingForm) {
+    statePreservingForm.addEventListener('submit', function () {
+      statePreservingForm.querySelectorAll('.legend-label-state-bound').forEach(function (input) {
+        input.remove();
+      });
+      const labelState = new URLSearchParams(window.location.search);
+      ['metricTotalLabels', 'metricStatisticsLabels'].forEach(function (name) {
+        const value = labelState.get(name);
+        if (!value) {
+          return;
+        }
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = name;
+        input.value = value;
+        input.className = 'legend-label-state-bound';
+        statePreservingForm.appendChild(input);
+      });
+    });
+  }
   let totalStyle = initialUrlState.get('chart') === 'line' ? 'line' : 'stacked-bar';
   let meanMode = ['both', 'only', 'max', 'count'].includes(initialUrlState.get('mean'))
     ? initialUrlState.get('mean') : 'both';
@@ -734,8 +755,10 @@
         swatch.className = 'legend-swatch';
         swatch.style.backgroundColor = entry.color;
         button.appendChild(swatch);
+        window.DashboardCharts.appendSeriesLegendLabel(button, entry.hash);
         legend.appendChild(button);
       });
+      window.DashboardCharts.renderSeriesLegendLabelToggle(legend);
     });
     bindHashSeriesButtons();
 
@@ -799,6 +822,10 @@
       resetSqlInspector();
     }
   };
+
+  document.querySelectorAll('.metric-hash-legend').forEach(function (legend) {
+    window.DashboardCharts.renderSeriesLegendLabelToggle(legend);
+  });
 
   const renderRecentPlans = function (plans) {
     const body = document.getElementById('recent-plans-body');

@@ -355,6 +355,60 @@ window.DashboardCharts = (function () {
     return {timestamps: data.timestamps || []};
   }
 
+  function appendSeriesLegendLabel(button, label) {
+    const text = document.createElement('span');
+    text.className = 'legend-label';
+    text.textContent = label;
+    button.appendChild(text);
+  }
+
+  function renderSeriesLegendLabelToggle(container) {
+    if (!container) {
+      return;
+    }
+    const stateParam = container.dataset.labelState;
+    const existing = container.querySelector('.legend-label-toggle');
+    if (existing) {
+      existing.remove();
+    }
+    if (!stateParam || !container.querySelector('.legend-series-toggle')) {
+      container.classList.remove('legend-labels-visible');
+      return;
+    }
+
+    let labelsVisible = new URLSearchParams(window.location.search).get(stateParam) === 'labels';
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'legend-label-toggle';
+    button.setAttribute('aria-pressed', String(labelsVisible));
+    const icon = document.createElement('span');
+    icon.className = 'legend-label-icon';
+    icon.setAttribute('aria-hidden', 'true');
+    icon.textContent = 'A';
+    button.appendChild(icon);
+
+    const update = function () {
+      container.classList.toggle('legend-labels-visible', labelsVisible);
+      button.setAttribute('aria-pressed', String(labelsVisible));
+      const action = labelsVisible ? 'Hide' : 'Show';
+      button.setAttribute('aria-label', action + ' series names');
+      button.title = action + ' series names';
+    };
+    button.addEventListener('click', function () {
+      labelsVisible = !labelsVisible;
+      update();
+      const url = new URL(window.location.href);
+      if (labelsVisible) {
+        url.searchParams.set(stateParam, 'labels');
+      } else {
+        url.searchParams.delete(stateParam);
+      }
+      window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+    });
+    container.insertBefore(button, container.firstChild);
+    update();
+  }
+
   function renderSeriesLegend(container, chart) {
     if (!container || !chart) {
       return;
@@ -376,6 +430,7 @@ window.DashboardCharts = (function () {
       swatch.className = 'legend-swatch';
       swatch.style.backgroundColor = dataset.backgroundColor;
       button.appendChild(swatch);
+      appendSeriesLegendLabel(button, dataset.label);
       button.addEventListener('click', function (event) {
         if (event.ctrlKey || event.metaKey) {
           chart.setDatasetVisibility(index, !chart.isDatasetVisible(index));
@@ -395,6 +450,7 @@ window.DashboardCharts = (function () {
       container.appendChild(button);
     });
     updateButtons();
+    renderSeriesLegendLabelToggle(container);
   }
 
   function attachRangeSelection(canvas, chartSupplier, dataSupplier) {
@@ -512,6 +568,7 @@ window.DashboardCharts = (function () {
     hideHtmlTooltip, localize, emptyDataForRange,
     pointerOnHover, durationUnitFor, compactDuration, detailedDuration,
     durationValue, attachRangeSelection,
-    themeColors, applyTheme, crosshair, setSharedCrosshairTimestamp, renderSeriesLegend
+    themeColors, applyTheme, crosshair, setSharedCrosshairTimestamp, renderSeriesLegend,
+    appendSeriesLegendLabel, renderSeriesLegendLabelToggle
   };
 })();
