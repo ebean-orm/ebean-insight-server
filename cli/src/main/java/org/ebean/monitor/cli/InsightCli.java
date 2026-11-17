@@ -33,10 +33,13 @@ import picocli.CommandLine.Command;
         SetupCommand.class,
         LoginCommand.class,
         LogoutCommand.class,
-        WhoamiCommand.class
+        WhoamiCommand.class,
+        ReferenceCommand.class
     },
     footerHeading = "%nGetting started:%n",
     footer = {
+        "  Run 'insight reference' for the full command and option reference.",
+        "",
         "  # Option 1 — direct URL with OAuth2 (most common):",
         "  insight setup https://central-insight.example.com   # sets url, auth config, and logs in",
         "",
@@ -79,15 +82,29 @@ public final class InsightCli implements Runnable {
     // Captured query plans (SQL + binds + EXPLAIN) can exceed avaje-jsonb's default
     // 50k char string-buffer limit; raise it before any HTTP/JSON parsing.
     System.setProperty("jsonb.parserMaxStringBuffer", "2000000");
-    int exitCode = new CommandLine(new InsightCli())
+    int exitCode = commandLine().execute(args);
+    System.exit(exitCode);
+  }
+
+  static CommandLine commandLine() {
+    return new CommandLine(new InsightCli())
+        .setExecutionStrategy(parseResult -> {
+          var subcommand = parseResult.subcommand();
+          if (parseResult.isUsageHelpRequested()
+              && subcommand != null
+              && subcommand.commandSpec().userObject() instanceof ReferenceCommand reference
+              && !subcommand.isUsageHelpRequested()) {
+            reference.run();
+            return 0;
+          }
+          return new CommandLine.RunLast().execute(parseResult);
+        })
         .setExecutionExceptionHandler((ex, commandLine, parseResult) -> {
           if (ex instanceof CliException) {
             commandLine.getErr().println("error: " + ex.getMessage());
             return 2;
           }
           throw ex;
-        })
-        .execute(args);
-    System.exit(exitCode);
+        });
   }
 }
