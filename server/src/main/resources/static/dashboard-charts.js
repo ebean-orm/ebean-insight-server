@@ -130,8 +130,12 @@ window.DashboardCharts = (function () {
 
   function durationValue(value, unit) {
     const divisor = unit === 's' ? 1000 : unit === 'min' ? 60000 : unit === 'h' ? 3600000 : 1;
-    const rounded = Math.round((value / divisor) * 10) / 10;
-    return String(rounded).replace(/\.0$/, '');
+    const scaled = value / divisor;
+    const magnitude = Math.abs(scaled);
+    const decimalPlaces = magnitude === 0 || magnitude >= 1
+      ? 1
+      : Math.min(8, Math.ceil(-Math.log10(magnitude)) + 1);
+    return String(Number(scaled.toFixed(decimalPlaces)));
   }
 
   function detailedDuration(value) {
