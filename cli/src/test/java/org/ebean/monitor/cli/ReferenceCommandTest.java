@@ -31,6 +31,7 @@ class ReferenceCommandTest {
         .contains("## insight config")
         .contains("### insight config set KEY VALUE")
         .contains("### insight top")
+        .contains("### insight metrics --app=<app> [options]")
         .contains("Aliases: `ls`")
         .contains("total, mean, max, count, value")
         .contains("(default: total)")

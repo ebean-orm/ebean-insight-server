@@ -169,7 +169,13 @@ final class ReferenceCommand implements Runnable {
       synopsis.append(' ').append(renderParameterLabel(help, parameter));
     }
     if (options.size() > MAX_INLINE_SYNOPSIS_OPTIONS) {
-      synopsis.append(" [options]");
+      var requiredOptions = options.stream().filter(OptionSpec::required).toList();
+      for (var option : requiredOptions) {
+        synopsis.append(' ').append(option.longestName()).append(renderParameterLabel(help, option));
+      }
+      if (requiredOptions.size() < options.size()) {
+        synopsis.append(" [options]");
+      }
     } else {
       for (var option : options) {
         var token = option.longestName() + renderParameterLabel(help, option);

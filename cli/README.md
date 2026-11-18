@@ -239,11 +239,14 @@ per-command forward.
 | `insight capture [<app>] [<hash>...] [--app] [--hash] [--stdin] [--env]` | Request a fresh plan capture for one or more metric hashes (space or comma separated). `--app`/`--hash` are flag-form alternatives to the positionals; `--stdin` reads additional whitespace/comma/newline-separated hashes from standard input. |
 | `insight setup <url> [--profile NAME] [--no-login]` | Bootstrap the CLI from a server URL: sets url, fetches auth config, and logs in. |
 | `insight config <set\|get\|unset\|list\|path\|use\|profiles\|which>` | Manage persisted settings. `use <name>` activates a profile; `use --none` deactivates; `profiles` lists available; `which` shows the active one. |
+| `insight reference [COMMAND]` | Print the complete command and option reference; pass a top-level command such as `config` to filter it. |
 | `insight login [--timeout-seconds N] [--profile NAME]` | Authenticate via Cognito (OAuth2 + PKCE) and cache the bearer token. |
 | `insight whoami [--profile NAME]` | Show the cached login identity and token expiry. |
 | `insight logout [--profile NAME]` | Remove the cached bearer token. |
 
 Every command supports `-h`/`--help`, and the root supports `-V`/`--version`.
+Run `insight reference` for the generated reference, or `insight reference config`
+to show only one top-level command and its subcommands.
 
 ## Output format
 
@@ -481,6 +484,7 @@ still runs on Ctrl-C / SIGTERM in the native binary.
 ## Module layout
 
 - `InsightCli` — root `@Command` + `main`.
+- `ReferenceCommand` — renders the complete command reference from Picocli's command model.
 - `ConnectionOptions` — shared `--url` / port-forward mixin.
 - `ForwardRegistry` — reads/writes the daemon advert (`~/.insight/forward.properties`);
   target-scoped, pid- and reachability-checked discovery.
