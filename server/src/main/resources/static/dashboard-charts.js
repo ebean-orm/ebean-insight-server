@@ -371,11 +371,13 @@ window.DashboardCharts = (function () {
     if (existing) {
       existing.remove();
     }
+    container.classList.remove('legend-label-toggle-enabled');
     if (!stateParam || !container.querySelector('.legend-series-toggle')) {
       container.classList.remove('legend-labels-visible');
       return;
     }
 
+    container.classList.add('legend-label-toggle-enabled');
     let labelsVisible = new URLSearchParams(window.location.search).get(stateParam) === 'labels';
     const button = document.createElement('button');
     button.type = 'button';
