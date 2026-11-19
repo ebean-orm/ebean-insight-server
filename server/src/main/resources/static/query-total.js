@@ -160,6 +160,7 @@
     'webChart', 'webMean', 'webMeanView', 'webScale',
     'componentChart', 'componentMean', 'componentMeanView', 'componentScale',
     'dmlChart', 'dmlMean', 'dmlMeanView', 'dmlScale',
+    'webTotalView', 'queryTotalView', 'componentTotalView', 'dmlTotalView',
     'queryTotalLabels', 'queryStatisticsLabels',
     'webTotalLabels', 'webStatisticsLabels',
     'componentTotalLabels', 'componentStatisticsLabels',
@@ -827,13 +828,19 @@
 
   const toggleLegend = function (button, event) {
     const label = button.dataset.label;
+    const datasets = chartData.datasets;
+    if (!datasets.some(function (dataset) { return dataset.label === label; })) {
+      return;
+    }
     if (event.ctrlKey || event.metaKey) {
       visible.set(label, !visible.get(label));
     } else {
-      const onlyThisSeries = Array.from(visible.entries()).every(function (entry) {
-        return entry[0] === label ? entry[1] : !entry[1];
+      const onlyThisSeries = datasets.every(function (dataset) {
+        return dataset.label === label
+          ? visible.get(dataset.label)
+          : !visible.get(dataset.label);
       });
-      chartData.datasets.forEach(function (ds) {
+      datasets.forEach(function (ds) {
         visible.set(ds.label, onlyThisSeries || ds.label === label);
       });
     }
@@ -852,13 +859,6 @@
 
   document.querySelectorAll('.legend-series-toggle:not(.timer-dashboard-series-toggle):not(.jvm-series-toggle)')
     .forEach(bindLegendButton);
-
-  const legendDetails = document.querySelector('.legend-toggle');
-  if (legendDetails) {
-    legendDetails.addEventListener('toggle', function () {
-      legendDetails.classList.toggle('is-open', legendDetails.open);
-    });
-  }
 
   const barBtn = document.getElementById('chart-type-bar');
   const lineBtn = document.getElementById('chart-type-line');

@@ -110,6 +110,26 @@ public final class V1QueryService {
     this.messageService = messageService;
   }
 
+  /** One label row in the complete series table for a timer metric family. */
+  public record MetricSeriesTableRow(@Nullable String label, long hashCount, long count,
+                                     long totalMicros, long meanMicros, long maxMicros) {
+  }
+
+  /** A filtered and paginated page of all label rows, with full-result maxima for relative bars. */
+  public record MetricSeriesTablePage(List<MetricSeriesTableRow> rows, long totalRows,
+                                      long maxTotalMicros, long maxCount, long maxMeanMicros,
+                                      long maxMaxMicros, int page, int pageSize) {
+    public MetricSeriesTablePage {
+      rows = List.copyOf(rows);
+    }
+  }
+
+  private record MetricSeriesTableSqlRow(boolean hasSeries, @Nullable String label, long hashCount,
+                                         long count, long totalMicros, long meanMicros, long maxMicros,
+                                         long totalRows, long maxTotalMicros, long maxCount,
+                                         long maxMeanMicros, long maxMaxMicros) {
+  }
+
   // ---------------------------------------------------------------------------
   // Apps
   // ---------------------------------------------------------------------------
@@ -759,6 +779,192 @@ public final class V1QueryService {
       .bucketMinutes(bucketMinutes)
       .series(series)
       .build();
+  }
+
+  /**
+   * All-label timer statistics over a relative window, without the top-series
+   * limit or synthetic "Other" aggregation used by the chart.
+   */
+  public MetricSeriesTablePage getMetricSeriesTable(String appName, String name,
+                                                    @Nullable Long sinceMinutes, @Nullable String env,
+                                                    @Nullable String search, @Nullable String sort,
+                                                    boolean descending, int page, int pageSize) {
+    final TimeWindow window = TimeWindow.of(sinceMinutes, null, DEFAULT_TOP_WINDOW_MINUTES);
+    return getMetricSeriesTable(appName, name, window, env, search, sort, descending, page, pageSize);
+  }
+
+  /**
+   * All-label timer statistics over an absolute window, without the top-series
+   * limit or synthetic "Other" aggregation used by the chart.
+   */
+  public MetricSeriesTablePage getMetricSeriesTable(String appName, String name,
+                                                    @Nullable String env, Instant from, Instant to,
+                                                    @Nullable String search, @Nullable String sort,
+                                                    boolean descending, int page, int pageSize) {
+    return getMetricSeriesTable(appName, name, TimeWindow.between(from, to), env,
+      search, sort, descending, page, pageSize);
+  }
+
+  private MetricSeriesTablePage getMetricSeriesTable(String appName, String name, TimeWindow window,
+                                                     @Nullable String env, @Nullable String search,
+                                                     @Nullable String sort, boolean descending,
+                                                     int page, int pageSize) {
+    if (isBlank(name)) {
+      throw new BadRequestException("A metric name is required");
+    }
+    if (page < 0) {
+      throw new BadRequestException("Page must be zero or greater");
+    }
+    if (pageSize < 1 || pageSize > 100) {
+      throw new BadRequestException("Page size must be between 1 and 100");
+    }
+    final String normalizedSearch = search == null ? "" : search.trim();
+    if (normalizedSearch.length() > 200) {
+      throw new BadRequestException("Search must be 200 characters or fewer");
+    }
+    final String sortKey = resolveSeriesTableSort(sort);
+    if (!window.hasFrom()) {
+      throw new BadRequestException("A positive time window is required");
+    }
+
+    final DApp app = findApp(appName);
+    if (app == null) {
+      return emptyMetricSeriesTablePage(page, pageSize);
+    }
+    final Integer envId = resolveEnvId(env);
+    if (envFilterMisses(env, envId)) {
+      return emptyMetricSeriesTablePage(page, pageSize);
+    }
+
+    final String table = timeseriesTableFor(window.minutes());
+    final String sortExpression = switch (sortKey) {
+      case "label" -> "display_label";
+      case "count", "rate" -> "exec_count";
+      case "mean" -> "mean_micros";
+      case "max" -> "max_micros";
+      default -> "total_micros";
+    };
+    final String direction = descending ? "desc" : "asc";
+    final String sql = ("""
+      with grouped as (
+        select
+          nullif(m.tags ->> 'label', '')              as label,
+          count(distinct m.id)::bigint                as hash_count,
+          coalesce(sum(t.count), 0)::bigint           as exec_count,
+          coalesce(sum(t.total), 0)::bigint           as total_micros,
+          coalesce(max(t.max), 0)::bigint             as max_micros
+        from %s t
+        join ebean_insight.app_metric m on m.id = t.metric_id
+        where t.event_time > :from
+      """
+      + (window.hasTo() ? "  and t.event_time <= :to\n" : "")
+      + """
+          and m.app_id = :appId
+          and m.name = :name
+      """
+      + (envId == null ? "" : "  and t.env_id = :envId\n")
+      + """
+        group by label
+      ), filtered as materialized (
+        select
+          label,
+          coalesce(label, '(unlabelled)') as display_label,
+          hash_count,
+          exec_count,
+          total_micros,
+          case when exec_count = 0 then 0
+               else floor(total_micros::numeric / exec_count)::bigint end as mean_micros,
+          max_micros
+        from grouped
+        where :search = ''
+           or strpos(lower(coalesce(label, '(unlabelled)')), lower(:search)) > 0
+      ), summary as (
+        select
+          count(*)::bigint                        as total_rows,
+          coalesce(max(total_micros), 0)::bigint as max_total_micros,
+          coalesce(max(exec_count), 0)::bigint   as max_count,
+          coalesce(max(mean_micros), 0)::bigint  as max_mean_micros,
+          coalesce(max(max_micros), 0)::bigint   as max_max_micros
+        from filtered
+      ), page_rows as (
+        select
+          label,
+          hash_count,
+          exec_count,
+          total_micros,
+          mean_micros,
+          max_micros,
+          row_number() over (
+            order by %s %s nulls last, display_label asc, label asc nulls last
+          ) as page_row
+        from filtered
+        order by %s %s nulls last, display_label asc, label asc nulls last
+        limit :pageSize offset :offset
+      )
+      select
+        page_rows.label,
+        page_rows.hash_count,
+        page_rows.exec_count,
+        page_rows.total_micros,
+        page_rows.mean_micros,
+        page_rows.max_micros,
+        page_rows.page_row,
+        summary.total_rows,
+        summary.max_total_micros,
+        summary.max_count,
+        summary.max_mean_micros,
+        summary.max_max_micros
+      from summary
+      left join page_rows on true
+      order by page_rows.page_row
+      """).formatted(table, sortExpression, direction, sortExpression, direction);
+
+    final SqlQuery query = DB.sqlQuery(sql)
+      .setLabel("getMetricSeriesTable")
+      .setParameter("from", window.from())
+      .setParameter("appId", app.getId())
+      .setParameter("name", name)
+      .setParameter("search", normalizedSearch.toLowerCase(Locale.ROOT))
+      .setParameter("pageSize", pageSize)
+      .setParameter("offset", (long) page * pageSize);
+    if (window.hasTo()) {
+      query.setParameter("to", window.to());
+    }
+    if (envId != null) {
+      query.setParameter("envId", envId);
+    }
+    final List<MetricSeriesTableSqlRow> result =
+      query.mapTo((rs, _) -> toMetricSeriesTableSqlRow(rs)).findList();
+    final MetricSeriesTableSqlRow summary = result.get(0);
+    final List<MetricSeriesTableRow> rows = result.stream()
+      .filter(MetricSeriesTableSqlRow::hasSeries)
+      .map(row -> new MetricSeriesTableRow(row.label(), row.hashCount(), row.count(),
+        row.totalMicros(), row.meanMicros(), row.maxMicros()))
+      .toList();
+    return new MetricSeriesTablePage(rows, summary.totalRows(), summary.maxTotalMicros(),
+      summary.maxCount(), summary.maxMeanMicros(), summary.maxMaxMicros(), page, pageSize);
+  }
+
+  private static MetricSeriesTableSqlRow toMetricSeriesTableSqlRow(ResultSet rs) throws SQLException {
+    rs.getLong("page_row");
+    final boolean hasSeries = !rs.wasNull();
+    return new MetricSeriesTableSqlRow(
+      hasSeries,
+      rs.getString("label"),
+      rs.getLong("hash_count"),
+      rs.getLong("exec_count"),
+      rs.getLong("total_micros"),
+      rs.getLong("mean_micros"),
+      rs.getLong("max_micros"),
+      rs.getLong("total_rows"),
+      rs.getLong("max_total_micros"),
+      rs.getLong("max_count"),
+      rs.getLong("max_mean_micros"),
+      rs.getLong("max_max_micros"));
+  }
+
+  private static MetricSeriesTablePage emptyMetricSeriesTablePage(int page, int pageSize) {
+    return new MetricSeriesTablePage(List.of(), 0L, 0L, 0L, 0L, 0L, page, pageSize);
   }
 
   /**
@@ -2368,6 +2574,18 @@ public final class V1QueryService {
     if (!ORDER_BY_KEYS.contains(key)) {
       throw new BadRequestException(
         "Unknown orderBy '" + orderBy + "'; expected one of " + ORDER_BY_KEYS);
+    }
+    return key;
+  }
+
+  private static String resolveSeriesTableSort(@Nullable String sort) {
+    if (sort == null || sort.isBlank()) {
+      return "total";
+    }
+    final String key = sort.trim().toLowerCase(Locale.ROOT);
+    if (!Set.of("label", "total", "count", "rate", "mean", "max").contains(key)) {
+      throw new BadRequestException(
+        "Unknown series table sort '" + sort + "'; expected label, total, count, rate, mean, or max");
     }
     return key;
   }

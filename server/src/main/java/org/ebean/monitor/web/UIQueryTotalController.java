@@ -16,6 +16,8 @@ import org.ebean.monitor.v1.model.MetricTimeseriesTop;
 import org.ebean.monitor.v1.model.MetricTimeseriesTopSeries;
 import org.ebean.monitor.v1.model.TopGroup;
 import org.ebean.monitor.v1.web.V1QueryService;
+import org.ebean.monitor.v1.web.V1QueryService.MetricSeriesTablePage;
+import org.ebean.monitor.v1.web.V1QueryService.MetricSeriesTableRow;
 import org.ebean.monitor.web.RangeOptions.RangeOption;
 import org.ebean.monitor.web.view.Breadcrumb;
 import org.ebean.monitor.web.view.Option;
@@ -45,10 +47,10 @@ import java.util.Map;
  * {@code /v1/apps/{app}/metrics/top/timeseries} data.
  * <p>
  * Filters (app/env/range) are plain dropdowns that resubmit via a full page
- * GET with query params — no HTMX partial-swap wiring yet. Each non-"Other"
- * query label (legend row or stacked-bar segment) links through to
- * {@link UIMetricDetailController} for a per-label drill-down; optional timer
- * dashboards intentionally do not provide detail links.
+ * GET with query params; series-table requests update the table body from JSON.
+ * Each non-"Other" query label (legend row or stacked-bar segment) links
+ * through to {@link UIMetricDetailController} for a per-label drill-down;
+ * optional timer dashboards intentionally do not provide detail links.
  */
 @Html
 @Controller
@@ -57,11 +59,13 @@ public class UIQueryTotalController {
 
   /** Metric family backing the Datadog `ebean.query.total` reference chart. */
   private static final String METRIC_NAME = "ebean.query";
+  private static final String WEB_API_METRIC_NAME = "web.api";
   private static final String DML_METRIC_NAME = "ebean.dml";
   private static final String APP_COMPONENT_METRIC_NAME = "app.component";
 
   /** Top-N stacked series before the remainder is folded into "Other". */
   private static final int SERIES_LIMIT = 15;
+  private static final int SERIES_TABLE_PAGE_SIZE = 50;
   private static final String JVM_MEMORY_RSS = "jvm.memory.process.vmrss";
   private static final String JVM_MEMORY_HEAP = "jvm.memory.heap.used";
   private static final String JVM_CPU_USER_MICROS = "jvm.cgroup.cpu.userMicros";
@@ -100,6 +104,18 @@ public class UIQueryTotalController {
   @Json
   record LegendData(String color, String group, String totalMs, String executions, String avgMs,
                     String rate, String hashCount, boolean other, @Nullable String detailUrl) {
+  }
+
+  @Json
+  record SeriesTableRow(@Nullable String label, long hashCount, long count,
+                        long totalMicros, long meanMicros, long maxMicros,
+                        @Nullable String detailUrl) {
+  }
+
+  @Json
+  record SeriesTableData(List<SeriesTableRow> rows, long totalRows, int page, int pageSize,
+                         long maxTotalMicros, long maxCount, long maxMeanMicros, long maxMaxMicros,
+                         double elapsedSeconds) {
   }
 
   public UIQueryTotalController(V1QueryService service) {
@@ -157,6 +173,88 @@ public class UIQueryTotalController {
       : dashboardData(request.app(), request.env(), request.range(),
         request.from(), request.to(), request.windowMinutes(), request.compactLayout(), request.timezone());
     return chartJsonb.type(QueryTotalData.class).toJson(data).replace("<", "\\u003c");
+  }
+
+  @Get("top/table")
+  @Produces("application/json")
+  String queryTotalTable(@QueryParam("app") @Nullable String appParam,
+                         @QueryParam("env") @Nullable String envParam,
+                         @QueryParam("range") @Nullable String rangeParam,
+                         @QueryParam("from") @Nullable String fromParam,
+                         @QueryParam("to") @Nullable String toParam,
+                         @QueryParam("tz") @Nullable String timezoneParam,
+                         @QueryParam("family") @Nullable String familyParam,
+                         @QueryParam("search") @Nullable String searchParam,
+                         @QueryParam("sort") @Nullable String sortParam,
+                         @QueryParam("direction") @Nullable String directionParam,
+                         @QueryParam("page") @Nullable Integer pageParam) {
+    final SeriesTableData data = seriesTableData(appParam, envParam, rangeParam, fromParam,
+      toParam, timezoneParam, familyParam, searchParam, sortParam, directionParam, pageParam);
+    return chartJsonb.type(SeriesTableData.class).toJson(data).replace("<", "\\u003c");
+  }
+
+  private SeriesTableData seriesTableData(@Nullable String appParam,
+                                          @Nullable String envParam,
+                                          @Nullable String rangeParam,
+                                          @Nullable String fromParam,
+                                          @Nullable String toParam,
+                                          @Nullable String timezoneParam,
+                                          @Nullable String familyParam,
+                                          @Nullable String searchParam,
+                                          @Nullable String sortParam,
+                                          @Nullable String directionParam,
+                                          @Nullable Integer pageParam) {
+    final String selectedApp = appParam != null && !appParam.isBlank()
+      ? appParam
+      : service.listApps(null, null).stream().findFirst().map(App::name).orElse("");
+    final String selectedEnv = envParam == null ? "" : envParam;
+    final QueryTotalRequest request = queryTotalRequest(
+      selectedApp, selectedEnv, rangeParam, fromParam, toParam, null, timezoneParam);
+    final String family = familyParam == null ? "query" : familyParam;
+    final String metricName = switch (family) {
+      case "query" -> METRIC_NAME;
+      case "web-api" -> WEB_API_METRIC_NAME;
+      case "app-component" -> APP_COMPONENT_METRIC_NAME;
+      case "dml" -> DML_METRIC_NAME;
+      default -> throw new BadRequestException("Unknown series table family '" + family + "'");
+    };
+    final String sort = sortParam == null || sortParam.isBlank()
+      ? "total" : sortParam.trim().toLowerCase(Locale.ROOT);
+    final String defaultDirection = "label".equals(sort) ? "asc" : "desc";
+    final String direction = directionParam == null || directionParam.isBlank()
+      ? defaultDirection : directionParam.trim().toLowerCase(Locale.ROOT);
+    final boolean descending = switch (direction) {
+      case "asc" -> false;
+      case "desc" -> true;
+      default -> throw new BadRequestException("Direction must be 'asc' or 'desc'");
+    };
+    final int page = pageParam == null ? 0 : pageParam;
+    final String env = selectedEnv.isBlank() ? null : selectedEnv;
+    final MetricSeriesTablePage result = request.from() == null
+      ? service.getMetricSeriesTable(selectedApp, metricName, request.windowMinutes(), env,
+        searchParam, sort, descending, page, SERIES_TABLE_PAGE_SIZE)
+      : service.getMetricSeriesTable(selectedApp, metricName, env, request.from(), request.to(),
+        searchParam, sort, descending, page, SERIES_TABLE_PAGE_SIZE);
+    final double elapsedSeconds = request.from() == null
+      ? request.windowMinutes() * 60d
+      : Duration.between(request.from(), request.to()).toMillis() / 1000d;
+    final List<SeriesTableRow> rows = result.rows().stream()
+      .map(row -> toSeriesTableRow(row, family, request))
+      .toList();
+    final SeriesTableData data = new SeriesTableData(rows, result.totalRows(), result.page(),
+      result.pageSize(), result.maxTotalMicros(), result.maxCount(), result.maxMeanMicros(),
+      result.maxMaxMicros(), elapsedSeconds);
+    return data;
+  }
+
+  private static SeriesTableRow toSeriesTableRow(MetricSeriesTableRow row, String family,
+                                                  QueryTotalRequest request) {
+    final String detailUrl = "query".equals(family) && row.label() != null && !row.label().isBlank()
+      ? metricDetailUrl(request.app(), request.env(), request.range().key(), row.label(),
+        request.from(), request.to(), request.timezone())
+      : null;
+    return new SeriesTableRow(row.label(), row.hashCount(), row.count(), row.totalMicros(),
+      row.meanMicros(), row.maxMicros(), detailUrl);
   }
 
   private QueryTotalRequest queryTotalRequest(String app, String env, @Nullable String rangeParam,

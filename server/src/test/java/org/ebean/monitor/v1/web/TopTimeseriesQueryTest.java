@@ -10,6 +10,7 @@ import org.ebean.monitor.v1.MetricsApi;
 import org.ebean.monitor.v1.model.MetricTimeBucket;
 import org.ebean.monitor.v1.model.MetricTimeseriesTop;
 import org.ebean.monitor.v1.model.MetricTimeseriesTopSeries;
+import org.ebean.monitor.v1.web.V1QueryService.MetricSeriesTableRow;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -43,6 +44,9 @@ class TopTimeseriesQueryTest {
 
   @Inject
   Database database;
+
+  @Inject
+  V1QueryService queryService;
 
   private final Instant eventMinute = Instant.now().truncatedTo(ChronoUnit.MINUTES);
   private final Instant prevMinute = eventMinute.minus(1, ChronoUnit.MINUTES);
@@ -139,6 +143,15 @@ class TopTimeseriesQueryTest {
       .contains("Customer.insert", "Order.update");
     assertThat(result.series()).allSatisfy(series ->
       assertThat(series.other()).isFalse());
+
+    final HttpResponse<String> tableResponse = httpClient.request()
+      .path("ux/top/table?app=" + APP + "&env=" + ENV + "&range=1h&family=dml")
+      .GET()
+      .asString();
+    assertThat(tableResponse.statusCode()).isEqualTo(200);
+    assertThat(tableResponse.body())
+      .contains("\"label\":\"Customer.insert\"")
+      .contains("\"label\":\"Order.update\"");
   }
 
   @Test
@@ -161,6 +174,86 @@ class TopTimeseriesQueryTest {
       assertThat(series.other()).isFalse());
   }
 
+  @Test
+  @Order(6)
+  void seriesTableIncludesAllLabelsAndSupportsSearchAndPagination() {
+    final String tableApp = APP + "-table-" + System.nanoTime();
+    final Instant tableEventMinute = Instant.now().truncatedTo(ChronoUnit.MINUTES);
+    final Instant tablePrevMinute = tableEventMinute.minus(1, ChronoUnit.MINUTES);
+    seedMinute(tableApp, ENV, tablePrevMinute, """
+      {"name": "ebean.query", "tags": "label:X", "count": 1, "total": 1000, "mean": 1000, "max": 1000, "hash": "tableserieshash00000000000000000001"},
+      {"name": "ebean.query", "tags": "label:Y", "count": 1, "total": 800, "mean": 800, "max": 800, "hash": "tableserieshash00000000000000000002"},
+      {"name": "ebean.query", "tags": "label:Z", "count": 1, "total": 100, "mean": 100, "max": 100, "hash": "tableserieshash00000000000000000003"},
+      {"name": "ebean.query", "tags": "label:W", "count": 1, "total": 50, "mean": 50, "max": 50, "hash": "tableserieshash00000000000000000004"},
+      {"name": "app.component", "tags": "label:OrderService.placeOrder", "count": 1, "total": 600, "mean": 600, "max": 600, "hash": "tablecomponentshash000000000000000001"},
+      {"name": "app.component", "tags": "label:BillingClient.charge", "count": 1, "total": 300, "mean": 300, "max": 300, "hash": "tablecomponentshash000000000000000002"}
+      """);
+    seedMinute(tableApp, ENV, tableEventMinute, """
+      {"name": "ebean.query", "tags": "label:X", "count": 1, "total": 1200, "mean": 1200, "max": 1200, "hash": "tableserieshash00000000000000000001"},
+      {"name": "ebean.query", "tags": "label:Y", "count": 1, "total": 900, "mean": 900, "max": 900, "hash": "tableserieshash00000000000000000002"},
+      {"name": "ebean.query", "tags": "", "count": 1, "total": 40, "mean": 40, "max": 40, "hash": "tableserieshash00000000000000000005"},
+      {"name": "app.component", "tags": "label:OrderService.placeOrder", "count": 1, "total": 500, "mean": 500, "max": 500, "hash": "tablecomponentshash000000000000000001"},
+      {"name": "app.component", "tags": "label:BillingClient.charge", "count": 1, "total": 400, "mean": 400, "max": 400, "hash": "tablecomponentshash000000000000000002"}
+      """);
+    awaitTimedEntries(tableApp, "ebean.query", 7);
+    awaitTimedEntries(tableApp, "app.component", 4);
+    new Rollup(database, tablePrevMinute).rollup();
+    new Rollup(database, tableEventMinute).rollup();
+    final Instant from = tablePrevMinute.minus(1, ChronoUnit.MINUTES);
+    final Instant to = tableEventMinute.plus(1, ChronoUnit.MINUTES);
+
+    final var firstPage = queryService.getMetricSeriesTable(
+      tableApp, "ebean.query", ENV, from, to, null, "total", true, 0, 2);
+
+    assertThat(firstPage.totalRows()).isEqualTo(5L);
+    assertThat(firstPage.rows()).extracting(MetricSeriesTableRow::label)
+      .containsExactly("X", "Y");
+    assertThat(firstPage.maxTotalMicros()).isEqualTo(2200L);
+    assertThat(firstPage.maxCount()).isEqualTo(2L);
+
+    final var countSorted = queryService.getMetricSeriesTable(
+      tableApp, "ebean.query", ENV, from, to, null, "count", true, 0, 2);
+    assertThat(countSorted.rows()).extracting(MetricSeriesTableRow::label)
+      .containsExactly("X", "Y");
+
+    final var fourHourPage = queryService.getMetricSeriesTable(
+      tableApp, "ebean.query", 240L, ENV, null, "total", true, 0, 50);
+    assertThat(fourHourPage.totalRows()).isEqualTo(5L);
+    assertThat(fourHourPage.maxTotalMicros()).isEqualTo(2200L);
+
+    final var lastPage = queryService.getMetricSeriesTable(
+      tableApp, "ebean.query", ENV, from, to, null, "total", true, 2, 2);
+    assertThat(lastPage.rows()).extracting(MetricSeriesTableRow::label)
+      .containsExactly((String) null);
+
+    final var search = queryService.getMetricSeriesTable(
+      tableApp, "ebean.query", ENV, from, to, "z", "total", true, 0, 2);
+    assertThat(search.totalRows()).isEqualTo(1L);
+    assertThat(search.rows()).extracting(MetricSeriesTableRow::label)
+      .containsExactly("Z");
+
+    final HttpResponse<String> response = httpClient.request()
+      .path("ux/top/table?app=" + tableApp + "&env=" + ENV
+        + "&range=1h&family=query&search=z&sort=total&direction=desc&page=0")
+      .GET()
+      .asString();
+    assertThat(response.statusCode()).isEqualTo(200);
+    assertThat(response.body())
+      .contains("\"totalRows\":1")
+      .contains("\"label\":\"Z\"")
+      .contains("\"detailUrl\":\"/ux/metric-detail?");
+
+    final HttpResponse<String> componentResponse = httpClient.request()
+      .path("ux/top/table?app=" + tableApp + "&env=" + ENV
+        + "&range=1h&family=app-component&sort=total&direction=desc&page=0")
+      .GET()
+      .asString();
+    assertThat(componentResponse.statusCode()).isEqualTo(200);
+    assertThat(componentResponse.body())
+      .contains("\"label\":\"OrderService.placeOrder\"")
+      .contains("\"label\":\"BillingClient.charge\"");
+  }
+
   private static long bucketTotal(MetricTimeseriesTopSeries series, Instant bucketTime) {
     return series.buckets().stream()
       .filter(b -> b.eventTime().equals(bucketTime))
@@ -170,6 +263,10 @@ class TopTimeseriesQueryTest {
   }
 
   private void seedMinute(Instant minute, String metricsJson) {
+    seedMinute(APP, ENV, minute, metricsJson);
+  }
+
+  private void seedMinute(String app, String environment, Instant minute, String metricsJson) {
     final String payload = """
       {
         "v": 2,
@@ -185,7 +282,7 @@ class TopTimeseriesQueryTest {
           }
         ]
       }
-      """.formatted(minute.toEpochMilli(), APP, ENV, metricsJson);
+      """.formatted(minute.toEpochMilli(), app, environment, metricsJson);
     final HttpResponse<String> res = httpClient.request()
       .path("api/ingest/metrics")
       .header("Content-Type", "application/json")

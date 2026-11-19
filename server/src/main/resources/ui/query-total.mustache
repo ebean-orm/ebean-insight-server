@@ -93,7 +93,7 @@
     </form>
   {{/filters}}
   {{$body}}
-    <link rel="stylesheet" href="/static/query-total.css?v=44">
+    <link rel="stylesheet" href="/static/query-total.css?v=56">
 
     {{^hasData}}
       <article>
@@ -109,9 +109,12 @@
             <header class="chart-section-header" role="toolbar" aria-label="Web API total chart controls">
               <span class="chart-title">Web API total time <small id="web-api-total-rate" class="chart-rate-centered">{{webApiRate}} req/s&nbsp;&nbsp;load: {{webApiLoad}}</small></span>
               <button type="button" class="chart-expand-btn" data-chart-zoom="web-api-total" aria-label="Expand Web API total time chart" title="Expand chart">↗</button>
-              <span class="chart-control-group chart-mode-tabs chart-controls-start">
+              <span class="chart-control-group chart-mode-tabs chart-controls-start
+                           series-chart-controls">
                 <button type="button" id="web-api-chart-type-bar" class="chart-type-btn" aria-pressed="true">Bars</button>
                 <button type="button" id="web-api-chart-type-line" class="chart-type-btn" aria-pressed="false">Lines</button>
+                <button type="button" class="chart-type-btn series-table-toggle"
+                        aria-expanded="false" aria-controls="web-api-series-table">Table</button>
               </span>
             </header>
             <div class="chartjs-wrap">
@@ -168,6 +171,12 @@
             </div>
           </article>
         </div>
+        <article class="query-total-section series-table-view" id="web-api-series-table"
+                 data-series-table data-family="web-api" data-view-param="webTotalView"
+                 data-count-label="Requests" data-rate-label="req/s"
+                 aria-label="Web API total time series table" hidden>
+          <header class="series-table-panel-header">Web API total time series</header>
+        </article>
       {{/webApiDashboard}}
 
       {{#appComponentDashboard}}
@@ -176,9 +185,11 @@
             <header class="chart-section-header" role="toolbar" aria-label="Application component total chart controls">
               <span class="chart-title">Application component total time <small id="component-total-rate" class="chart-rate-centered">{{appComponentRate}} calls/s&nbsp;&nbsp;load: {{appComponentLoad}}</small></span>
               <button type="button" class="chart-expand-btn" data-chart-zoom="component-total" aria-label="Expand application component total time chart" title="Expand chart">↗</button>
-              <span class="chart-control-group chart-mode-tabs chart-controls-start">
+              <span class="chart-control-group chart-mode-tabs chart-controls-start series-chart-controls">
                 <button type="button" id="component-chart-type-bar" class="chart-type-btn" aria-pressed="true">Bars</button>
                 <button type="button" id="component-chart-type-line" class="chart-type-btn" aria-pressed="false">Lines</button>
+                <button type="button" class="chart-type-btn series-table-toggle"
+                        aria-expanded="false" aria-controls="app-component-series-table">Table</button>
               </span>
             </header>
             <div class="chartjs-wrap">
@@ -235,17 +246,26 @@
             </div>
           </article>
         </div>
+        <article class="query-total-section series-table-view" id="app-component-series-table"
+                 data-series-table data-family="app-component" data-view-param="componentTotalView"
+                 data-count-label="Calls" data-rate-label="calls/s"
+                 aria-label="Application component total time series table" hidden>
+          <header class="series-table-panel-header">Application component total time series</header>
+        </article>
       {{/appComponentDashboard}}
 
       <div class="top-primary-grid">
         <div class="top-primary-column">
           <article class="query-total-section" data-chart-id="query-total">
-            <header class="chart-section-header">
+            <header class="chart-section-header" role="toolbar" aria-label="Query total time chart controls">
               <span class="chart-title">Query total time <small id="query-total-rate" class="chart-rate-centered">{{queryRate}} qry/s&nbsp;&nbsp;load: {{queryLoad}}</small></span>
               <button type="button" class="chart-expand-btn" data-chart-zoom="query-total" aria-label="Expand query total time chart" title="Expand chart">↗</button>
-              <span class="chart-control-group chart-mode-tabs chart-controls-start">
+              <span class="chart-control-group chart-mode-tabs chart-controls-start
+                           series-chart-controls">
                 <button type="button" id="chart-type-bar" class="chart-type-btn" aria-pressed="true">Bars</button>
                 <button type="button" id="chart-type-line" class="chart-type-btn" aria-pressed="false">Lines</button>
+                <button type="button" class="chart-type-btn series-table-toggle"
+                        aria-expanded="false" aria-controls="query-series-table">Table</button>
               </span>
             </header>
             <div class="chartjs-wrap">
@@ -318,58 +338,13 @@
           </div>
         </div>
 
-        {{^compactLayout}}
-          <details class="legend-toggle legend-toggle-wide">
-          <summary>
-            <span class="legend-toggle-icon" aria-hidden="true">
-              <svg class="legend-icon-eye" viewBox="0 0 24 24" focusable="false">
-                <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"></path>
-                <circle cx="12" cy="12" r="2.5"></circle>
-              </svg>
-              <svg class="legend-icon-eye-off" viewBox="0 0 24 24" focusable="false">
-                <path d="m3 3 18 18"></path>
-                <path d="M10.6 6.2A11.8 11.8 0 0 1 12 6c6.5 0 10 6 10 6a18 18 0 0 1-3.1 3.7"></path>
-                <path d="M6.2 6.2C3.5 8.3 2 12 2 12s3.5 6 10 6c1.4 0 2.7-.3 3.8-.8"></path>
-              </svg>
-            </span>
-            Legend
-          </summary>
-          <table class="legend-table">
-            <thead>
-              <tr>
-                <th></th>
-                <th>Group</th>
-                <th>Total (ms)</th>
-                <th>Executions</th>
-                <th>Rate (/s)</th>
-                <th>Avg (ms)</th>
-                <th>Distinct queries</th>
-              </tr>
-            </thead>
-            <tbody>
-              {{#legend}}
-                <tr>
-                  <td>
-                    <button type="button" class="legend-series-toggle"
-                            data-label="{{group}}" aria-pressed="true">
-                      <span class="legend-swatch" style="background-color: {{color}};"></span>
-                    </button>
-                  </td>
-                  <td>
-                    {{^other}}<a href="{{detailUrl}}">{{group}}</a>{{/other}}
-                    {{#other}}{{group}}{{/other}}
-                  </td>
-                  <td>{{totalMs}}</td>
-                  <td>{{executions}}</td>
-                  <td>{{rate}}</td>
-                  <td>{{avgMs}}</td>
-                  <td>{{hashCount}}</td>
-                </tr>
-              {{/legend}}
-            </tbody>
-          </table>
-          </details>
-        {{/compactLayout}}
+        <article class="query-total-section series-table-view" id="query-series-table"
+                 data-series-table data-family="query" data-view-param="queryTotalView"
+                 data-count-label="Executions" data-rate-label="qry/s" data-hash-count="true"
+                 aria-label="Query total time series table" hidden>
+          <header class="series-table-panel-header">Query total time series</header>
+        </article>
+
       </div>
 
       {{#showTopRankings}}
@@ -398,6 +373,8 @@
               <span class="chart-control-group chart-mode-tabs chart-controls-start">
                 <button type="button" id="dml-chart-type-bar" class="chart-type-btn" aria-pressed="true">Bars</button>
                 <button type="button" id="dml-chart-type-line" class="chart-type-btn" aria-pressed="false">Lines</button>
+                <button type="button" class="chart-type-btn series-table-toggle"
+                        aria-expanded="false" aria-controls="dml-series-table">Table</button>
               </span>
             </header>
             <div class="chartjs-wrap">
@@ -454,6 +431,12 @@
             </div>
           </article>
         </div>
+        <article class="query-total-section series-table-view" id="dml-series-table"
+                 data-series-table data-family="dml" data-view-param="dmlTotalView"
+                 data-count-label="Operations" data-rate-label="op/s"
+                 aria-label="DML total time series table" hidden>
+          <header class="series-table-panel-header">DML total time series</header>
+        </article>
       {{/dmlDashboard}}
 
       {{#datasourcePoolDashboard}}
@@ -529,12 +512,13 @@
     <script type="application/json" id="component-count-data">{{{appComponentCountJson}}}</script>
     <script src="/static/vendor/chart.umd.min.js"></script>
     <script src="/static/dashboard-charts.js?v=20"></script>
-    <script src="/static/query-total.js?v=29"></script>
+    <script src="/static/query-total.js?v=33"></script>
     <script src="/static/datasource-pool.js?v=10"></script>
     <script src="/static/datasource-pool-timing.js?v=10"></script>
     <script src="/static/web-api.js?v=14"></script>
     <script src="/static/web-api.js?v=14" data-dashboard="dml"></script>
     <script src="/static/web-api.js?v=14" data-dashboard="component"></script>
+    <script src="/static/series-table.js?v=6"></script>
     <script src="/static/jvm.js?v=33"></script>
   {{/body}}
 {{/fragments/layout}}
