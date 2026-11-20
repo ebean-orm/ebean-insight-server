@@ -20,6 +20,12 @@
       return;
     }
 
+    const zoomChartId = document.body.classList.contains('zoomed-chart')
+      ? new URLSearchParams(window.location.search).get('zoom')
+      : null;
+    const chartId = toggleButton.closest('[data-chart-id]')?.dataset.chartId;
+    const isZoomedChart = zoomChartId !== null && zoomChartId === chartId;
+
     const panelTitle = panelHeader.textContent.trim();
     const title = document.createElement('span');
     title.textContent = panelTitle;
@@ -150,6 +156,9 @@
       active = tableMode;
       root.hidden = !tableMode;
       toggleButton.setAttribute('aria-expanded', String(tableMode));
+      if (isZoomedChart) {
+        document.body.classList.toggle('zoomed-series-table', tableMode);
+      }
       if (updateUrl) {
         const url = new URL(window.location.href);
         if (tableMode) {
@@ -377,6 +386,8 @@
 
     updateSortHeaders();
     const initialUrlState = new URLSearchParams(window.location.search);
-    updateMode(initialUrlState.get(viewParam) === 'table', false);
+    const initialTableMode = initialUrlState.get(viewParam) === 'table'
+      && (zoomChartId === null || isZoomedChart);
+    updateMode(initialTableMode, false);
   });
 }());

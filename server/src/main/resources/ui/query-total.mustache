@@ -40,60 +40,11 @@
         </span>
         <span id="auto-refresh-status" class="auto-refresh-status" hidden></span>
       </label>
-      <button type="button" id="layout-toggle" class="layout-toggle" aria-pressed="{{compactLayout}}"
-              aria-label="{{#compactLayout}}Use normal layout{{/compactLayout}}{{^compactLayout}}Use compact layout{{/compactLayout}}"
-              title="{{#compactLayout}}Use normal layout{{/compactLayout}}{{^compactLayout}}Use compact layout{{/compactLayout}}">
-        {{#compactLayout}}
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <rect x="3" y="3" width="18" height="4" rx="1"></rect>
-            <rect x="3" y="10" width="18" height="4" rx="1"></rect>
-            <rect x="3" y="17" width="18" height="4" rx="1"></rect>
-          </svg>
-        {{/compactLayout}}
-        {{^compactLayout}}
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <rect x="3" y="3" width="18" height="3" rx="1"></rect>
-            <rect x="3" y="8" width="18" height="3" rx="1"></rect>
-            <rect x="3" y="13" width="18" height="3" rx="1"></rect>
-            <rect x="3" y="18" width="18" height="3" rx="1"></rect>
-          </svg>
-        {{/compactLayout}}
-      </button>
-      <button type="button" id="all-chart-labels-toggle"
-              class="layout-toggle legend-label-global-toggle" aria-pressed="false"
-              aria-label="Show series names on all charts"
-              title="Show series names on all charts" hidden>
-        <span class="legend-label-icon" aria-hidden="true">A</span>
-      </button>
-      {{#compactLayout}}
-        <button type="button" id="compact-legends-toggle" class="layout-toggle" aria-pressed="false"
-                aria-label="Show legends" title="Show legends">
-          <svg class="legend-key-icon" viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="5" cy="6" r="1.5"></circle>
-            <circle cx="5" cy="12" r="1.5"></circle>
-            <circle cx="5" cy="18" r="1.5"></circle>
-            <path d="M9 6h10"></path>
-            <path d="M9 12h10"></path>
-            <path d="M9 18h10"></path>
-          </svg>
-        </button>
-        <button type="button" id="compact-chart-controls-toggle" class="layout-toggle" aria-pressed="false"
-                aria-label="Show chart controls" title="Show chart controls">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M4 6h16"></path>
-            <path d="M4 12h16"></path>
-            <path d="M4 18h16"></path>
-            <circle cx="9" cy="6" r="2"></circle>
-            <circle cx="15" cy="12" r="2"></circle>
-            <circle cx="7" cy="18" r="2"></circle>
-          </svg>
-        </button>
-      {{/compactLayout}}
       <noscript><button type="submit">Apply</button></noscript>
     </form>
   {{/filters}}
   {{$body}}
-    <link rel="stylesheet" href="/static/query-total.css?v=56">
+    <link rel="stylesheet" href="/static/query-total.css?v=60">
 
     {{^hasData}}
       <article>
@@ -103,6 +54,63 @@
 
     {{#hasData}}
       <div class="top-dashboard{{#compactLayout}} top-dashboard-compact compact-chart-controls-hidden{{/compactLayout}}">
+        <div class="dashboard-view-toolbar" role="toolbar" aria-label="Dashboard view controls">
+          <button type="button" id="layout-toggle" class="layout-toggle" aria-pressed="{{compactLayout}}"
+                  aria-label="{{#compactLayout}}Use normal layout{{/compactLayout}}{{^compactLayout}}Use compact layout{{/compactLayout}}"
+                  title="{{#compactLayout}}Use normal layout{{/compactLayout}}{{^compactLayout}}Use compact layout{{/compactLayout}}">
+            {{#compactLayout}}
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="2" y="2" width="5" height="5" rx="1"></rect>
+                <rect x="9" y="2" width="5" height="5" rx="1"></rect>
+                <rect x="17" y="2" width="5" height="5" rx="1"></rect>
+                <rect x="2" y="9" width="5" height="5" rx="1"></rect>
+                <rect x="9" y="9" width="5" height="5" rx="1"></rect>
+                <rect x="17" y="9" width="5" height="5" rx="1"></rect>
+                <rect x="2" y="17" width="5" height="5" rx="1"></rect>
+                <rect x="9" y="17" width="5" height="5" rx="1"></rect>
+                <rect x="17" y="17" width="5" height="5" rx="1"></rect>
+              </svg>
+            {{/compactLayout}}
+            {{^compactLayout}}
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="2" y="2" width="9" height="9" rx="1"></rect>
+                <rect x="13" y="2" width="9" height="9" rx="1"></rect>
+                <rect x="2" y="13" width="9" height="9" rx="1"></rect>
+                <rect x="13" y="13" width="9" height="9" rx="1"></rect>
+              </svg>
+            {{/compactLayout}}
+          </button>
+          {{#compactLayout}}
+            <button type="button" id="compact-chart-controls-toggle" class="layout-toggle" aria-pressed="false"
+                    aria-label="Show chart controls" title="Show chart controls">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 6h16"></path>
+                <path d="M4 12h16"></path>
+                <path d="M4 18h16"></path>
+                <circle cx="9" cy="6" r="2"></circle>
+                <circle cx="15" cy="12" r="2"></circle>
+                <circle cx="7" cy="18" r="2"></circle>
+              </svg>
+            </button>
+            <button type="button" id="compact-legends-toggle" class="layout-toggle" aria-pressed="false"
+                    aria-label="Show legends" title="Show legends">
+              <svg class="legend-key-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="5" cy="6" r="1.5"></circle>
+                <circle cx="5" cy="12" r="1.5"></circle>
+                <circle cx="5" cy="18" r="1.5"></circle>
+                <path d="M9 6h10"></path>
+                <path d="M9 12h10"></path>
+                <path d="M9 18h10"></path>
+              </svg>
+            </button>
+          {{/compactLayout}}
+          <button type="button" id="all-chart-labels-toggle"
+                  class="layout-toggle legend-label-global-toggle" aria-pressed="false"
+                  aria-label="Show series names on all charts"
+                  title="Show series names on all charts" hidden>
+            <span class="legend-label-icon" aria-hidden="true">A</span>
+          </button>
+        </div>
       {{#webApiDashboard}}
         <div class="web-api-grid web-api-primary-grid">
           <article class="query-total-section" data-chart-id="web-api-total">
@@ -519,7 +527,7 @@
     <script src="/static/web-api.js?v=14"></script>
     <script src="/static/web-api.js?v=14" data-dashboard="dml"></script>
     <script src="/static/web-api.js?v=14" data-dashboard="component"></script>
-    <script src="/static/series-table.js?v=6"></script>
+    <script src="/static/series-table.js?v=7"></script>
     <script src="/static/jvm.js?v=33"></script>
   {{/body}}
 {{/fragments/layout}}
