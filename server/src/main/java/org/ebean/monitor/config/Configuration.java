@@ -8,6 +8,7 @@ import io.avaje.jex.spi.JexPlugin;
 import io.avaje.jex.staticcontent.StaticContent;
 import io.avaje.jsonb.Jsonb;
 import io.avaje.metrics.Metrics;
+import io.avaje.metrics.ebean.DataSourcePoolMetricSupplier;
 import io.ebean.Database;
 import io.ebean.event.ShutdownManager;
 import io.ebean.insight.InsightClient;
@@ -74,6 +75,9 @@ class Configuration {
     int port = Config.getInt("server.port", 8091);
     String ingestKey = System.getenv("INSIGHT_INGEST_KEY");
     String envName = System.getenv("ENVIRONMENT_NAME");
+
+    new DataSourcePoolMetricSupplier(database).register();
+
     var builder = InsightClient.builder()
       .url("http://localhost:" + port)
       .appName("ebean-insight")
