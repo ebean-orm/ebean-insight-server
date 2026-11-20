@@ -77,7 +77,6 @@ class Configuration {
     var builder = InsightClient.builder()
       .url("http://localhost:" + port)
       .appName("ebean-insight")
-      .instanceId(null)
       .metricsV2(true)
       .gzip(false)
       .collectAvajeMetrics(true)
