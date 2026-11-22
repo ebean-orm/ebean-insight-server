@@ -33,7 +33,7 @@ jobs:
         uses: graalvm/setup-graalvm@v1
         with:
           java-version: '25'
-          version: '25.2'
+          version: '25.5'
           distribution: 'graalvm'
           cache: 'maven'
           github-token: ${{ secrets.GITHUB_TOKEN }}

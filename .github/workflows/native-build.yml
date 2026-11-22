@@ -20,7 +20,7 @@ jobs:
       - name: Set up GraalVM
         uses: graalvm/setup-graalvm@v1
         with:
-          version: '25.2'
+          version: '25.5'
           java-version: '25'
           distribution: 'graalvm'
           cache: 'maven'
