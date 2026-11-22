@@ -21,6 +21,7 @@ import java.util.Map;
 public class DApp extends BaseDomain {
 
   public static final DAppFinder find = new DAppFinder();
+  private static final String QUERY_DASHBOARD = "query";
   private static final String DATASOURCE_POOL_DASHBOARD = "datasourcePool";
   private static final String WEB_API_DASHBOARD = "webApi";
   private static final String JVM_DASHBOARD = "jvm";
@@ -31,8 +32,8 @@ public class DApp extends BaseDomain {
   private String name;
 
   /**
-   * Optional per-application dashboard flags stored as JSONB. Missing flags
-   * default to disabled so existing applications retain the current UX.
+   * Optional per-application dashboard flags stored as JSONB. The query
+   * dashboard defaults to enabled; other dashboards default to disabled.
    */
   @DbJsonB(mutationDetection = MutationDetection.NONE)
   private Map<String, String> config;
@@ -53,6 +54,10 @@ public class DApp extends BaseDomain {
     return isDashboardEnabled(DATASOURCE_POOL_DASHBOARD);
   }
 
+  public boolean isQueryDashboardEnabled() {
+    return config == null || Boolean.parseBoolean(config.getOrDefault(QUERY_DASHBOARD, "true"));
+  }
+
   public boolean isWebApiDashboardEnabled() {
     return isDashboardEnabled(WEB_API_DASHBOARD);
   }
@@ -71,6 +76,10 @@ public class DApp extends BaseDomain {
 
   public void setDatasourcePoolDashboardEnabled(boolean enabled) {
     setDashboardEnabled(DATASOURCE_POOL_DASHBOARD, enabled);
+  }
+
+  public void setQueryDashboardEnabled(boolean enabled) {
+    setDashboardEnabled(QUERY_DASHBOARD, enabled);
   }
 
   public void setWebApiDashboardEnabled(boolean enabled) {

@@ -181,6 +181,11 @@ public final class V1QueryService {
     return app != null && app.isDatasourcePoolDashboardEnabled();
   }
 
+  public boolean isQueryDashboardEnabled(String appName) {
+    final DApp app = findApp(appName);
+    return app != null && app.isQueryDashboardEnabled();
+  }
+
   public boolean isWebApiDashboardEnabled(String appName) {
     final DApp app = findApp(appName);
     return app != null && app.isWebApiDashboardEnabled();
@@ -202,10 +207,14 @@ public final class V1QueryService {
   }
 
   public void setDashboardConfig(String appName, boolean datasourcePool, boolean webApi,
-                                 boolean jvm, boolean dml, boolean appComponent) {
+                                 boolean jvm, boolean dml, boolean appComponent,
+                                 @Nullable Boolean query) {
     final DApp app = findApp(appName);
     if (app == null) {
       return;
+    }
+    if (query != null) {
+      app.setQueryDashboardEnabled(query);
     }
     app.setDatasourcePoolDashboardEnabled(datasourcePool);
     app.setWebApiDashboardEnabled(webApi);

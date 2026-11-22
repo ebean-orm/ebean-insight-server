@@ -16,9 +16,10 @@ class DAppConfigTest {
   @Inject static Database database;
 
   @Test
-  void dashboardFlags_defaultToDisabled() {
+  void dashboardFlags_useDefaults() {
     var app = new DApp("config-test");
 
+    assertThat(app.isQueryDashboardEnabled()).isTrue();
     assertThat(app.isDatasourcePoolDashboardEnabled()).isFalse();
     assertThat(app.isWebApiDashboardEnabled()).isFalse();
     assertThat(app.isJvmDashboardEnabled()).isFalse();
@@ -30,15 +31,18 @@ class DAppConfigTest {
   void dashboardFlags_areStoredInGenericConfig() {
     var app = new DApp("config-test");
 
+    app.setQueryDashboardEnabled(false);
     app.setDatasourcePoolDashboardEnabled(true);
     app.setWebApiDashboardEnabled(false);
     app.setJvmDashboardEnabled(true);
     app.setDmlDashboardEnabled(true);
     app.setAppComponentDashboardEnabled(true);
 
+    assertThat(app.isQueryDashboardEnabled()).isFalse();
     assertThat(app.isDatasourcePoolDashboardEnabled()).isTrue();
     assertThat(app.isWebApiDashboardEnabled()).isFalse();
     assertThat(app.getConfig())
+      .containsEntry("query", "false")
       .containsEntry("datasourcePool", "true")
       .containsEntry("webApi", "false")
       .containsEntry("jvm", "true")
@@ -51,6 +55,7 @@ class DAppConfigTest {
     var app = new DApp("config-test");
     app.setConfig(Map.of("datasourcePool", "true"));
 
+    assertThat(app.isQueryDashboardEnabled()).isTrue();
     assertThat(app.isDatasourcePoolDashboardEnabled()).isTrue();
     assertThat(app.isWebApiDashboardEnabled()).isFalse();
     assertThat(app.isJvmDashboardEnabled()).isFalse();
@@ -62,6 +67,7 @@ class DAppConfigTest {
   void dashboardConfig_roundTripsThroughJsonb() {
     var name = "config-rt-" + System.nanoTime();
     var app = new DApp(name);
+    app.setQueryDashboardEnabled(false);
     app.setDatasourcePoolDashboardEnabled(true);
     app.setJvmDashboardEnabled(true);
     app.setDmlDashboardEnabled(true);
@@ -71,6 +77,7 @@ class DAppConfigTest {
     var reloaded = new QDApp().name.eq(name).findOne();
 
     assertThat(reloaded).isNotNull();
+    assertThat(reloaded.isQueryDashboardEnabled()).isFalse();
     assertThat(reloaded.isDatasourcePoolDashboardEnabled()).isTrue();
     assertThat(reloaded.isWebApiDashboardEnabled()).isFalse();
     assertThat(reloaded.isJvmDashboardEnabled()).isTrue();

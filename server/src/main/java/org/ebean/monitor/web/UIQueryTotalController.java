@@ -83,7 +83,8 @@ public class UIQueryTotalController {
   }
 
   @Json
-  record QueryTotalData(boolean hasData, ChartData queryTotal, ChartData mean, ChartData max,
+  record QueryTotalData(boolean hasData, boolean queryDashboard,
+                        ChartData queryTotal, ChartData mean, ChartData max,
                         ChartData count, ChartData topByTime, ChartData topByMean,
                         boolean showTopRankings,
                         List<LegendData> legend, boolean datasourcePoolDashboard,
@@ -321,9 +322,12 @@ public class UIQueryTotalController {
   private QueryTotalData dashboardData(String selectedApp, String selectedEnv, RangeOption range,
                                        @Nullable Instant from, @Nullable Instant to, long windowMinutes,
                                        boolean compactLayout, String timezone) {
-    final MetricTimeseriesTop data = topTimeseries(selectedApp, selectedEnv, from, to, windowMinutes);
+    final boolean queryDashboard = service.isQueryDashboardEnabled(selectedApp);
+    final MetricTimeseriesTop data = queryDashboard
+      ? topTimeseries(selectedApp, selectedEnv, from, to, windowMinutes)
+      : MetricTimeseriesTop.builder().series(List.of()).build();
     final List<MetricTimeseriesTopSeries> series = data.series();
-    final boolean queryData = !series.isEmpty();
+    final boolean queryData = queryDashboard && !series.isEmpty();
     final List<MetricTimeBucket> firstBuckets = queryData
       ? series.get(0).buckets()
       : List.of();
@@ -461,7 +465,8 @@ public class UIQueryTotalController {
       webApi, webApiMean, webApiMax, webApiCount, jvmMemory, jvmCpu,
       dml, dmlMean, dmlMax, dmlCount, appComponent, appComponentMean,
       appComponentMax, appComponentCount);
-    return new QueryTotalData(hasData, chartData, meanMaxMean, meanMaxMax, meanMaxCount, topByTime, topByMean,
+    return new QueryTotalData(hasData, queryDashboard, chartData, meanMaxMean, meanMaxMax,
+      meanMaxCount, topByTime, topByMean,
       showTopRankings, legend, datasourcePoolDashboard, datasourcePool, datasourcePoolTiming,
       webApiDashboard, webApiGroups, webApi, webApiMean, webApiMax, webApiCount,
       jvmDashboard, jvmMemory, jvmCpu, queryRate, webApiRate,
@@ -485,7 +490,8 @@ public class UIQueryTotalController {
   private QueryTotalView buildView(Breadcrumb breadcrumb, List<App> apps, List<Env> envs,
                                    String selectedApp, String selectedEnv, RangeOption range,
                                    QueryTotalData data, boolean compactLayout) {
-    return new QueryTotalView(breadcrumb, data.hasData(), compactLayout, selectedApp, appOptions(apps, selectedApp),
+    return new QueryTotalView(breadcrumb, data.hasData(), data.queryDashboard(), compactLayout,
+      selectedApp, appOptions(apps, selectedApp),
       selectedEnv, envOptions(envs, selectedEnv), range.key(), RangeOptions.options(range.key()),
       data.queryTotal().bucketMinutes(), toChartJson(data.queryTotal()), toChartJson(data.mean()),
       toChartJson(data.max()), toChartJson(data.count()), toChartJson(data.topByTime()),
@@ -505,7 +511,7 @@ public class UIQueryTotalController {
 
   private QueryTotalView emptyView(Breadcrumb breadcrumb, List<App> apps, List<Env> envs,
                                     String selectedEnv, RangeOption range, boolean compactLayout) {
-    return new QueryTotalView(breadcrumb, false, compactLayout, "", appOptions(apps, ""),
+    return new QueryTotalView(breadcrumb, false, false, compactLayout, "", appOptions(apps, ""),
       selectedEnv, envOptions(envs, selectedEnv), range.key(), RangeOptions.options(range.key()),
       0L, emptyChartJson(), emptyChartJson(), emptyChartJson(), emptyChartJson(), emptyChartJson(),
       emptyChartJson(), false,
@@ -832,7 +838,7 @@ public class UIQueryTotalController {
 
   private static QueryTotalData emptyData() {
     final ChartData empty = emptyDataChart();
-    return new QueryTotalData(false, empty, empty, empty, empty, empty, empty, false, List.of(),
+    return new QueryTotalData(false, false, empty, empty, empty, empty, empty, empty, false, List.of(),
       false, empty, empty, false, List.of(), empty, empty, empty, empty,
       false, empty, empty, "-", "-", "-", "-", false, List.of(), empty, empty, empty, empty, "-", "-",
       false, List.of(), empty, empty, empty, empty, "-", "-");

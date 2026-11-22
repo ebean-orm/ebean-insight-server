@@ -11,6 +11,7 @@ import org.ebean.monitor.web.view.Breadcrumb;
 import org.ebean.monitor.web.view.IndexView;
 import org.ebean.monitor.web.view.IndexView.AppLink;
 import org.ebean.monitor.web.view.IndexView.EnvLink;
+import org.jspecify.annotations.Nullable;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -42,8 +43,10 @@ public class UIIndexController {
                       @QueryParam("webApi") boolean webApi,
                       @QueryParam("jvm") boolean jvm,
                       @QueryParam("dml") boolean dml,
-                      @QueryParam("appComponent") boolean appComponent) {
-    service.setDashboardConfig(appName, datasourcePool, webApi, jvm, dml, appComponent);
+                      @QueryParam("appComponent") boolean appComponent,
+                      @QueryParam("query") @Nullable String query) {
+    service.setDashboardConfig(appName, datasourcePool, webApi, jvm, dml, appComponent,
+      query == null ? null : Boolean.valueOf(query));
     return home();
   }
 
@@ -61,28 +64,33 @@ public class UIIndexController {
   }
 
   private AppLink appLink(String appName, String topUrl, List<EnvLink> envs) {
+    final boolean query = service.isQueryDashboardEnabled(appName);
     final boolean datasourcePool = service.isDatasourcePoolDashboardEnabled(appName);
     final boolean webApi = service.isWebApiDashboardEnabled(appName);
     final boolean jvm = service.isJvmDashboardEnabled(appName);
     final boolean dml = service.isDmlDashboardEnabled(appName);
     final boolean appComponent = service.isAppComponentDashboardEnabled(appName);
+    final String queryConfigUrl = "/ux/app-config?app=" + urlEncode(appName)
+      + "&datasourcePool=" + datasourcePool + "&webApi=" + webApi + "&jvm=" + jvm
+      + "&dml=" + dml + "&appComponent=" + appComponent + "&query=" + !query;
     final String datasourcePoolConfigUrl = "/ux/app-config?app=" + urlEncode(appName)
       + "&datasourcePool=" + !datasourcePool + "&webApi=" + webApi + "&jvm=" + jvm
-      + "&dml=" + dml + "&appComponent=" + appComponent;
+      + "&dml=" + dml + "&appComponent=" + appComponent + "&query=" + query;
     final String webApiConfigUrl = "/ux/app-config?app=" + urlEncode(appName)
       + "&datasourcePool=" + datasourcePool + "&webApi=" + !webApi + "&jvm=" + jvm
-      + "&dml=" + dml + "&appComponent=" + appComponent;
+      + "&dml=" + dml + "&appComponent=" + appComponent + "&query=" + query;
     final String jvmConfigUrl = "/ux/app-config?app=" + urlEncode(appName)
       + "&datasourcePool=" + datasourcePool + "&webApi=" + webApi + "&jvm=" + !jvm
-      + "&dml=" + dml + "&appComponent=" + appComponent;
+      + "&dml=" + dml + "&appComponent=" + appComponent + "&query=" + query;
     final String dmlConfigUrl = "/ux/app-config?app=" + urlEncode(appName)
       + "&datasourcePool=" + datasourcePool + "&webApi=" + webApi + "&jvm=" + jvm
-      + "&dml=" + !dml + "&appComponent=" + appComponent;
+      + "&dml=" + !dml + "&appComponent=" + appComponent + "&query=" + query;
     final String appComponentConfigUrl = "/ux/app-config?app=" + urlEncode(appName)
       + "&datasourcePool=" + datasourcePool + "&webApi=" + webApi + "&jvm=" + jvm
-      + "&dml=" + dml + "&appComponent=" + !appComponent;
-    return new AppLink(appName, topUrl, envs, datasourcePoolConfigUrl, webApiConfigUrl, jvmConfigUrl,
-      dmlConfigUrl, appComponentConfigUrl, datasourcePool, webApi, jvm, dml, appComponent);
+      + "&dml=" + dml + "&appComponent=" + !appComponent + "&query=" + query;
+    return new AppLink(appName, topUrl, envs, queryConfigUrl, datasourcePoolConfigUrl,
+      webApiConfigUrl, jvmConfigUrl, dmlConfigUrl, appComponentConfigUrl,
+      query, datasourcePool, webApi, jvm, dml, appComponent);
   }
 
   private static String urlEncode(String value) {

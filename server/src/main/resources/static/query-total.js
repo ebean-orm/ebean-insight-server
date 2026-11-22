@@ -343,7 +343,8 @@
     JSON.parse(document.getElementById('top-max-data').textContent));
   let countData = window.DashboardCharts.localize(
     JSON.parse(document.getElementById('top-count-data').textContent));
-  if (!chartData.labels || chartData.labels.length === 0) {
+  const queryDashboardHidden = document.querySelector('.top-primary-grid')?.hidden;
+  if ((!chartData.labels || chartData.labels.length === 0) && !queryDashboardHidden) {
     return;
   }
   chartData.timestamps = chartData.timestamps || [];
