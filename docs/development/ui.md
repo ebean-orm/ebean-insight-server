@@ -36,6 +36,9 @@ dashboard flag do not get its chart section.
 The JVM section shows memory and CPU alongside stacked GC time (milliseconds)
 and collection-count charts, grouped by pod and GC type (`Young`, `Concurrent`,
 and `Full` when those tagged series are reported).
+GraalVM Native Image applications using G1 must include the build option
+`--enable-monitoring=jvmstat` for Avaje Metrics to collect GC count and pause
+time.
 
 The optional timer dashboards use the same total-time and mean/max/count chart
 controls. The application-component section is rendered directly below Web

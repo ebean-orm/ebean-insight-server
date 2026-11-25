@@ -353,6 +353,7 @@
                 <buildArg>-march=compatibility</buildArg>
                 <buildArg>-H:+ReportExceptionStackTraces</buildArg>
                 <buildArg>--static-nolibc</buildArg>
+                <buildArg>--enable-monitoring=jvmstat</buildArg>
               </buildArgs>
             </configuration>
           </plugin>
