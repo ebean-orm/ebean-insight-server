@@ -119,7 +119,7 @@ final class AuthConfig {
 
   /** The loopback redirect URI for the given bound port. */
   String redirectUri(int port) {
-    return "http://localhost:" + port + "/callback";
+    return "http://127.0.0.1:" + port + "/callback";
   }
 
   /**

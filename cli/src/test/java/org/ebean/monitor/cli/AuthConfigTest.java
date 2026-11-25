@@ -37,7 +37,7 @@ class AuthConfigTest {
     assertThat(auth.clientId()).isEqualTo("client-abc");
     assertThat(auth.scope()).isEqualTo("openid");
     assertThat(auth.redirectPorts()).isEqualTo(AuthConfig.DEFAULT_REDIRECT_PORTS);
-    assertThat(auth.redirectUri(54321)).isEqualTo("http://localhost:54321/callback");
+    assertThat(auth.redirectUri(54321)).isEqualTo("http://127.0.0.1:54321/callback");
   }
 
   @Test
@@ -49,7 +49,7 @@ class AuthConfigTest {
 
     assertThat(auth.domain()).contains("amazoncognito.com");
     assertThat(auth.scope()).isEqualTo("insight/read");
-    assertThat(auth.redirectUri(9999)).isEqualTo("http://localhost:9999/callback");
+    assertThat(auth.redirectUri(9999)).isEqualTo("http://127.0.0.1:9999/callback");
   }
 
   @Test
@@ -89,7 +89,7 @@ class AuthConfigTest {
         "auth-redirect-ports", "8888"));
 
     assertThat(auth.redirectPorts()).containsExactly(8888);
-    assertThat(auth.redirectUri(8888)).isEqualTo("http://localhost:8888/callback");
+    assertThat(auth.redirectUri(8888)).isEqualTo("http://127.0.0.1:8888/callback");
   }
 
   @Test

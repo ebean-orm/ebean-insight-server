@@ -141,7 +141,7 @@ insight setup https://<insight-host>   # sets url, auth config, and runs login
 
 Or configure manually — point the CLI at your OIDC provider's **public** app
 client (PKCE; no client secret). Each port in `auth-redirect-ports` must match a
-callback URL registered on the app client (`http://localhost:<port>/callback`):
+callback URL registered on the app client (`http://127.0.0.1:<port>/callback`):
 
 ```bash
 insight config set auth-domain    https://<your>.auth.<region>.amazoncognito.com
@@ -182,7 +182,7 @@ The PKCE login flow implements all three security requirements from
 |----------|---------------|
 | **PKCE** (S256) | A cryptographically random verifier is generated per login; the SHA-256 challenge is sent with the auth request and the verifier is sent only at token exchange — protects against auth-code interception. |
 | **State parameter** | A 128-bit random state token is generated, included in the auth URL, and verified against the callback — protects against CSRF. |
-| **Loopback-only binding** | The callback server binds to `InetAddress.getLoopbackAddress()` (`127.0.0.1`) not `0.0.0.0` — the redirect cannot be intercepted by another host on the network. |
+| **Loopback-only binding** | The callback server binds to `127.0.0.1`, not `0.0.0.0` — the redirect cannot be intercepted by another host on the network. |
 
 | Config key | Default | Meaning |
 |------------|---------|---------|
@@ -190,7 +190,7 @@ The PKCE login flow implements all three security requirements from
 | `auth-user-pool-id` | – | Alternative to `auth-domain`: derive the domain from the user pool id. `auth-domain` wins if both are set. |
 | `auth-client-id` | – | Public app client id (PKCE, no secret). |
 | `auth-scope` | `openid` | Requested OAuth2 scope(s). |
-| `auth-redirect-ports` | `9876,9877,9878` | Comma-separated loopback callback ports tried in order. Each must match a registered callback URL `http://localhost:<port>/callback`. Set to `0` for a random OS-assigned port (requires an RFC 8252-compliant auth server such as Entra ID). |
+| `auth-redirect-ports` | `9876,9877,9878` | Comma-separated loopback callback ports tried in order. Each must match a registered callback URL `http://127.0.0.1:<port>/callback`. Set to `0` for a random OS-assigned port (requires an RFC 8252-compliant auth server such as Entra ID). |
 
 ## Daemon mode
 

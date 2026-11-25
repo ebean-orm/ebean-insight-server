@@ -19,7 +19,7 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * A short-lived loopback HTTP server that receives the OAuth2 authorization-code
- * redirect on {@code http://localhost:<port>/callback}.
+ * redirect on {@code http://127.0.0.1:<port>/callback}.
  *
  * <p>Started before the browser is opened; {@link #await(Duration)} blocks until
  * Cognito redirects back with a {@code code} (and {@code state}) or an
@@ -46,7 +46,7 @@ final class LoopbackReceiver implements AutoCloseable {
   static LoopbackReceiver start(int port) {
     try {
       HttpServer server = HttpServer.create(
-          new InetSocketAddress(InetAddress.getLoopbackAddress(), port), 0);
+          new InetSocketAddress(InetAddress.getByName("127.0.0.1"), port), 0);
       LoopbackReceiver receiver = new LoopbackReceiver(server);
       server.createContext("/callback", receiver::handle);
       server.createContext("/", receiver::handle);

@@ -23,7 +23,7 @@ class LoopbackReceiverTest {
 
       var http = HttpClient.newHttpClient();
       var request = HttpRequest.newBuilder()
-          .uri(URI.create("http://localhost:" + port + "/callback?code=auth-code-1&state=state-1"))
+          .uri(URI.create("http://127.0.0.1:" + port + "/callback?code=auth-code-1&state=state-1"))
           .GET()
           .build();
       HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
@@ -49,7 +49,7 @@ class LoopbackReceiverTest {
 
       var http = HttpClient.newHttpClient();
       var request = HttpRequest.newBuilder()
-          .uri(URI.create("http://localhost:" + port
+          .uri(URI.create("http://127.0.0.1:" + port
               + "/callback?error=access_denied&error_description=User%20cancelled"))
           .GET()
           .build();
