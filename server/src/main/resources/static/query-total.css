@@ -547,6 +547,21 @@ body:has(.top-dashboard) .header-filters select {
   min-height: 1.3rem;
 }
 
+.top-chart-legend .jvm-legend-section {
+  flex-basis: 100%;
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  opacity: 0.7;
+}
+
+.top-chart-legend .jvm-pod-legend-group {
+  display: flex;
+  flex-basis: 100%;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+}
+
 .legend-label {
   display: none;
   margin-left: 0.3rem;
@@ -554,6 +569,11 @@ body:has(.top-dashboard) .header-filters select {
 }
 
 .top-chart-legend.legend-labels-visible .legend-label {
+  display: inline;
+}
+
+.top-chart-legend .jvm-gc-type-toggle .legend-label,
+.top-chart-legend .jvm-gc-type-key .legend-label {
   display: inline;
 }
 

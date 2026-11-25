@@ -70,6 +70,8 @@ public class UIQueryTotalController {
   private static final String JVM_MEMORY_HEAP = "jvm.memory.heap.used";
   private static final String JVM_CPU_USER_MICROS = "jvm.cgroup.cpu.userMicros";
   private static final String JVM_CPU_SYSTEM_MICROS = "jvm.cgroup.cpu.systemMicros";
+  private static final String JVM_GC_TIME = "jvm.gc.time";
+  private static final String JVM_GC_COUNT = "jvm.gc.count";
 
   private static final DateTimeFormatter BUCKET_LABEL_FORMAT =
     DateTimeFormatter.ofPattern("MM-dd HH:mm", Locale.US).withZone(ZoneOffset.UTC);
@@ -92,7 +94,8 @@ public class UIQueryTotalController {
                         boolean webApiDashboard, List<String> webApiGroups,
                         ChartData webApi, ChartData webApiMean, ChartData webApiMax,
                         ChartData webApiCount, boolean jvmDashboard, ChartData jvmMemory,
-                        ChartData jvmCpu, String queryRate, String webApiRate,
+                        ChartData jvmCpu, ChartData jvmGcTime, ChartData jvmGcCount,
+                        String queryRate, String webApiRate,
                         String queryLoad, String webApiLoad, boolean dmlDashboard,
                         List<String> dmlGroups, ChartData dml, ChartData dmlMean,
                         ChartData dmlMax, ChartData dmlCount, String dmlRate, String dmlLoad,
@@ -460,16 +463,22 @@ public class UIQueryTotalController {
     final ChartData jvmCpu = jvmDashboard
       ? jvmCpuChartData(selectedApp, selectedEnv, from, to, windowMinutes)
       : emptyDataChart();
+    final ChartData jvmGcTime = jvmDashboard
+      ? jvmGcChartData(jvmGcGaugeTimeseries(selectedApp, selectedEnv, JVM_GC_TIME, from, to, windowMinutes))
+      : emptyDataChart();
+    final ChartData jvmGcCount = jvmDashboard
+      ? jvmGcChartData(jvmGcGaugeTimeseries(selectedApp, selectedEnv, JVM_GC_COUNT, from, to, windowMinutes))
+      : emptyDataChart();
 
     final boolean hasData = hasDashboardData(queryData, datasourcePool, datasourcePoolTiming,
-      webApi, webApiMean, webApiMax, webApiCount, jvmMemory, jvmCpu,
+      webApi, webApiMean, webApiMax, webApiCount, jvmMemory, jvmCpu, jvmGcTime, jvmGcCount,
       dml, dmlMean, dmlMax, dmlCount, appComponent, appComponentMean,
       appComponentMax, appComponentCount);
     return new QueryTotalData(hasData, queryDashboard, chartData, meanMaxMean, meanMaxMax,
       meanMaxCount, topByTime, topByMean,
       showTopRankings, legend, datasourcePoolDashboard, datasourcePool, datasourcePoolTiming,
       webApiDashboard, webApiGroups, webApi, webApiMean, webApiMax, webApiCount,
-      jvmDashboard, jvmMemory, jvmCpu, queryRate, webApiRate,
+      jvmDashboard, jvmMemory, jvmCpu, jvmGcTime, jvmGcCount, queryRate, webApiRate,
       queryLoad, webApiLoad, dmlDashboard, dmlGroups, dml, dmlMean, dmlMax, dmlCount, dmlRate, dmlLoad,
       appComponentDashboard, appComponentGroups, appComponent, appComponentMean,
       appComponentMax, appComponentCount, appComponentRate, appComponentLoad);
@@ -501,7 +510,8 @@ public class UIQueryTotalController {
       toChartJson(data.datasourcePoolTiming()), data.webApiDashboard(), data.webApiGroups(),
       toChartJson(data.webApi()), toChartJson(data.webApiMean()), toChartJson(data.webApiMax()),
       toChartJson(data.webApiCount()), data.jvmDashboard(), toChartJson(data.jvmMemory()),
-      toChartJson(data.jvmCpu()), data.queryRate(), data.webApiRate(), data.queryLoad(), data.webApiLoad(),
+      toChartJson(data.jvmCpu()), toChartJson(data.jvmGcTime()), toChartJson(data.jvmGcCount()),
+      data.queryRate(), data.webApiRate(), data.queryLoad(), data.webApiLoad(),
       data.dmlDashboard(), data.dmlGroups(), toChartJson(data.dml()), toChartJson(data.dmlMean()),
       toChartJson(data.dmlMax()), toChartJson(data.dmlCount()), data.dmlRate(), data.dmlLoad(),
       data.appComponentDashboard(), data.appComponentGroups(), toChartJson(data.appComponent()),
@@ -517,7 +527,7 @@ public class UIQueryTotalController {
       emptyChartJson(), false,
       List.of(), false, emptyChartJson(), emptyChartJson(),
       false, List.of(), emptyChartJson(), emptyChartJson(), emptyChartJson(), emptyChartJson(), false,
-      emptyChartJson(), emptyChartJson(),
+      emptyChartJson(), emptyChartJson(), emptyChartJson(), emptyChartJson(),
       "-", "-", "-", "-", false, List.of(), emptyChartJson(), emptyChartJson(), emptyChartJson(),
       emptyChartJson(), "-", "-", false, List.of(), emptyChartJson(), emptyChartJson(),
       emptyChartJson(), emptyChartJson(), "-", "-");
@@ -666,6 +676,14 @@ public class UIQueryTotalController {
     return jvmCpuChartData(user, system);
   }
 
+  private MetricTimeseriesTop jvmGcGaugeTimeseries(String app, String env, String name,
+                                                   @Nullable Instant from, @Nullable Instant to,
+                                                   long windowMinutes) {
+    return service.getPodGcGaugeTimeseries(app, name,
+      from == null ? windowMinutes : null, null,
+      env.isBlank() ? null : env, from, to);
+  }
+
   private MetricTimeseriesTop jvmGaugeTimeseries(String app, String env, String name,
                                                  @Nullable Instant from, @Nullable Instant to,
                                                  long windowMinutes) {
@@ -742,6 +760,28 @@ public class UIQueryTotalController {
       }
     }
     return new ChartData(labels, timestamps, datasets, first.bucketMinutes());
+  }
+
+  static ChartData jvmGcChartData(MetricTimeseriesTop data) {
+    if (data.series().isEmpty()) {
+      return emptyDataChart();
+    }
+    final List<MetricTimeBucket> firstBuckets = data.series().get(0).buckets();
+    final List<String> labels = firstBuckets.stream()
+      .map(bucket -> BUCKET_LABEL_FORMAT.format(bucket.eventTime()))
+      .toList();
+    final List<Long> timestamps = firstBuckets.stream()
+      .map(bucket -> bucket.eventTime().toEpochMilli())
+      .toList();
+    final List<ChartData.ChartDataset> datasets = data.series().stream()
+      .map(series -> new ChartData.ChartDataset(
+        series.group(),
+        series.buckets().stream()
+          .map(bucket -> bucket.count() == 0L ? null : bucket.total())
+          .toList(),
+        Palette.colorFor(0)))
+      .toList();
+    return new ChartData(labels, timestamps, datasets, data.bucketMinutes());
   }
 
   private static Map<String, MetricTimeseriesTopSeries> seriesByPod(MetricTimeseriesTop data) {
@@ -840,7 +880,7 @@ public class UIQueryTotalController {
     final ChartData empty = emptyDataChart();
     return new QueryTotalData(false, false, empty, empty, empty, empty, empty, empty, false, List.of(),
       false, empty, empty, false, List.of(), empty, empty, empty, empty,
-      false, empty, empty, "-", "-", "-", "-", false, List.of(), empty, empty, empty, empty, "-", "-",
+      false, empty, empty, empty, empty, "-", "-", "-", "-", false, List.of(), empty, empty, empty, empty, "-", "-",
       false, List.of(), empty, empty, empty, empty, "-", "-");
   }
 

@@ -2,6 +2,8 @@ package org.ebean.monitor.web;
 
 import org.junit.jupiter.api.Test;
 import org.ebean.monitor.v1.model.MetricTimeBucket;
+import org.ebean.monitor.v1.model.MetricTimeseriesTop;
+import org.ebean.monitor.v1.model.MetricTimeseriesTopSeries;
 
 import java.time.Instant;
 import java.util.List;
@@ -114,6 +116,33 @@ class UIQueryTotalControllerTest {
     assertThat(UIQueryTotalController.hasDashboardData(false, chart)).isFalse();
   }
 
+  @Test
+  void jvmGcChartPreservesMeasuredZeroAndMissingBuckets() {
+    var timeseries = MetricTimeseriesTop.builder()
+      .app("shop-app")
+      .windowMinutes(2L)
+      .bucketMinutes(1L)
+      .series(List.of(MetricTimeseriesTopSeries.builder()
+        .group("demo-pod · Full")
+        .other(false)
+        .hashCount(1L)
+        .totalMicros(0L)
+        .buckets(List.of(
+          bucket(Instant.EPOCH, 0L, 0L),
+          bucket(Instant.EPOCH.plusSeconds(60), 1L, 0L)))
+        .build()))
+      .build();
+
+    var chart = UIQueryTotalController.jvmGcChartData(timeseries);
+
+    assertThat(chart.labels()).containsExactly("01-01 00:00", "01-01 00:01");
+    assertThat(chart.datasets()).singleElement().satisfies(dataset -> {
+      assertThat(dataset.label()).isEqualTo("demo-pod · Full");
+      assertThat(dataset.data()).containsExactly(null, 0L);
+    });
+    assertThat(UIQueryTotalController.hasDashboardData(false, chart)).isTrue();
+  }
+
   private static MetricTimeBucket bucket(long count, long total) {
     return bucket(count, total, total);
   }
@@ -124,6 +153,15 @@ class UIQueryTotalControllerTest {
       .count(count)
       .total(total)
       .max(max)
+      .build();
+  }
+
+  private static MetricTimeBucket bucket(Instant eventTime, long count, long total) {
+    return MetricTimeBucket.builder()
+      .eventTime(eventTime)
+      .count(count)
+      .total(total)
+      .max(total)
       .build();
   }
 }

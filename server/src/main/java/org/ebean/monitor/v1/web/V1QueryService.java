@@ -1259,6 +1259,157 @@ public final class V1QueryService {
       .build();
   }
 
+  /** Per-bucket GC gauge deltas grouped by pod and normalized GC type. */
+  public MetricTimeseriesTop getPodGcGaugeTimeseries(String appName, String name,
+                                                     @Nullable Long sinceMinutes, @Nullable Long sinceHours,
+                                                     @Nullable String env, Instant from, Instant to) {
+    final TimeWindow window = from == null
+      ? TimeWindow.of(sinceMinutes, sinceHours, DEFAULT_TOP_WINDOW_MINUTES)
+      : TimeWindow.between(from, to);
+    final String table = gaugeTableFor(window.minutes());
+    final long bucketMinutes = gaugeBucketMinutesFor(window.minutes(), table);
+    final DApp app = findApp(appName);
+    if (app == null) {
+      return emptyTimeseriesTop(appName, window.minutes(), bucketMinutes);
+    }
+    final Integer envId = resolveEnvId(env);
+    if (envFilterMisses(env, envId)) {
+      return emptyTimeseriesTop(app.getName(), window.minutes(), bucketMinutes);
+    }
+
+    final String envPredicate = envId == null ? "" : "and g.env_id = :envId";
+    final SqlQuery groupQuery = DB.sqlQuery("""
+        select distinct p.name as pod, coalesce(m.tags ->> 'gc', 'total') as gc_type
+        from ebean_insight.gauge_entry g
+        join ebean_insight.app_metric m on m.id = g.metric_id
+        join ebean_insight.app_pod p on p.id = g.pod_id
+        where g.event_time > :from
+          and g.event_time <= :to
+          and g.app_id = :appId
+          and m.name = :name
+          %s
+        order by pod, gc_type
+        """.formatted(envPredicate))
+      .setLabel("getPodGcGaugeTimeseriesGroups")
+      .setParameter("from", window.from())
+      .setParameter("to", window.to())
+      .setParameter("appId", app.getId())
+      .setParameter("name", name);
+    if (envId != null) {
+      groupQuery.setParameter("envId", envId);
+    }
+    final List<PodGcGroup> groups = groupQuery
+      .mapTo((rs, _) -> new PodGcGroup(rs.getString("pod"), rs.getString("gc_type")))
+      .findList();
+    if (groups.isEmpty()) {
+      return emptyTimeseriesTop(app.getName(), window.minutes(), bucketMinutes);
+    }
+
+    final String groupValues = java.util.stream.IntStream.range(0, groups.size())
+      .mapToObj(i -> "(:p" + i + ", :t" + i + ")")
+      .collect(java.util.stream.Collectors.joining(", "));
+    final String sql = """
+      with grid as (
+        select to_timestamp(s) as event_time
+        from generate_series(
+          (cast(floor(extract(epoch from cast(:from as timestamptz)) / :step) as bigint) + 1) * :step,
+          (cast(floor(extract(epoch from cast(:to as timestamptz)) / :step) as bigint)) * :step,
+          :step
+        ) as s
+      ),
+      groups (pod, gc_type) as (values %s),
+      data as (
+        select to_timestamp(
+                 cast(floor(extract(epoch from g.event_time) / :step) as bigint) * :step
+               ) as event_time,
+               p.name as pod,
+               coalesce(m.tags ->> 'gc', 'total') as gc_type,
+               sum(g.value)::numeric as total,
+               count(g.value) as sample_count
+        from ebean_insight.gauge_entry g
+        join ebean_insight.app_metric m on m.id = g.metric_id
+        join ebean_insight.app_pod p on p.id = g.pod_id
+        where g.event_time > :from
+          and g.event_time <= :to
+          and g.app_id = :appId
+          and m.name = :name
+          %s
+        group by 1, 2, 3
+      )
+      select grid.event_time, groups.pod, groups.gc_type, data.total, data.sample_count
+      from grid cross join groups
+      left join data on data.event_time = grid.event_time
+        and data.pod = groups.pod and data.gc_type = groups.gc_type
+      order by grid.event_time, groups.pod,
+        case groups.gc_type when 'young' then 0 when 'concurrent' then 1 when 'full' then 2 else 3 end
+      """.formatted(groupValues, envPredicate);
+    final SqlQuery query = DB.sqlQuery(sql)
+      .setLabel("getPodGcGaugeTimeseries")
+      .setParameter("from", window.from())
+      .setParameter("to", window.to())
+      .setParameter("step", bucketMinutes * 60L)
+      .setParameter("appId", app.getId())
+      .setParameter("name", name);
+    if (envId != null) {
+      query.setParameter("envId", envId);
+    }
+    for (int i = 0; i < groups.size(); i++) {
+      query.setParameter("p" + i, groups.get(i).pod());
+      query.setParameter("t" + i, groups.get(i).gcType());
+    }
+
+    final Map<PodGcGroup, List<MetricTimeBucket>> buckets = new LinkedHashMap<>();
+    for (PodGcGroup group : groups) {
+      buckets.put(group, new ArrayList<>());
+    }
+    query.mapTo((rs, _) -> {
+      final var value = rs.getBigDecimal("total");
+      final long sampleCount = rs.getLong("sample_count");
+      final long total = value == null ? 0L : value.longValue();
+      buckets.get(new PodGcGroup(rs.getString("pod"), rs.getString("gc_type")))
+        .add(MetricTimeBucket.builder()
+          .eventTime(toInstant(rs.getTimestamp("event_time")))
+          .count(sampleCount)
+          .total(total)
+          .max(total)
+          .build());
+      return null;
+    }).findList();
+    final List<MetricTimeseriesTopSeries> series = groups.stream()
+      .map(group -> {
+        final List<MetricTimeBucket> groupBuckets = buckets.get(group);
+        return MetricTimeseriesTopSeries.builder()
+          .group(group.label())
+          .other(false)
+          .hashCount(1L)
+          .totalMicros(groupBuckets.stream().mapToLong(MetricTimeBucket::total).sum())
+          .buckets(groupBuckets)
+          .build();
+      })
+      .toList();
+    return MetricTimeseriesTop.builder()
+      .app(app.getName())
+      .windowMinutes(window.minutes())
+      .bucketMinutes(bucketMinutes)
+      .series(series)
+      .build();
+  }
+
+  private record PodGcGroup(String pod, String gcType) {
+
+    String label() {
+      final String type = switch (gcType) {
+        case "young" -> "Young";
+        case "full" -> "Full";
+        case "concurrent" -> "Concurrent";
+        case "total" -> "Total";
+        default -> gcType.isEmpty() ? "Other"
+          : gcType.substring(0, 1).toUpperCase(java.util.Locale.ROOT) + gcType.substring(1);
+      };
+      return pod + " · " + type;
+    }
+  }
+
   /** Per-bucket datasource-pool wait and acquire timings grouped by pool type. */
   public MetricTimeseriesTop getDatasourcePoolTimingTimeseries(String appName,
                                                                @Nullable Long sinceMinutes,

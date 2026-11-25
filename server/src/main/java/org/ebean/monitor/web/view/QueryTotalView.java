@@ -45,6 +45,8 @@ public record QueryTotalView(
   boolean jvmDashboard,
   String jvmMemoryJson,
   String jvmCpuJson,
+  String jvmGcTimeJson,
+  String jvmGcCountJson,
   String queryRate,
   String webApiRate,
   String queryLoad,

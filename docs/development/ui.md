@@ -33,6 +33,10 @@ the DML timer dashboard for `ebean.dml`, the application-component timer
 dashboard for `app.component`, or JVM charts. Applications without an optional
 dashboard flag do not get its chart section.
 
+The JVM section shows memory and CPU alongside stacked GC time (milliseconds)
+and collection-count charts, grouped by pod and GC type (`Young`, `Concurrent`,
+and `Full` when those tagged series are reported).
+
 The optional timer dashboards use the same total-time and mean/max/count chart
 controls. The application-component section is rendered directly below Web
 API charts, while DML remains below the core query/ranking charts.

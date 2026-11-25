@@ -515,6 +515,18 @@ public class SeedDemoData {
       db.save(metric);
       result.put(name, metric);
     }
+    for (String name : List.of("jvm.gc.time", "jvm.gc.count")) {
+      for (String gcType : List.of("young", "concurrent", "full")) {
+        String key = "seed-" + name.replace('.', '-') + "-" + gcType;
+        DAppMetric metric = db.find(DAppMetric.class)
+          .where().eq("app", app).eq("key", key).findOne();
+        if (metric == null) {
+          metric = new DAppMetric(app, key, name, Map.of("gc", gcType), false);
+        }
+        db.save(metric);
+        result.put(name + "|" + gcType, metric);
+      }
+    }
     return result;
   }
 
@@ -628,7 +640,22 @@ public class SeedDemoData {
             cpuUsage[i] - userUsage);
           insertJvmGauge(sql, t, env, app, pods.get(i), metrics.get("jvm.cgroup.cpu.limitMillicores"),
             cpuLimits[i]);
-          inserted += 6;
+          long minute = Duration.between(from, t).toMinutes();
+          long youngCount = 1 + Math.floorMod(minute + i, 4);
+          long concurrentCount = Math.floorMod(minute + i * 3L, 20L) == 0L ? 1L : 0L;
+          long minutesFromEnd = Duration.between(t, to).toMinutes();
+          long fullCount = i == 3 && minutesFromEnd >= 5L && minutesFromEnd % 60L == 5L ? 1L : 0L;
+          insertJvmGauge(sql, t, env, app, pods.get(i), metrics.get("jvm.gc.count|young"), youngCount);
+          insertJvmGauge(sql, t, env, app, pods.get(i), metrics.get("jvm.gc.time|young"),
+            20L + i * 4L + wave * 3L);
+          insertJvmGauge(sql, t, env, app, pods.get(i), metrics.get("jvm.gc.count|concurrent"),
+            concurrentCount);
+          insertJvmGauge(sql, t, env, app, pods.get(i), metrics.get("jvm.gc.time|concurrent"),
+            concurrentCount == 0L ? 0L : 35L + i * 5L);
+          insertJvmGauge(sql, t, env, app, pods.get(i), metrics.get("jvm.gc.count|full"), fullCount);
+          insertJvmGauge(sql, t, env, app, pods.get(i), metrics.get("jvm.gc.time|full"),
+            fullCount == 0L ? 0L : 1_200L + i * 150L);
+          inserted += 12;
         }
       }
       txn.commit();

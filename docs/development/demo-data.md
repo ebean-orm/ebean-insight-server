@@ -12,6 +12,9 @@ The seed creates or refreshes a representative `shop-app` application and
   application configuration.
 - The Web API, DML, application-component, and JVM dashboards enabled for the
   seeded application.
+- JVM memory and CPU gauges, plus tagged `jvm.gc.time` and `jvm.gc.count`
+  series for young, concurrent, and full collections, including measured-zero
+  samples and occasional full-GC spikes.
 - 1-minute, 10-minute, and 1-hour rollup history.
 - Multiple labels and query hashes.
 - Representative `ebean.dml` labels such as `Order.insert`, `Order.update`,

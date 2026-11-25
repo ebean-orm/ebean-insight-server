@@ -166,7 +166,7 @@
     'componentTotalLabels', 'componentStatisticsLabels',
     'dmlTotalLabels', 'dmlStatisticsLabels',
     'datasourcePoolLabels', 'datasourcePoolTimingLabels',
-    'jvmMemoryLabels', 'jvmCpuLabels'
+    'jvmMemoryLabels', 'jvmCpuLabels', 'jvmGcTimeLabels', 'jvmGcCountLabels'
   ];
   const statePreservingForm = document.querySelector('.header-filters');
   if (statePreservingForm) {

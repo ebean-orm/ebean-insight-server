@@ -44,7 +44,7 @@
     </form>
   {{/filters}}
   {{$body}}
-    <link rel="stylesheet" href="/static/query-total.css?v=60">
+    <link rel="stylesheet" href="/static/query-total.css?v=63">
 
     {{^hasData}}
       <article>
@@ -491,6 +491,24 @@
             <div id="jvm-cpu-legend" class="top-chart-legend jvm-legend"
                  data-label-state="jvmCpuLabels" aria-label="JVM CPU pod legend"></div>
           </article>
+          <article class="query-total-section jvm-section" data-chart-id="jvm-gc-time">
+            <header class="chart-section-header chart-no-controls">JVM GC time <button type="button" class="chart-expand-btn" data-chart-zoom="jvm-gc-time" aria-label="Expand JVM GC time chart" title="Expand chart">↗</button></header>
+            <div class="chartjs-wrap">
+              <canvas id="jvm-gc-time-chart"></canvas>
+              <div id="jvm-gc-time-tooltip" class="chart-html-tooltip" role="tooltip" aria-hidden="true"></div>
+            </div>
+            <div id="jvm-gc-time-legend" class="top-chart-legend jvm-legend"
+                 data-label-state="jvmGcTimeLabels" aria-label="JVM GC time pod legend"></div>
+          </article>
+          <article class="query-total-section jvm-section" data-chart-id="jvm-gc-count">
+            <header class="chart-section-header chart-no-controls">JVM GC count <button type="button" class="chart-expand-btn" data-chart-zoom="jvm-gc-count" aria-label="Expand JVM GC count chart" title="Expand chart">↗</button></header>
+            <div class="chartjs-wrap">
+              <canvas id="jvm-gc-count-chart"></canvas>
+              <div id="jvm-gc-count-tooltip" class="chart-html-tooltip" role="tooltip" aria-hidden="true"></div>
+            </div>
+            <div id="jvm-gc-count-legend" class="top-chart-legend jvm-legend"
+                 data-label-state="jvmGcCountLabels" aria-label="JVM GC count pod legend"></div>
+          </article>
         </div>
       {{/jvmDashboard}}
       </div>
@@ -511,6 +529,8 @@
     <script type="application/json" id="web-api-count-data">{{{webApiCountJson}}}</script>
     <script type="application/json" id="jvm-memory-data">{{{jvmMemoryJson}}}</script>
     <script type="application/json" id="jvm-cpu-data">{{{jvmCpuJson}}}</script>
+    <script type="application/json" id="jvm-gc-time-data">{{{jvmGcTimeJson}}}</script>
+    <script type="application/json" id="jvm-gc-count-data">{{{jvmGcCountJson}}}</script>
     <script type="application/json" id="dml-data">{{{dmlJson}}}</script>
     <script type="application/json" id="dml-mean-data">{{{dmlMeanJson}}}</script>
     <script type="application/json" id="dml-max-data">{{{dmlMaxJson}}}</script>
@@ -521,13 +541,13 @@
     <script type="application/json" id="component-count-data">{{{appComponentCountJson}}}</script>
     <script src="/static/vendor/chart.umd.min.js"></script>
     <script src="/static/dashboard-charts.js?v=20"></script>
-    <script src="/static/query-total.js?v=34"></script>
+    <script src="/static/query-total.js?v=35"></script>
     <script src="/static/datasource-pool.js?v=10"></script>
     <script src="/static/datasource-pool-timing.js?v=10"></script>
     <script src="/static/web-api.js?v=14"></script>
     <script src="/static/web-api.js?v=14" data-dashboard="dml"></script>
     <script src="/static/web-api.js?v=14" data-dashboard="component"></script>
     <script src="/static/series-table.js?v=7"></script>
-    <script src="/static/jvm.js?v=33"></script>
+    <script src="/static/jvm.js?v=41"></script>
   {{/body}}
 {{/fragments/layout}}
